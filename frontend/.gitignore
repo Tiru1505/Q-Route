@@ -1,4 +1,5 @@
 node_modules/
+powershell.cmd
 dist/
 .env
 .env.local

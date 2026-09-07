@@ -36,7 +36,6 @@ function BrandMark() {
           </linearGradient>
         </defs>
 
-        {/* two crossed orbits */}
         <ellipse cx="20" cy="20" rx="15" ry="7" fill="none"
                  stroke="url(#qrGrad)" strokeWidth="1.6" opacity="0.75"
                  transform="rotate(-28 20 20)" />
@@ -44,7 +43,6 @@ function BrandMark() {
                  stroke="url(#qrGrad)" strokeWidth="1.6" opacity="0.45"
                  transform="rotate(38 20 20)" />
 
-        {/* nucleus */}
         <circle cx="20" cy="20" r="4.6" fill="url(#qrGrad)" />
         <circle cx="20" cy="20" r="4.6" fill="none"
                 stroke="var(--cyan)" strokeWidth="0.8" opacity="0.6">
@@ -54,7 +52,6 @@ function BrandMark() {
                    repeatCount="indefinite" />
         </circle>
 
-        {/* orbiting electron */}
         <g transform="rotate(-28 20 20)">
           <circle r="2.3" fill="var(--quantum)">
             <animateMotion dur="4.2s" repeatCount="indefinite"
@@ -66,11 +63,11 @@ function BrandMark() {
   )
 }
 
-
 export default function Navbar() {
   const { alerts, dismissAlert, theme, setTheme, segments, user, signOut } = useApp()
   const [open, setOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const ref = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
@@ -91,39 +88,40 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
 
+  useEffect(() => {
+    const page = document.querySelector('.page')
+    if (!page) return undefined
+
+    const onScroll = () => setScrolled(page.scrollTop > 8)
+    page.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => page.removeEventListener('scroll', onScroll)
+  }, [])
+
   return (
-    <header className="navbar">
-      {/* Brand and page title live in the SAME flex row as everything else.
-          The previous build centred the brand with position:absolute, which put
-          it out of flow — so the LIVE and traffic chips on the right simply
-          drew on top of it. Nothing here can overlap, because nothing here is
-          out of flow. */}
+    <header className={`navbar${scrolled ? ' is-scrolled' : ''}`}>
       <div className="navbar-left">
         <BrandMark />
         <div className="navbar-brand-text">
-          <strong>Q&nbsp;Route</strong>
-          <span>Quantum Route Optimizer</span>
+          <strong>Q Route</strong>
+          <span>QUANTUM ROUTE OPTIMIZER</span>
         </div>
         <span className="navbar-divider" aria-hidden="true" />
         <h2 className="navbar-page-title">{current?.label || 'Dashboard'}</h2>
       </div>
 
       <div className="navbar-right" ref={ref}>
-        {/* The labels are wrapped so a narrow screen can drop the words and
-            keep the coloured dots. As bare text nodes they could not be
-            targeted, which is why the navbar overflowed on a phone. */}
         <div className="live-chip">
           <span className="dot pulse" style={{ background: 'currentColor' }} />
-          <span className="chip-text">LIVE</span>
+          <span>LIVE</span>
         </div>
 
         <div
-          className="badge badge-grey"
-          style={{ color: TRAFFIC_COLORS[status.level], borderColor: 'var(--border)' }}
-          title={status.label}
+          className="traffic-status-chip"
+          title={`City-wide traffic status: ${status.label}`}
         >
           <span className="dot" style={{ background: TRAFFIC_COLORS[status.level] }} />
-          <span className="chip-text">{status.label}</span>
+          <span>{status.label}</span>
         </div>
 
         <button

@@ -102,7 +102,7 @@ export default function Settings() {
             <div className="field">
               <div className="row-between" style={{ marginBottom: 7 }}>
                 <label style={{ margin: 0 }}>Congestion sensitivity</label>
-                <span className="mono" style={{ fontSize: 12, color: 'var(--cyan)' }}>
+                <span className="mono" style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
                   {settings.congestionSensitivity}%
                 </span>
               </div>
@@ -121,7 +121,7 @@ export default function Settings() {
             <div className="field" style={{ marginBottom: 0 }}>
               <div className="row-between" style={{ marginBottom: 7 }}>
                 <label style={{ margin: 0 }}>Alert threshold</label>
-                <span className="mono" style={{ fontSize: 12, color: 'var(--cyan)' }}>
+                <span className="mono" style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
                   {settings.alertThresholdMin} min
                 </span>
               </div>

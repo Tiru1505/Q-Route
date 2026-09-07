@@ -105,9 +105,10 @@ export default function Alerts() {
               style={
                 filter === f.id
                   ? {
-                      background: 'rgba(34,211,238,.13)',
-                      borderColor: 'rgba(34,211,238,.4)',
-                      color: 'var(--cyan)',
+                      background: 'var(--brand-light)',
+                      borderColor: 'var(--brand)',
+                      color: 'var(--brand)',
+                      fontWeight: 600,
                     }
                   : undefined
               }

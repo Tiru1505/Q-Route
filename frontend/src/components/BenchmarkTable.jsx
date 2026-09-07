@@ -28,10 +28,10 @@ export default function BenchmarkTable({ data }) {
     <div className="card">
       <div className="row-between" style={{ marginBottom: 12 }}>
         <div className="card-title" style={{ margin: 0 }}>
-          <Zap size={13} />
+          <Info size={14} />
           Algorithm Comparison
         </div>
-        <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{data.problem}</span>
+        <span style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>{data.problem}</span>
       </div>
 
       <div className="table-wrap">
@@ -65,12 +65,14 @@ export default function BenchmarkTable({ data }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                       <strong>{r.algorithm}</strong>
                       {r.algorithm === 'QPSO' && (
-                        <span className="badge badge-quantum" style={{ padding: '1px 6px' }}>Q</span>
+                        <span className="badge badge-green" style={{ padding: '1px 6px', fontSize: 10 }}>
+                          Q
+                        </span>
                       )}
                       {!r.deterministic && (
                         <span
                           className="badge badge-grey"
-                          style={{ padding: '1px 6px' }}
+                          style={{ padding: '1px 6px', fontSize: 10 }}
                           title={`Stochastic — results averaged over ${r.trials ?? trials ?? 'multiple'} independent trials`}
                         >
                           stoch
@@ -81,7 +83,7 @@ export default function BenchmarkTable({ data }) {
                   <td className="mono">{r.distanceKm} km</td>
                   <td className="mono">{r.timeMin.toFixed(1)} min</td>
                   <td className="mono">{(r.congestion * 100).toFixed(1)}%</td>
-                  <td className="mono" style={{ color: isFastest ? 'var(--low)' : undefined }}>
+                  <td className="mono" style={{ color: isFastest ? 'var(--low)' : undefined, fontWeight: isFastest ? 600 : 400 }}>
                     {r.runtimeMs} ms
                   </td>
                   <td className="mono" style={{ color: isBest ? 'var(--low)' : undefined, fontWeight: isBest ? 600 : 400 }}>
@@ -106,12 +108,12 @@ export default function BenchmarkTable({ data }) {
 
       <div
         style={{
-          display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12,
-          padding: '9px 11px', borderRadius: 'var(--radius-sm)',
-          background: 'rgba(59,130,246,.08)', border: '1px solid rgba(59,130,246,.22)',
+          display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 14,
+          padding: '10px 14px', borderRadius: 'var(--radius-sm)',
+          background: 'var(--panel-hover)', border: '1px solid var(--border)',
         }}
       >
-        <Info size={14} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 1 }} />
+        <Info size={14} style={{ color: 'var(--brand)', flexShrink: 0, marginTop: 2 }} />
         <p style={{ fontSize: 11.5, color: 'var(--text-dim)', lineHeight: 1.5 }}>
           Lower objective is better.{' '}
           {hasDijkstra ? (

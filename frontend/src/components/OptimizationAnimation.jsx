@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, Loader2, Zap, Activity } from 'lucide-react'
-import { OPTIMIZATION_STAGES } from '../data/mockData'
+import { Check, Loader2, ArrowRight, Circle, Activity } from 'lucide-react'
+
+const STAGES = [
+  { id: 0, label: 'Generating candidate routes' },
+  { id: 1, label: 'Evaluating traffic conditions' },
+  { id: 2, label: 'Calculating fitness objective' },
+  { id: 3, label: 'Running optimization algorithm' },
+  { id: 4, label: 'Selecting best route' },
+]
 
 const STAGE_MS = 650
 
@@ -12,350 +19,178 @@ export default function OptimizationAnimation({
 }) {
   const [stage, setStage] = useState(0)
   const [iteration, setIteration] = useState(0)
-  const [fitness, setFitness] = useState(0.82)
+  const [fitness, setFitness] = useState(0.482)
 
   useEffect(() => {
     if (!running) {
       setStage(0)
       setIteration(0)
-      setFitness(0.82)
+      setFitness(0.482)
       return
     }
 
     setStage(0)
     setIteration(0)
-    setFitness(0.82)
+    setFitness(0.482)
 
-    const timers = OPTIMIZATION_STAGES.map((_, i) =>
+    const timers = STAGES.map((_, i) =>
       setTimeout(() => {
-        setStage(i + 1)
-      }, (i + 1) * STAGE_MS)
+        setStage(i)
+      }, i * STAGE_MS)
     )
 
     const iterationTimer = setInterval(() => {
       setIteration((prev) => {
-        if (prev >= 100) return 100
+        if (prev >= 48) return 48
         return prev + 2
       })
 
-      setFitness((prev) =>
-        Math.max(
-          0.18,
-          prev - 0.012 + (Math.random() - 0.5) * 0.006
-        )
-      )
-    }, 90)
+      setFitness((prev) => Math.max(0.418, prev - 0.003))
+    }, 70)
 
-    const done = setTimeout(
-      onComplete,
-      (OPTIMIZATION_STAGES.length + 0.8) * STAGE_MS
-    )
+    const doneTimer = setTimeout(() => {
+      setStage(STAGES.length)
+      onComplete?.()
+    }, (STAGES.length + 0.5) * STAGE_MS)
 
     return () => {
       timers.forEach(clearTimeout)
-      clearTimeout(done)
+      clearTimeout(doneTimer)
       clearInterval(iterationTimer)
     }
   }, [running, onComplete])
 
-  const progress = Math.round(
-    (stage / OPTIMIZATION_STAGES.length) * 100
-  )
+  const progress = Math.min(100, Math.round(((stage + 1) / STAGES.length) * 100))
 
   return (
     <AnimatePresence>
       {running && (
         <motion.div
-          className="card qro-optimization-card"
-          initial={{
-            opacity: 0,
-            y: 15,
-            scale: 0.98,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            scale: 1,
-          }}
-          exit={{
-            opacity: 0,
-            y: -10,
-            scale: 0.98,
-          }}
-          transition={{
-            duration: 0.3,
-          }}
+          className="card"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.25 }}
           style={{
-            borderColor: 'rgba(168,85,247,.38)',
+            borderColor: 'var(--brand)',
+            boxShadow: 'var(--shadow-md)',
           }}
         >
-
           {/* HEADER */}
           <div
-            className="card-title quantum qro-optimization-header"
+            className="row-between"
             style={{
               marginBottom: 14,
+              paddingBottom: 10,
+              borderBottom: '1px solid var(--border)',
             }}
           >
-            <motion.div
-              animate={{
-                rotate: 360,
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: 'linear',
-              }}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Loader2 size={16} className="spin" style={{ color: 'var(--cyan)' }} />
+              <strong style={{ fontSize: 13.5, color: 'var(--text)' }}>
+                {algorithmName} Optimization Running
+              </strong>
+            </div>
+
+            <span
+              className="badge badge-quantum"
+              style={{ fontSize: 10, padding: '2px 8px' }}
             >
-              <Loader2 size={14} />
-            </motion.div>
-
-            <span>
-              {algorithmName} Optimization Running
-            </span>
-
-            <span className="qro-live-badge">
-              LIVE
+              {algorithmName}
             </span>
           </div>
 
-
-          {/* QPSO VISUALIZATION */}
-          <div className="qro-particle-box">
-
-            <div className="qro-particle-grid" />
-
-            <div className="qro-particle-label">
-              <Zap size={10} />
-              SEARCHING SOLUTION SPACE
-            </div>
-
-            {/* PARTICLES */}
-
-            {Array.from({ length: 12 }).map((_, i) => (
-              <motion.span
-                key={i}
-                className="qro-particle"
-                initial={{
-                  x: `${10 + Math.random() * 80}%`,
-                  y: `${20 + Math.random() * 60}%`,
-                  opacity: 0,
-                }}
-                animate={{
-                  x: [
-                    `${10 + Math.random() * 80}%`,
-                    `${25 + Math.random() * 55}%`,
-                    `${35 + Math.random() * 45}%`,
-                  ],
-                  y: [
-                    `${20 + Math.random() * 60}%`,
-                    `${15 + Math.random() * 65}%`,
-                    `${30 + Math.random() * 50}%`,
-                  ],
-                  opacity: [0.3, 1, 0.5],
-                  scale: [0.7, 1.2, 0.8],
-                }}
-                transition={{
-                  duration: 1.8 + i * 0.12,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              />
-            ))}
-
-            {/* BEST POSITION */}
-
-            <motion.div
-              className="qro-best-position"
-              animate={{
-                scale: [1, 1.25, 1],
-                opacity: [0.7, 1, 0.7],
-              }}
-              transition={{
-                duration: 1.2,
-                repeat: Infinity,
-              }}
-            >
-              <span />
-            </motion.div>
-
-          </div>
-
-
-          {/* METRICS */}
-
-          <div className="qro-optimization-metrics">
-
-            <div className="qro-optimization-metric">
-              <span>ITERATION</span>
-
-              <strong>
-                {iteration}
-                <small> / 100</small>
-              </strong>
-            </div>
-
-            <div className="qro-optimization-metric">
-              <span>BEST FITNESS</span>
-
-              <strong>
-                {fitness.toFixed(4)}
-              </strong>
-            </div>
-
-            <div className="qro-optimization-metric">
-              <span>PARTICLES</span>
-
-              <strong>
-                30
-              </strong>
-            </div>
-
-          </div>
-
-
-          {/* STAGES */}
-
-          <div className="stage-list qro-stage-list">
-
-            {OPTIMIZATION_STAGES.map((label, i) => {
-
-              const state =
-                i < stage
-                  ? 'done'
-                  : i === stage
-                    ? 'active'
-                    : 'pending'
+          {/* PROFESSIONAL STAGES LIST */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            {STAGES.map((s, i) => {
+              const isDone = stage > i
+              const isCurrent = stage === i
+              const isPending = stage < i
 
               return (
-                <motion.div
-                  key={label}
-                  className="stage"
-                  data-state={state}
-                  initial={{
-                    opacity: 0,
-                    x: -8,
-                  }}
-                  animate={{
-                    opacity:
-                      state === 'pending'
-                        ? 0.35
-                        : 1,
-
-                    x: 0,
-                  }}
-                  transition={{
-                    duration: 0.25,
+                <div
+                  key={s.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    fontSize: 12.5,
+                    color: isCurrent
+                      ? 'var(--cyan)'
+                      : isDone
+                      ? 'var(--text)'
+                      : 'var(--text-faint)',
+                    fontWeight: isCurrent ? 600 : 400,
+                    transition: 'color 0.18s ease',
                   }}
                 >
-
-                  <span className="stage-icon">
-
-                    {state === 'done' ? (
-
-                      <motion.span
-                        initial={{
-                          scale: 0,
-                        }}
-                        animate={{
-                          scale: 1,
-                        }}
-                      >
-                        <Check
-                          size={9}
-                          strokeWidth={3}
-                        />
-                      </motion.span>
-
-                    ) : state === 'active' ? (
-
-                      <motion.span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          background:
-                            'currentColor',
-                          display: 'block',
-                        }}
-                        animate={{
-                          scale: [
-                            1,
-                            1.5,
-                            1,
-                          ],
-                          opacity: [
-                            1,
-                            0.5,
-                            1,
-                          ],
-                        }}
-                        transition={{
-                          duration: 0.9,
-                          repeat: Infinity,
-                        }}
-                      />
-
-                    ) : null}
-
+                  <span
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontSize: 11,
+                      flexShrink: 0,
+                      background: isDone
+                        ? 'rgba(52, 211, 153, 0.12)'
+                        : isCurrent
+                        ? 'rgba(255, 179, 71, 0.15)'
+                        : 'transparent',
+                      border: isDone
+                        ? '1px solid var(--low)'
+                        : isCurrent
+                        ? '1.5px solid var(--cyan)'
+                        : '1px solid var(--border)',
+                      color: isDone ? 'var(--low)' : isCurrent ? 'var(--cyan)' : 'var(--text-faint)',
+                    }}
+                  >
+                    {isDone ? (
+                      <Check size={11} strokeWidth={3} />
+                    ) : isCurrent ? (
+                      <ArrowRight size={11} strokeWidth={2.5} />
+                    ) : (
+                      <Circle size={5} fill="currentColor" stroke="none" />
+                    )}
                   </span>
 
-                  {label}
-
-                </motion.div>
+                  <span>
+                    {s.id === 3 ? `Running ${algorithmName}` : s.label}
+                  </span>
+                </div>
               )
             })}
-
           </div>
 
-
-          {/* PROGRESS */}
-
-          <div className="progress-track qro-optimization-progress">
-
-            <motion.div
-              className="progress-fill"
-              initial={{
-                width: 0,
-              }}
-              animate={{
-                width: `${progress}%`,
-              }}
-              transition={{
-                duration: 0.4,
-              }}
-            />
-
-          </div>
-
-
+          {/* ITERATION METRICS (if available) */}
           <div
             className="row-between mono"
             style={{
-              fontSize: 10,
-              color: 'var(--text-faint)',
-              marginTop: 6,
+              marginTop: 14,
+              paddingTop: 10,
+              borderTop: '1px solid var(--border)',
+              fontSize: 11,
+              color: 'var(--text-dim)',
             }}
           >
-
-            <span>
-              <Activity
-                size={10}
-                style={{
-                  verticalAlign: -1,
-                  marginRight: 4,
-                }}
-              />
-
-              quantum search convergence
-            </span>
-
-            <span>
-              {progress}%
-            </span>
-
+            <span>Iteration: <strong style={{ color: 'var(--text)' }}>{iteration}</strong>/48</span>
+            <span>Fitness: <strong style={{ color: 'var(--low)' }}>{fitness.toFixed(4)}</strong></span>
+            <span>{progress}%</span>
           </div>
 
+          {/* SUBTLE PROGRESS BAR */}
+          <div className="progress-track" style={{ marginTop: 8 }}>
+            <motion.div
+              className="progress-fill"
+              style={{
+                width: `${progress}%`,
+                background: 'linear-gradient(90deg, #FF6B35, #E83E8C)',
+                boxShadow: '0 0 10px rgba(255, 107, 53, 0.35)',
+              }}
+              transition={{ duration: 0.2 }}
+            />
+          </div>
         </motion.div>
       )}
     </AnimatePresence>

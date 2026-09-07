@@ -187,6 +187,17 @@ export async function getRouteOptimization({ start, end, algorithm = 'qpso', mod
   )
 }
 
+/** Send open-ended navigation language to the server-side LLM tool runner. */
+export async function assistantChat({ messages, context } = {}) {
+  if (USE_MOCK) {
+    throw new ApiError('AI assistant requires a live backend with AI_API_KEY configured.', 503)
+  }
+  return request('/assistant/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages, context }),
+  })
+}
+
 async function optimizeLive({ start, end, algorithm, mode }) {
   {
     const body = JSON.stringify({

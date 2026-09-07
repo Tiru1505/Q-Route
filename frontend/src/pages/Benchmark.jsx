@@ -48,8 +48,31 @@ export default function Benchmark() {
         <p>QPSO measured against Dijkstra, PSO and GA on identical problem instances.</p>
       </div>
 
-      {/* The notice must track reality: these are live engine results once the
-          backend is connected, and claiming otherwise undersells a real run. */}
+      {/* Benchmark Scenario Parameters Card */}
+      <div className="card" style={{ marginBottom: 14, padding: '12px 16px' }}>
+        <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 8, letterSpacing: '0.05em' }}>
+          Benchmark Scenario Parameters
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, fontSize: 12 }}>
+          <div>
+            <span style={{ color: 'var(--text-faint)', display: 'block', fontSize: 10 }}>ORIGIN & DESTINATION</span>
+            <strong>Hitec City → Charminar</strong>
+          </div>
+          <div>
+            <span style={{ color: 'var(--text-faint)', display: 'block', fontSize: 10 }}>PROBLEM CLASS</span>
+            <strong>6-Stop Multi-Delivery Round</strong>
+          </div>
+          <div>
+            <span style={{ color: 'var(--text-faint)', display: 'block', fontSize: 10 }}>EVALUATION BUDGET</span>
+            <strong>4,800 Evaluations / Algorithm</strong>
+          </div>
+          <div>
+            <span style={{ color: 'var(--text-faint)', display: 'block', fontSize: 10 }}>TRIALS / REPETITIONS</span>
+            <strong>30 Independent Runs</strong>
+          </div>
+        </div>
+      </div>
+
       {bench?.isDemoData === false ? (
         <div
           className="demo-notice"
@@ -57,19 +80,19 @@ export default function Benchmark() {
             background: 'rgba(16,185,129,.09)',
             borderColor: 'rgba(16,185,129,.26)',
             color: 'var(--low)',
+            marginBottom: 14,
           }}
         >
           <Info size={13} />
-          Live results from the optimisation engine —
-          {bench.problem ? ` ${bench.problem}` : ''}
-          {bench.budget ? `, ${bench.budget}` : ''}.
+          Live engine benchmark results — {bench.problem ? ` ${bench.problem}` : ''}.
         </div>
       ) : (
-        <div className="demo-notice">
+        <div className="demo-notice" style={{ marginBottom: 14 }}>
           <Info size={13} />
-          Demo data — placeholder figures, not a validated benchmark run.
+          Demo data — these are placeholder figures, not a validated benchmark run. Replace them with real results from benchmarking/benchmark.py.
         </div>
       )}
+
 
       <div style={{ marginBottom: 14 }}>
         {bench ? <BenchmarkTable data={bench} /> : <CardSkeleton height={300} />}

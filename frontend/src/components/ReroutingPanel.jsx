@@ -20,23 +20,23 @@ export default function ReroutingPanel({ state, result, onReroute, onAccept }) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
-          style={{ borderColor: 'rgba(239,68,68,.32)', background: 'rgba(239,68,68,.06)' }}
+          style={{ borderColor: 'var(--border)' }}
         >
           <div className="alert-head" style={{ marginBottom: 8 }}>
             <motion.span
               style={{
-                width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+                width: 30, height: 30, borderRadius: 8, flexShrink: 0,
                 display: 'grid', placeItems: 'center',
-                background: 'rgba(239,68,68,.16)', color: 'var(--severe)',
+                background: '#FDEEEE', color: 'var(--severe)',
               }}
-              animate={{ scale: [1, 1.1, 1] }}
+              animate={{ scale: [1, 1.08, 1] }}
               transition={{ duration: 1.2, repeat: Infinity }}
             >
               <TriangleAlert size={15} />
             </motion.span>
             <div>
-              <h4 style={{ fontSize: 13 }}>Congestion detected</h4>
-              <p style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+              <h4 style={{ fontSize: 13, fontWeight: 600 }}>Congestion detected</h4>
+              <p style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>
                 Congestion on your current route has increased sharply.
               </p>
             </div>
@@ -54,7 +54,7 @@ export default function ReroutingPanel({ state, result, onReroute, onAccept }) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
-          style={{ borderColor: 'rgba(168,85,247,.32)' }}
+          style={{ borderColor: 'var(--brand)' }}
         >
           <div
             style={{
@@ -65,11 +65,11 @@ export default function ReroutingPanel({ state, result, onReroute, onAccept }) {
             <motion.span
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-              style={{ display: 'grid', placeItems: 'center', color: 'var(--quantum)' }}
+              style={{ display: 'grid', placeItems: 'center', color: 'var(--brand)' }}
             >
               <Loader2 size={17} />
             </motion.span>
-            <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 500 }}>
               Recalculating optimal route…
             </span>
           </div>
@@ -84,10 +84,10 @@ export default function ReroutingPanel({ state, result, onReroute, onAccept }) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.34 }}
-          style={{ borderColor: 'rgba(16,185,129,.32)' }}
+          style={{ borderColor: 'var(--border)' }}
         >
-          <div className="card-title" style={{ color: 'var(--low)' }}>
-            <Navigation size={13} style={{ color: 'var(--low)' }} />
+          <div className="card-title" style={{ color: 'var(--brand)' }}>
+            <Navigation size={13} style={{ color: 'var(--brand)' }} />
             New Route Found
           </div>
 
@@ -96,10 +96,10 @@ export default function ReroutingPanel({ state, result, onReroute, onAccept }) {
               <small>Previous ETA</small>
               <b className="mono">{result.previousEtaMin}m</b>
             </div>
-            <ArrowRight size={17} style={{ color: 'var(--text-faint)' }} />
+            <ArrowRight size={17} style={{ color: 'var(--text-dim)' }} />
             <div className="reroute-side reroute-new">
               <small>New ETA</small>
-              <b className="mono">{result.newEtaMin}m</b>
+              <b className="mono" style={{ color: 'var(--low)' }}>{result.newEtaMin}m</b>
             </div>
           </div>
 
@@ -110,7 +110,7 @@ export default function ReroutingPanel({ state, result, onReroute, onAccept }) {
             style={{
               textAlign: 'center', marginTop: 11, padding: '9px',
               borderRadius: 'var(--radius-sm)',
-              background: 'rgba(16,185,129,.1)', border: '1px solid rgba(16,185,129,.24)',
+              background: 'var(--brand-light)', border: '1px solid #CCE2D6',
             }}
           >
             <span style={{ fontSize: 12 }}>

@@ -9,6 +9,7 @@ import {
   DEFAULT_END, DEFAULT_START, REROUTED_ROUTE, ROUTES, TRAFFIC_SEGMENTS,
 } from '../data/mockData'
 import * as api from '../services/api'
+import { mapOptimizeResponse } from '../services/backendAdapter'
 
 const AppContext = createContext(null)
 
@@ -38,47 +39,70 @@ export function AppProvider({ children }) {
   /* --- auth ------------------------------------------------------------
    * DEMO AUTHENTICATION ONLY.
    *
-   * There is no auth backend, so nothing here validates a credential. Any
-   * well-formed input is accepted, the password is never stored, and the
-   * "session" is just a name/email in localStorage. Before this is deployed
-   * anywhere real, replace signIn/signUp with calls to a backend that hashes
-   * passwords server-side and returns a signed token.
+   * By default, user starts as null so that every visitor sees the Login page first.
+   * Active sessions persist in sessionStorage so refreshing within the same tab works.
    */
-  const [user, setUser] = useState(() => read('qro.user', null))
+  const [user, setUser] = useState(() => {
+    try {
+      // Clear legacy auto-login user from localStorage if present
+      localStorage.removeItem('qro.user')
+      const sess = sessionStorage.getItem('qro.session_user')
+      return sess ? JSON.parse(sess) : null
+    } catch {
+      return null
+    }
+  })
 
   useEffect(() => {
-    if (user) write('qro.user', user)
-    else {
-      try {
-        localStorage.removeItem('qro.user')
-      } catch { /* storage blocked — session just won't persist */ }
+    try {
+      if (user) {
+        sessionStorage.setItem('qro.session_user', JSON.stringify(user))
+      } else {
+        sessionStorage.removeItem('qro.session_user')
+      }
+    } catch {
+      /* storage blocked — session just won't persist */
     }
   }, [user])
 
   const signIn = useCallback(async ({ email, name }) => {
     await new Promise((r) => setTimeout(r, 650))     // make the loading state real
     const handle = (email || '').split('@')[0] || 'user'
-    setUser({
+    const newUser = {
       email: email || 'guest@qro.local',
       name: name || handle.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
       initials: (name || handle).slice(0, 2).toUpperCase(),
       signedInAt: new Date().toISOString(),
       guest: false,
-    })
+    }
+    setUser(newUser)
+    try {
+      sessionStorage.setItem('qro.session_user', JSON.stringify(newUser))
+    } catch {}
     return true
   }, [])
 
   const continueAsGuest = useCallback(() => {
-    setUser({
+    const guestUser = {
       email: 'guest@qro.local',
       name: 'Guest',
       initials: 'GU',
       signedInAt: new Date().toISOString(),
       guest: true,
-    })
+    }
+    setUser(guestUser)
+    try {
+      sessionStorage.setItem('qro.session_user', JSON.stringify(guestUser))
+    } catch {}
   }, [])
 
-  const signOut = useCallback(() => setUser(null), [])
+  const signOut = useCallback(() => {
+    try {
+      sessionStorage.removeItem('qro.session_user')
+      localStorage.removeItem('qro.user')
+    } catch {}
+    setUser(null)
+  }, [])
 
   /* --- preferences ------------------------------------------------------ */
   const [theme, setTheme] = useState(() => read('qro.theme', 'dark'))
@@ -174,8 +198,11 @@ export function AppProvider({ children }) {
     setPredictiveAlert(null)
     try {
       const res = await api.getRouteOptimization({ start, end, algorithm, mode })
+      if (!res || !Array.isArray(res.routes) || !res.routes.length || !res.recommended) {
+        throw new Error('The optimizer returned no usable route. Please try again.')
+      }
       setRoutes(res.routes)
-      setSelectedRouteId(res.recommended.id)
+      setSelectedRouteId(res.recommended.id || res.routes[0].id)
       setRoutesVersion((v) => v + 1)
       return res
     } catch (err) {
@@ -185,6 +212,28 @@ export function AppProvider({ children }) {
       setOptimizing(false)
     }
   }, [start, end, algorithm, mode])
+
+  const applyAssistantActions = useCallback((actions = []) => {
+    actions.forEach((action) => {
+      if (action.type === 'set_start') setStart(action.payload)
+      if (action.type === 'set_destination') setEnd(action.payload)
+      if (action.type === 'route_result') {
+        const { primary, alternatives = [] } = action.payload
+        const mapped = mapOptimizeResponse(primary, alternatives, { from: start?.name, to: end?.name, mode })
+        setRoutes(mapped.routes)
+        setSelectedRouteId(mapped.recommended.id)
+        setRoutesVersion((v) => v + 1)
+      }
+      if (action.type === 'alternatives') {
+        const rawRoutes = action.payload.routes || []
+        if (rawRoutes.length) {
+          const mapped = mapOptimizeResponse(rawRoutes[0], rawRoutes.slice(1), { from: start?.name, to: end?.name, mode })
+          setRoutes(mapped.routes)
+          setSelectedRouteId(mapped.recommended.id)
+        }
+      }
+    })
+  }, [mode, start?.name, end?.name])
 
   /** Spikes congestion on the active corridor — the trigger for rerouting. */
   const injectCongestion = useCallback(() => {
@@ -340,6 +389,7 @@ export function AppProvider({ children }) {
     algorithm, setAlgorithm, mode, setMode,
     routes, selectedRoute, selectedRouteId, setSelectedRouteId,
     optimizing, optimize, error,
+      applyAssistantActions,
     routesVersion,
     segments, incidents, alerts, dismissAlert,
     refreshAlerts, raiseAlert, wipeAlerts,

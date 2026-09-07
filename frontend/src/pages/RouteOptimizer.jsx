@@ -45,6 +45,7 @@ export default function RouteOptimizer() {
         <p>Configure the objective function and run the optimization engine.</p>
       </div>
 
+
       <div className="dash-grid">
         <div className="dash-col">
           <RouteSelector onOptimize={handleOptimize} busy={optimizing || animating} />
@@ -67,7 +68,7 @@ export default function RouteOptimizer() {
                   <div className="score-bar">
                     <motion.div
                       className="score-fill"
-                      style={{ background: 'linear-gradient(90deg,var(--blue),var(--cyan))' }}
+                      style={{ background: 'var(--brand)' }}
                       initial={{ width: 0 }}
                       animate={{ width: `${v * 100}%` }}
                       transition={{ duration: 0.5 }}
@@ -102,6 +103,7 @@ export default function RouteOptimizer() {
               startPoint={startPoint}
               endPoint={endPoint}
               mapStyle={settings.mapStyle}
+              routeTransition={animating || optimizing}
             />
             <div className="map-overlay map-legend">
               <TrafficLegend />

@@ -11,6 +11,7 @@ from app.api.analytics import router as analytics_router
 from app.api.health import router as health_router
 from app.api.routes import router as routes_router
 from app.api.alerts import router as alerts_router
+from app.api.assistant import router as assistant_router
 from app.api.benchmark import router as benchmark_router
 from app.api.optimization import router as optimization_router
 from app.api.places import router as places_router
@@ -158,3 +159,4 @@ app.include_router(traffic_router, prefix="/api")
 app.include_router(prediction_router, prefix="/api")
 app.include_router(benchmark_router, prefix="/api")
 app.include_router(alerts_router, prefix="/api")
+app.include_router(assistant_router, prefix="/api")

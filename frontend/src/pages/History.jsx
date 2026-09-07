@@ -8,7 +8,7 @@ import { TRAFFIC_COLORS, TRAFFIC_LABELS } from '../data/mockData'
 
 const STATUS_BADGE = {
   completed: 'badge-green',
-  rerouted: 'badge-cyan',
+  rerouted: 'badge-blue',
   cancelled: 'badge-grey',
 }
 

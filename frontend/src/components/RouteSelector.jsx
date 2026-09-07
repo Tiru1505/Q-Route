@@ -60,7 +60,7 @@ export default function RouteSelector({ onOptimize, busy }) {
         label="Start location"
         value={start}
         onChange={setStart}
-        placeholder="Type any place in Hyderabad…"
+        placeholder="Type start location in Hyderabad…"
         icon={<MapPin size={14} />}
       />
 
@@ -82,7 +82,7 @@ export default function RouteSelector({ onOptimize, busy }) {
         label="Destination"
         value={end}
         onChange={setEnd}
-        placeholder="Type any place in Hyderabad…"
+        placeholder="Type destination in Hyderabad…"
         icon={<Flag size={14} />}
       />
 
@@ -135,7 +135,11 @@ export default function RouteSelector({ onOptimize, busy }) {
         onClick={onOptimize}
         disabled={busy || !ready}
       >
-        <Navigation size={15} />
+        {busy ? (
+          <Zap size={15} className="spin" style={{ color: '#FFB347' }} />
+        ) : (
+          <Navigation size={15} />
+        )}
 
         <span>
           {busy ? 'Optimizing…' : 'Optimize Route'}

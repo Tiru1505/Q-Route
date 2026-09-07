@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     # Firebase Cloud Messaging (optional – supplied at deployment)
     fcm_server_key: str = ""
 
+    # Server-side, OpenAI-compatible LLM gateway. Never expose these to Vite.
+    ai_api_key: str = ""
+    ai_model: str = "gpt-4o-mini"
+    ai_base_url: str = "https://api.openai.com/v1"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

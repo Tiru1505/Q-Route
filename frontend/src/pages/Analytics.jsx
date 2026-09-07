@@ -84,11 +84,10 @@ export default function Analytics() {
       {data?.isDemoData && (
         <div className="demo-notice">
           <Activity size={13} />
-          {isUsingFallback()
-            ? 'Backend unreachable — showing bundled demo data. Start the API, or point VITE_API_BASE at a reachable one.'
-            : 'Demo data. Set VITE_USE_MOCK=false and VITE_API_BASE to run against the real engine.'}
+          Demo data — replace via <code>src/services/api.js</code> once the backend is live.
         </div>
       )}
+
 
       <div className="grid grid-3" style={{ marginBottom: 14 }}>
         {data
@@ -110,7 +109,7 @@ export default function Analytics() {
         {data ? (
           <PredictionCard
             series={data.prediction}
-            title="Congestion Projection — next 30 min"
+            title="Actual vs Predicted Congestion"
             note={data.predictionNote}
           />
         ) : (

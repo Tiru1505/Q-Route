@@ -23,45 +23,46 @@ export default function PredictionCard({ series = [], title = 'Congestion Foreca
           <AreaChart data={series} margin={{ top: 4, right: 6, left: -22, bottom: 0 }}>
             <defs>
               <linearGradient id="gActual" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2dd4bf" stopOpacity={0.42} />
-                <stop offset="100%" stopColor="#2dd4bf" stopOpacity={0} />
+                <stop offset="0%" stopColor="#A3E635" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="#A3E635" stopOpacity={0.02} />
               </linearGradient>
               <linearGradient id="gPred" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#e879f9" stopOpacity={0.36} />
-                <stop offset="100%" stopColor="#e879f9" stopOpacity={0} />
+                <stop offset="0%" stopColor="#FFB347" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="#FFB347" stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.06)" vertical={false} />
-            <XAxis dataKey="time" axisLine={false} tickLine={false} />
-            <YAxis domain={[0, 100]} axisLine={false} tickLine={false} unit="%" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 11 }} />
+            <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 11 }} unit="%" />
             <Tooltip
               contentStyle={{
-                background: 'var(--panel-solid)',
-                border: '1px solid var(--border-strong)',
-                borderRadius: 10,
+                background: 'var(--surface-elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
                 fontSize: 12,
                 color: 'var(--text)',
+                boxShadow: 'var(--shadow-md)',
               }}
-              labelStyle={{ color: 'var(--text)' }}
+              labelStyle={{ color: 'var(--text)', fontWeight: 600 }}
             />
             <Area
               type="monotone" dataKey="actual" name="Actual"
-              stroke="#2dd4bf" strokeWidth={2} fill="url(#gActual)" connectNulls={false}
+              stroke="#A3E635" strokeWidth={2} fill="url(#gActual)" connectNulls={false}
             />
             <Area
               type="monotone" dataKey="predicted" name="Predicted"
-              stroke="#e879f9" strokeWidth={2} strokeDasharray="5 4" fill="url(#gPred)"
+              stroke="#FFB347" strokeWidth={2} strokeDasharray="5 4" fill="url(#gPred)"
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
-      <div style={{ display: 'flex', gap: 14, marginTop: 8, fontSize: 11 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text-dim)' }}>
-          <span className="legend-swatch" style={{ background: '#2dd4bf' }} /> Measured now
+      <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 11.5 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-dim)' }}>
+          <span className="legend-swatch" style={{ background: '#A3E635' }} /> Actual
         </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text-dim)' }}>
-          <span className="legend-swatch" style={{ background: '#e879f9' }} /> Projected
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-dim)' }}>
+          <span className="legend-swatch" style={{ background: '#FFB347' }} /> Predicted
         </span>
       </div>
 

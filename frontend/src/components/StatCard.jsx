@@ -3,12 +3,14 @@ import { motion } from 'framer-motion'
 import { TrendingDown, TrendingUp } from 'lucide-react'
 
 const TONES = {
+  brand: 'var(--brand)',
   cyan: 'var(--cyan)',
   green: 'var(--low)',
   yellow: 'var(--moderate)',
   orange: 'var(--heavy)',
   red: 'var(--severe)',
-  quantum: 'var(--quantum)',
+  blue: 'var(--cyan)',
+  quantum: 'var(--pink)',
 }
 
 /** Counts from 0 to `value` once, on mount. Respects reduced-motion. */
@@ -50,12 +52,12 @@ export default function StatCard({
       transition={{ duration: 0.34, delay, ease: [0.22, 1, 0.36, 1] }}
     >
       <div className="stat-label">{label}</div>
-      <div className="stat-value" style={{ color }}>
+      <div className="stat-value" style={{ color: tone === 'red' ? 'var(--severe)' : 'var(--text)' }}>
         {animated.toLocaleString(undefined, {
           minimumFractionDigits: decimals,
           maximumFractionDigits: decimals,
         })}
-        <span style={{ fontSize: 14, color: 'var(--text-faint)' }}>{suffix}</span>
+        <span style={{ fontSize: 14, color: 'var(--text-dim)', marginLeft: 2 }}>{suffix}</span>
       </div>
 
       {trend !== undefined && trend !== null && (

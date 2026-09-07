@@ -178,6 +178,26 @@ Base path `/api`.
 | GET | `/benchmark/convergence/all` | Convergence curves for QPSO, PSO, GA |
 | GET | `/alerts/` | Active alerts |
 
+### Natural-language route assistant
+
+The dashboard assistant accepts open-ended requests and uses server-side LLM
+tool calling to resolve places, calculate routes, inspect the current route and
+traffic, and find alternatives. It never receives database access or a client
+API key; every state change is returned as a controlled action from
+`POST /api/assistant/chat`.
+
+Configure the provider in the backend environment, using `.env.example` as a
+starting point:
+
+```bash
+AI_API_KEY=your-server-side-key
+AI_MODEL=gpt-4o-mini
+AI_BASE_URL=https://api.openai.com/v1
+```
+
+Without `AI_API_KEY`, the endpoint returns a clear configuration error and the
+frontend does not fall back to scripted answers.
+
 Example:
 
 ```bash

@@ -19,6 +19,10 @@ export default function Login() {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
+  const continueWithGoogle = () => {
+    setError('Google sign-in is not configured yet.')
+  }
+
   // Fixed positions so the particles don't jump on every keystroke.
   
 
@@ -276,6 +280,23 @@ export default function Login() {
     >
       Continue as guest
     </button>
+
+    <button
+      className="btn btn-block login-google-btn"
+      onClick={continueWithGoogle}
+      disabled={busy}
+      type="button"
+    >
+      <svg className="login-google-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#4285F4" d="M21.35 12.23c0-.73-.07-1.43-.21-2.1H12v4h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.69 2.91-4.18 2.91-7.29Z" />
+        <path fill="#34A853" d="M12 21.5c2.63 0 4.84-.87 6.45-2.36l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.53A9.74 9.74 0 0 0 12 21.5Z" />
+        <path fill="#FBBC05" d="M6.54 13.58A5.86 5.86 0 0 1 6.24 12c0-.55.1-1.09.3-1.58V7.89H3.3A9.5 9.5 0 0 0 2.25 12c0 1.48.36 2.88 1.05 4.11l3.24-2.53Z" />
+        <path fill="#EA4335" d="M12 6.39c1.43 0 2.71.49 3.72 1.45l2.79-2.79C16.84 3.48 14.63 2.5 12 2.5a9.74 9.74 0 0 0-8.7 5.39l3.24 2.53C7.31 8.11 9.46 6.39 12 6.39Z" />
+      </svg>
+      Continue with Google
+    </button>
+
+    {error && <p className="login-auth-error" role="status">{error}</p>}
 
     {/* NOTE FOR DEVELOPERS (removed from the UI at the team's request):
         there is no auth backend. Nothing here validates a credential, and the

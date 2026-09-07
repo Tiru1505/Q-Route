@@ -17,7 +17,7 @@ const MESSAGES = {
   password2: 'Turning around! Your password is 100% private 🙈🔒',
 }
 
-function Robot({ turned }) {
+export function Robot({ turned }) {
   const robotZoneRef = useRef(null)
   const leftEyeRef = useRef(null)
   const rightEyeRef = useRef(null)
@@ -27,118 +27,53 @@ function Robot({ turned }) {
       if (!robotZoneRef.current) return
 
       const rect = robotZoneRef.current.getBoundingClientRect()
-
       const cx = rect.left + rect.width / 2
       const cy = rect.top + rect.height / 2
-
-      const dx = Math.max(
-        -1,
-        Math.min(1, (event.clientX - cx) / 220)
-      )
-
-      const dy = Math.max(
-        -1,
-        Math.min(1, (event.clientY - cy) / 220)
-      )
-
+      const dx = Math.max(-1, Math.min(1, (event.clientX - cx) / 220))
+      const dy = Math.max(-1, Math.min(1, (event.clientY - cy) / 220))
       const transform = `translate(${dx * 3}px, ${dy * 2}px)`
 
-      if (leftEyeRef.current) {
-        leftEyeRef.current.style.transform = transform
-      }
-
-      if (rightEyeRef.current) {
-        rightEyeRef.current.style.transform = transform
-      }
+      if (leftEyeRef.current) leftEyeRef.current.style.transform = transform
+      if (rightEyeRef.current) rightEyeRef.current.style.transform = transform
     }
 
     document.addEventListener('mousemove', handleMouseMove)
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-    }
+    return () => document.removeEventListener('mousemove', handleMouseMove)
   }, [])
 
   return (
-    <div
-      ref={robotZoneRef}
-      className="qro-robot-zone"
-    >
-     <motion.div
-  className={`qro-robot ${turned ? 'turned' : ''}`}
->
-
-        {/* FRONT */}
+    <div ref={robotZoneRef} className="qro-robot-zone">
+      <motion.div className={`qro-robot ${turned ? 'turned' : ''}`}>
         <div className="qro-robot-face">
-
-          <div className="qro-antenna">
-            <span />
-          </div>
-
+          <div className="qro-antenna"><span /></div>
           <div className="qro-robot-head">
-
             <div className="qro-visor">
-
-              <span
-                ref={leftEyeRef}
-                className="qro-eye"
-              />
-
-              <span
-                ref={rightEyeRef}
-                className="qro-eye"
-              />
-
+              <span ref={leftEyeRef} className="qro-eye" />
+              <span ref={rightEyeRef} className="qro-eye" />
             </div>
-
           </div>
-
           <div className="qro-ear qro-ear-left" />
           <div className="qro-ear qro-ear-right" />
-
           <div className="qro-robot-body">
-
             <div className="qro-bolt qro-bolt-left" />
             <div className="qro-bolt qro-bolt-right" />
-
-            <div className="qro-body-panel">
-              QRO
-            </div>
-
+            <div className="qro-body-panel">QRO</div>
           </div>
-
         </div>
 
-
-        {/* BACK */}
         <div className="qro-robot-back">
-
-          <div className="qro-antenna">
-            <span />
-          </div>
-
+          <div className="qro-antenna"><span /></div>
           <div className="qro-robot-head">
-
             <div className="qro-headband" />
-
           </div>
-
           <div className="qro-ear qro-ear-left" />
           <div className="qro-ear qro-ear-right" />
-
           <div className="qro-robot-body">
-
             <div className="qro-bolt qro-bolt-left" />
             <div className="qro-bolt qro-bolt-right" />
-
-            <div className="qro-body-panel">
-              QRO
-            </div>
-
+            <div className="qro-body-panel">QRO</div>
           </div>
-
         </div>
-
       </motion.div>
     </div>
   )

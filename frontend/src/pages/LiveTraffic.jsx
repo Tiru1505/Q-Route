@@ -56,9 +56,15 @@ export default function LiveTraffic() {
         </div>
       </div>
 
+      <div className="demo-notice" style={{ marginBottom: 14 }}>
+        <Activity size={13} />
+        <strong>Traffic Simulation Mode:</strong> Network values are generated from the Greenshields fundamental flow model on the Hyderabad OpenStreetMap graph. Connect live TomTom feed (`TOMTOM_API_KEY`) for real-time telemetry.
+      </div>
+
+
       <div className="grid grid-4" style={{ marginBottom: 14 }}>
         <StatCard label="Average congestion" value={avg} decimals={1} suffix="%" tone="yellow" icon={Activity} delay={0} />
-        <StatCard label="Monitored segments" value={segments.length} tone="cyan" delay={0.05} />
+        <StatCard label="Monitored segments" value={segments.length} tone="brand" delay={0.05} />
         <StatCard label="Severe segments" value={counts.severe} tone="red" icon={TriangleAlert} delay={0.1} />
         <StatCard label="Active incidents" value={incidents.length} tone="orange" delay={0.15} />
       </div>

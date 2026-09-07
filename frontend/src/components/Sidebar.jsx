@@ -3,8 +3,8 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Activity, BarChart3, Bell, ChevronLeft, ChevronRight, FlaskConical,
-  History as HistoryIcon, LayoutDashboard, Pin, Route as RouteIcon,
-  Settings as SettingsIcon,
+  History as HistoryIcon, LayoutDashboard, Menu, Pin, Route as RouteIcon,
+  Settings as SettingsIcon, X,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { SYSTEM_STATUS } from '../data/mockData'
@@ -24,6 +24,7 @@ export default function Sidebar() {
   const { collapsed, setCollapsed, alerts, theme } = useApp()
   const location = useLocation()
   const closeTimer = useRef(null)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   /**
    * Fold behaviour: the sidebar opens on hover or focus and folds itself away
@@ -68,6 +69,7 @@ export default function Sidebar() {
     <>
       <aside
         className="sidebar"
+        data-open={mobileOpen}
         data-collapsed={collapsed}
         data-pinned={pinned}
         onMouseEnter={open}
@@ -86,7 +88,7 @@ export default function Sidebar() {
                 exit={{ opacity: 0, width: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <strong>Q Route</strong>
+                <strong>Quantum Route</strong>
                 <span>Optimizer</span>
               </motion.div>
             )}
@@ -103,6 +105,14 @@ export default function Sidebar() {
           >
             {pinned ? <Pin size={12} /> : <ChevronRight size={13} />}
           </button>
+          <button
+            className="mobile-drawer-close"
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close navigation menu"
+          >
+            <X size={16} />
+          </button>
         </div>
 
         <nav className="sidebar-nav">
@@ -111,6 +121,7 @@ export default function Sidebar() {
               key={to}
               to={to}
               end={end}
+              onClick={() => setMobileOpen(false)}
               className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
               title={collapsed ? label : undefined}
             >
@@ -164,6 +175,19 @@ export default function Sidebar() {
             </NavLink>
           )
         })}
+        <button
+          className="mobile-more"
+          type="button"
+          onClick={() => {
+            setMobileOpen((value) => !value)
+            setCollapsed(false)
+          }}
+          aria-label="More navigation options"
+          aria-expanded={mobileOpen}
+        >
+          <Menu size={18} />
+          <span>More</span>
+        </button>
       </nav>
     </>
   )

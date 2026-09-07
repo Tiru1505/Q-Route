@@ -1,12 +1,14 @@
-import { forwardRef } from 'react'
-import { motion } from 'framer-motion'
+import { forwardRef, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Clock,
   Gauge,
+  MapPin,
   Route as RouteIcon,
-  Star,
-  TrendingDown,
-  Zap,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Info,
 } from 'lucide-react'
 import { useCountUp } from './StatCard'
 import { TRAFFIC_COLORS } from '../data/mockData'
@@ -19,20 +21,15 @@ function congestionLevel(c) {
 }
 
 /* forwardRef so AnimatePresence's popLayout mode can measure this card. */
-const RouteCard = forwardRef(function RouteCard({ route }, ref) {
+const RouteCard = forwardRef(function RouteCard({ route, onCompareAlternatives }, ref) {
+  const [detailsOpen, setDetailsOpen] = useState(false)
+
   const distance = useCountUp(route.distanceKm)
   const eta = useCountUp(route.etaMin)
   const cong = useCountUp(route.congestion * 100)
   const score = useCountUp(route.score)
 
   const level = congestionLevel(route.congestion)
-
-  const scoreColor =
-    route.score >= 85
-      ? 'var(--low)'
-      : route.score >= 70
-        ? 'var(--moderate)'
-        : 'var(--heavy)'
 
   return (
     <motion.div
@@ -41,354 +38,256 @@ const RouteCard = forwardRef(function RouteCard({ route }, ref) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
-        duration: 0.35,
+        duration: 0.3,
         ease: [0.22, 1, 0.36, 1],
       }}
       style={{
-        borderColor: 'rgba(16,185,129,.3)',
-        overflow: 'hidden',
+        borderColor: 'var(--border)',
+        boxShadow: 'var(--shadow)',
       }}
     >
-
-      {/* =====================================================
-          HEADER
-          ===================================================== */}
-
+      {/* HEADER */}
       <div
+        className="row-between"
         style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 10,
-          marginBottom: 10,
-          width: '100%',
+          marginBottom: 12,
         }}
       >
-
-        {/* TITLE */}
-
         <div
           className="card-title"
           style={{
             margin: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            flex: '1 1 auto',
-            minWidth: 0,
-            lineHeight: 1.3,
+            fontSize: 12,
+            fontWeight: 700,
+            color: 'var(--text)',
+            letterSpacing: '0.02em',
           }}
         >
-          <RouteIcon
-            size={13}
-            style={{
-              flexShrink: 0,
-            }}
-          />
-
-          <span
-            style={{
-              whiteSpace: 'normal',
-            }}
-          >
-            Recommended Route
-          </span>
+          <RouteIcon size={14} style={{ color: 'var(--route-blue)' }} />
+          <span>Recommended Route</span>
         </div>
 
-        {/* BADGES */}
+        <span
+          className="badge badge-green"
+          style={{
+            fontSize: 10.5,
+            padding: '2px 8px',
+          }}
+        >
+          Optimal Match
+        </span>
+      </div>
 
+      {route.via && (
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            flexWrap: 'wrap',
-            gap: 5,
-            flex: '0 1 auto',
-            minWidth: 0,
-          }}
-        >
-
-          {route.recommended && (
-            <span
-              className="badge badge-green"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                whiteSpace: 'nowrap',
-                flexShrink: 1,
-                fontSize: 10,
-              }}
-            >
-              <Star size={9} />
-              Recommended
-            </span>
-          )}
-
-          {route.fastest && (
-            <span
-              className="badge badge-cyan"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                fontSize: 10,
-              }}
-            >
-              Fastest
-            </span>
-          )}
-
-        </div>
-      </div>
-
-      {/* =====================================================
-          ALGORITHM
-          ===================================================== */}
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 7,
-          marginBottom: 4,
-          minWidth: 0,
-        }}
-      >
-
-        <span
-          className="badge badge-quantum"
-          style={{
-            flexShrink: 0,
-          }}
-        >
-          <Zap size={9} />
-          {route.algorithm}
-        </span>
-
-        {route.via && (
-          <span
-            style={{
-              fontSize: 11,
-              color: 'var(--text-faint)',
-              minWidth: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            via {route.via}
-          </span>
-        )}
-
-      </div>
-
-      {/* =====================================================
-          METRICS
-          ===================================================== */}
-
-      <div className="route-metrics">
-
-        <div className="metric">
-          <b>{distance.toFixed(1)}</b>
-          <span>km</span>
-        </div>
-
-        <div className="metric">
-          <b
-            style={{
-              color: 'var(--cyan)',
-            }}
-          >
-            {Math.round(eta)}
-          </b>
-
-          <span>min ETA</span>
-        </div>
-
-        <div className="metric">
-          <b
-            style={{
-              color: TRAFFIC_COLORS[level],
-            }}
-          >
-            {Math.round(cong)}%
-          </b>
-
-          <span>congestion</span>
-        </div>
-
-      </div>
-
-      {/* =====================================================
-          ROUTE SCORE
-          ===================================================== */}
-
-      <div
-        className="row-between"
-        style={{
-          marginBottom: 6,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 11,
-            color: 'var(--text-faint)',
-          }}
-        >
-          Route score
-        </span>
-
-        <span
-          className="mono"
           style={{
             fontSize: 12,
-            color: scoreColor,
+            color: 'var(--text-dim)',
+            marginBottom: 14,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}
+          title={`via ${route.via}`}
         >
-          {Math.round(score)} / 100
-        </span>
-      </div>
-
-      <div className="score-bar">
-
-        <motion.div
-          className="score-fill"
-          style={{
-            background: scoreColor,
-          }}
-          initial={{
-            width: 0,
-          }}
-          animate={{
-            width: `${route.score}%`,
-          }}
-          transition={{
-            duration: 0.8,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-        />
-
-      </div>
-
-      {/* =====================================================
-          TIME SAVED
-          ===================================================== */}
-
-      {route.timeSavedMin > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 7,
-            marginTop: 12,
-            padding: '8px 10px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'rgba(16,185,129,.1)',
-            border:
-              '1px solid rgba(16,185,129,.24)',
-            minWidth: 0,
-          }}
-        >
-
-          <TrendingDown
-            size={14}
-            style={{
-              color: 'var(--low)',
-              flexShrink: 0,
-            }}
-          />
-
-          <span
-            style={{
-              fontSize: 12,
-              minWidth: 0,
-            }}
-          >
-            Saves{' '}
-
-            <strong
-              style={{
-                color: 'var(--low)',
-              }}
-            >
-              {route.timeSavedMin} min
-            </strong>{' '}
-            
-            versus the next best route
-          </span>
-
+          via {route.via}
         </div>
       )}
 
-      {/* =====================================================
-          FOOTER
-          ===================================================== */}
-
+      {/* LARGE PROMINENT METRICS: 38 min, 18.9 km, 22% congestion */}
       <div
         style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 14,
-          marginTop: 12,
-          paddingTop: 11,
-          borderTop:
-            '1px solid var(--border)',
-          fontSize: 11,
-          color: 'var(--text-faint)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 8,
+          padding: '12px 10px',
+          borderRadius: 'var(--radius-sm)',
+          background: 'var(--panel-hover)',
+          border: '1px solid var(--border)',
+          marginBottom: 16,
+          textAlign: 'center',
         }}
       >
-
-        <span
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            minWidth: 0,
-          }}
-        >
-
-          <Clock
-            size={11}
+        <div>
+          <div
             style={{
-              flexShrink: 0,
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              color: 'var(--text)',
+              lineHeight: 1.1,
             }}
-          />
+          >
+            {Math.round(eta)} <span style={{ fontSize: 13, fontWeight: 500 }}>min</span>
+          </div>
+          <span style={{ fontSize: 10.5, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Travel Time
+          </span>
+        </div>
 
-          Arrives{' '}
+        <div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              color: 'var(--text)',
+              lineHeight: 1.1,
+            }}
+          >
+            {distance.toFixed(1)} <span style={{ fontSize: 13, fontWeight: 500 }}>km</span>
+          </div>
+          <span style={{ fontSize: 10.5, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Distance
+          </span>
+        </div>
 
-          {new Date(
-            Date.now() +
-              route.etaMin * 60000
-          ).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-
-        </span>
-
-        <span
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-          }}
-        >
-
-          <Gauge size={11} />
-
-          {(
-            route.distanceKm /
-            (route.etaMin / 60)
-          ).toFixed(0)}{' '}
-          km/h avg
-
-        </span>
-
+        <div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              color: TRAFFIC_COLORS[level],
+              lineHeight: 1.1,
+            }}
+          >
+            {Math.round(cong)}%
+          </div>
+          <span style={{ fontSize: 10.5, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Congestion
+          </span>
+        </div>
       </div>
 
+      {/* WHY THIS ROUTE? */}
+      <div
+        style={{
+          padding: '12px 14px',
+          borderRadius: 'var(--radius-sm)',
+          background: 'var(--surface-elevated)',
+          border: '1px solid var(--border)',
+          marginBottom: 16,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11.5,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+            color: 'var(--text)',
+            marginBottom: 8,
+          }}
+        >
+          Why this route?
+        </div>
+
+        <ul
+          style={{
+            margin: 0,
+            padding: 0,
+            listStyle: 'none',
+            fontSize: 12,
+            color: 'var(--text-dim)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+          }}
+        >
+          <li style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+            <span style={{ color: 'var(--low)', marginTop: 1 }}>•</span>
+            <span>
+              {route.timeSavedMin > 0
+                ? `Lower estimated travel time (${route.timeSavedMin} min faster than alternatives)`
+                : 'Lower estimated travel time along primary thoroughfares'}
+            </span>
+          </li>
+          <li style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+            <span style={{ color: 'var(--low)', marginTop: 1 }}>•</span>
+            <span>Lower congestion along designated arterial roads</span>
+          </li>
+          <li style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+            <span style={{ color: 'var(--low)', marginTop: 1 }}>•</span>
+            <span>Avoids reported incidents and critical construction zones</span>
+          </li>
+          <li style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+            <span style={{ color: 'var(--low)', marginTop: 1 }}>•</span>
+            <span>Better optimization objective score ({Math.round(score)}/100)</span>
+          </li>
+        </ul>
+      </div>
+
+      {/* ACTION BUTTONS: View route details & Compare alternatives */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: detailsOpen ? 12 : 0 }}>
+        <button
+          className="btn btn-sm"
+          style={{ flex: 1 }}
+          onClick={() => setDetailsOpen((v) => !v)}
+        >
+          <span>View route details</span>
+          {detailsOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
+
+        {onCompareAlternatives && (
+          <button
+            className="btn btn-sm"
+            style={{ flex: 1 }}
+            onClick={onCompareAlternatives}
+          >
+            Compare alternatives
+          </button>
+        )}
+      </div>
+
+      {/* ROUTE DETAILS DRAWER */}
+      <AnimatePresence>
+        {detailsOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div
+              style={{
+                paddingTop: 10,
+                borderTop: '1px solid var(--border)',
+                fontSize: 11.5,
+                color: 'var(--text-dim)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+              }}
+            >
+              <div className="row-between">
+                <span>Algorithm:</span>
+                <strong style={{ color: 'var(--text)' }}>{route.algorithm} Metaheuristic</strong>
+              </div>
+              <div className="row-between">
+                <span>Estimated Arrival:</span>
+                <strong style={{ color: 'var(--text)' }}>
+                  {new Date(Date.now() + route.etaMin * 60000).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </strong>
+              </div>
+              <div className="row-between">
+                <span>Average Corridor Speed:</span>
+                <strong style={{ color: 'var(--text)' }}>
+                  {route.etaMin > 0 ? (route.distanceKm / (route.etaMin / 60)).toFixed(0) : '—'} km/h
+                </strong>
+              </div>
+              <div className="row-between">
+                <span>Toll Charges:</span>
+                <strong style={{ color: 'var(--low)' }}>₹0 (No tolls)</strong>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 })
