@@ -1,0 +1,84 @@
+<svg viewBox="0 0 820 566" role="img" aria-label="Six-layer architecture: browser, FastAPI, services, adapters, QROEngine, engine modules" xmlns="http://www.w3.org/2000/svg" width="820" height="566"><rect x="0" y="0" width="820" height="566" fill="#ffffff"/>
+          
+
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="110" y="16"  width="600" height="58" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="410" y="41"  text-anchor="middle">Browser — React · Vite · Leaflet</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="410" y="59"  text-anchor="middle">8 pages · map · charts</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="410" y1="74" x2="410" y2="104" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="420" y="93">HTTP / JSON</text>
+
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="110" y="106" width="600" height="58" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="410" y="131" text-anchor="middle">FastAPI — routes under /api</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="410" y="149" text-anchor="middle">validation · error shape · OpenAPI docs</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="410" y1="164" x2="410" y2="194" />
+
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="110" y="196" width="600" height="58" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="410" y="221" text-anchor="middle">Service layer</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="410" y="239" text-anchor="middle">route · optimization · traffic · benchmark · alert</text>
+
+          <line fill="none" stroke="#7b3070" stroke-width="1.8" x1="410" y1="254" x2="410" y2="284" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="10.5" fill="#7b3070" x="420" y="273">abstract interface</text>
+
+          <rect fill="#f0e2ee" stroke="#7b3070" stroke-width="1.8"  x="110" y="286" width="600" height="66" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#7b3070"  x="410" y="311" text-anchor="middle">Adapter layer</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75"  x="410" y="329" text-anchor="middle">BaseGraphAdapter · BaseOptimizationAdapter · BaseTrafficAdapter</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75"  x="410" y="345" text-anchor="middle">mock implementation  ·  real implementation (engine_bridge.py)</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="410" y1="352" x2="410" y2="382" />
+
+          <rect fill="#e6e2de" stroke="#191512" stroke-width="1.4" x="110" y="384" width="600" height="58" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="410" y="409" text-anchor="middle">QROEngine — one object, loaded once</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="410" y="427" text-anchor="middle">286,603 nodes · 741,203 edges · ~1.8 GB resident</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="410" y1="442" x2="410" y2="458" />
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="100" y1="458" x2="725" y2="458" />
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="100" y1="458" x2="100" y2="470" />
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="260" y1="458" x2="260" y2="470" />
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="420" y1="458" x2="420" y2="470" />
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="575" y1="458" x2="575" y2="470" />
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="725" y1="458" x2="725" y2="470" />
+
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="30" y="474" width="140" height="76" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="100" y="503" text-anchor="middle">graph</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="100" y="521" text-anchor="middle">cost model</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="100" y="537" text-anchor="middle">loader</text>
+
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="185" y="474" width="150" height="76" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="260" y="503" text-anchor="middle">optimization</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="260" y="521" text-anchor="middle">QPSO · PSO · GA</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="260" y="537" text-anchor="middle">Dijkstra</text>
+
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="350" y="474" width="140" height="76" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="420" y="503" text-anchor="middle">traffic</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="420" y="521" text-anchor="middle">Greenshields</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="420" y="537" text-anchor="middle">simulator</text>
+
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="505" y="474" width="140" height="76" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="575" y="503" text-anchor="middle">routing</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="575" y="521" text-anchor="middle">Route</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="575" y="537" text-anchor="middle">rerouting</text>
+
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="660" y="474" width="130" height="76" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="725" y="503" text-anchor="middle">alerts</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="725" y="521" text-anchor="middle">policy gates</text>
+
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="730" y="106" width="80" height="58" rx="3" opacity=".85" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="770" y="131" text-anchor="middle">MongoDB</text>
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="770" y="149" text-anchor="middle">history</text>
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="710" y1="225" x2="770" y2="225" />
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="770" y1="225" x2="770" y2="168" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="716" y="218">persist</text>
+        
+<polygon points="410.0,104.0 406.1,95.0 413.9,95.0" fill="#191512"/>
+<polygon points="410.0,194.0 406.1,185.0 413.9,185.0" fill="#191512"/>
+<polygon points="410.0,284.0 406.1,275.0 413.9,275.0" fill="#7b3070"/>
+<polygon points="410.0,382.0 406.1,373.0 413.9,373.0" fill="#191512"/>
+<polygon points="100.0,470.0 96.1,461.0 103.9,461.0" fill="#191512"/>
+<polygon points="260.0,470.0 256.1,461.0 263.9,461.0" fill="#191512"/>
+<polygon points="420.0,470.0 416.1,461.0 423.9,461.0" fill="#191512"/>
+<polygon points="575.0,470.0 571.1,461.0 578.9,461.0" fill="#191512"/>
+<polygon points="725.0,470.0 721.1,461.0 728.9,461.0" fill="#191512"/>
+<polygon points="770.0,168.0 773.9,177.0 766.1,177.0" fill="#191512"/>
+</svg>

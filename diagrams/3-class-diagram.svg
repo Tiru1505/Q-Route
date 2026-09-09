@@ -1,0 +1,115 @@
+<svg viewBox="0 0 880 640" role="img" aria-label="UML class diagram of QROEngine, CostModel, Route, ActiveTrip, RerouteEngine, MultiStopProblem, AlertEngine and QPSO" xmlns="http://www.w3.org/2000/svg" width="880" height="640"><rect x="0" y="0" width="880" height="640" fill="#ffffff"/>
+          
+
+          <!-- QROEngine -->
+          <rect fill="#f0e2ee" stroke="#7b3070" stroke-width="1.8" x="320" y="12" width="240" height="104" rx="3" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="320" y1="40" x2="560" y2="40" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="320" y1="70" x2="560" y2="70" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#7b3070" x="440" y="32" text-anchor="middle">QROEngine</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="330" y="58">G · state · trip · cost_model</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="330" y="87">plan() · plan_multistop()</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="330" y="103">check_reroute() · benchmark()</text>
+
+          <!-- CostModel -->
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="20" y="192" width="230" height="106" rx="3" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="20" y1="220" x2="250" y2="220" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="20" y1="256" x2="250" y2="256" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="135" y="212" text-anchor="middle">CostModel</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="30" y="238">weights · ref_time_s</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="30" y="252">ref_distance_m</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="30" y="274">calibrate() · edge_cost()</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="30" y="290">best_edge()</text>
+
+          <!-- Route -->
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="325" y="192" width="230" height="106" rx="3" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="325" y1="220" x2="555" y2="220" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="325" y1="256" x2="555" y2="256" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="440" y="212" text-anchor="middle">Route</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="335" y="238">nodes · time_s · distance_m</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="335" y="252">congested_m · fitness</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="335" y="274">distance_km · time_min</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="335" y="290">coordinates(G)</text>
+
+          <!-- ActiveTrip -->
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="630" y="192" width="230" height="106" rx="3" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="630" y1="220" x2="860" y2="220" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="630" y1="256" x2="860" y2="256" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="745" y="212" text-anchor="middle">ActiveTrip</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="640" y="238">route · position</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="640" y="252">planned_time_s</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="640" y="274">remaining_nodes · progress</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="640" y="290">stops_ahead()</text>
+
+          <!-- MultiStopProblem -->
+          <rect fill="#dcefee" stroke="#0f6f6c" stroke-width="1.8" x="20" y="378" width="230" height="106" rx="3" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="20" y1="406" x2="250" y2="406" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="20" y1="442" x2="250" y2="442" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#0f6f6c" x="135" y="398" text-anchor="middle">MultiStopProblem</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="30" y="424">depot · stop_nodes</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="30" y="438">matrix · dimensions</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="30" y="460">evaluate(vector)</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="30" y="476">order_from_vector()</text>
+
+          <!-- RerouteEngine -->
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="325" y="378" width="230" height="106" rx="3" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="325" y1="406" x2="555" y2="406" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="325" y1="442" x2="555" y2="442" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="440" y="398" text-anchor="middle">RerouteEngine</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="335" y="424">degradation_threshold</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="335" y="438">min_improvement</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="335" y="460">evaluate(trip)</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="335" y="476">evaluate_multistop()</text>
+
+          <!-- AlertEngine -->
+          <rect fill="none" stroke="#191512" stroke-width="1.4" x="630" y="378" width="230" height="106" rx="3" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="630" y1="406" x2="860" y2="406" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="630" y1="442" x2="860" y2="442" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512"  x="745" y="398" text-anchor="middle">AlertEngine</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="640" y="424">policy · history</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="640" y="438">suppressed</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="640" y="460">consider(decision)</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="640" y="476">accepted() · declined()</text>
+
+          <!-- optimisers -->
+          <rect fill="#dcefee" stroke="#0f6f6c" stroke-width="1.8" x="325" y="546" width="230" height="76" rx="3" />
+          <line fill="none" stroke="#191512" stroke-width="1.1" opacity="0.55" x1="325" y1="574" x2="555" y2="574" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#0f6f6c" x="440" y="566" text-anchor="middle">QPSO · PSO · GeneticAlgorithm</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="335" y="592">optimise(problem, budget, seed)</text>
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="335" y="608">→ RunStats · convergence curve</text>
+
+          <!-- relations -->
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="400" y1="116" x2="150" y2="188" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75"  x="196" y="150">uses</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="440" y1="116" x2="440" y2="188" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75"  x="450" y="156">produces</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="482" y1="116" x2="730" y2="188" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75"  x="640" y="150">tracks</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="745" y1="298" x2="745" y2="374" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75"  x="755" y="340">watched by</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="555" y1="430" x2="626" y2="430" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75"  x="562" y="422">decision</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="250" y1="430" x2="321" y2="430" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75"  x="256" y="422">re-orders</text>
+
+          <line fill="none" stroke="#0f6f6c" stroke-width="1.8" x1="250" y1="450" x2="290" y2="450" />
+          <line fill="none" stroke="#0f6f6c" stroke-width="1.8" x1="290" y1="450" x2="290" y2="584" />
+          <line fill="none" stroke="#0f6f6c" stroke-width="1.8" x1="290" y1="584" x2="321" y2="584" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="10.5" fill="#7b3070" x="300" y="516">solved by</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="135" y1="298" x2="135" y2="374" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75"  x="145" y="340">scores with</text>
+        
+<polygon points="150.0,188.0 157.6,181.8 159.7,189.3" fill="#191512"/>
+<polygon points="440.0,188.0 436.1,179.0 443.9,179.0" fill="#191512"/>
+<polygon points="730.0,188.0 720.3,189.2 722.4,181.7" fill="#191512"/>
+<polygon points="745.0,374.0 741.1,365.0 748.9,365.0" fill="#191512"/>
+<polygon points="626.0,430.0 617.0,433.9 617.0,426.1" fill="#191512"/>
+<polygon points="321.0,430.0 312.0,433.9 312.0,426.1" fill="#191512"/>
+<polygon points="321.0,584.0 312.0,587.9 312.0,580.1" fill="#191512"/>
+<polygon points="135.0,374.0 131.1,365.0 138.9,365.0" fill="#191512"/>
+</svg>

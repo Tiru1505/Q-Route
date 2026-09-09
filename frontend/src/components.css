@@ -3333,3 +3333,63 @@
     gap: 12px;
   }
 }
+
+
+/* ============================================================
+   FORECAST CARD — trained LSTM on held-out replay
+   ============================================================ */
+
+/* Three series have to be told apart at a glance, and this theme aliases
+   --cyan onto the same amber as --moderate, so the observed line and the
+   real outcome came out the same colour. These name the roles instead. */
+:root {
+  --fc-observed: #FFB347;   /* the recorded past, warm     */
+  --fc-forecast: #E83E8C;   /* the model's claim, dashed   */
+  --fc-actual:   #7DD3FC;   /* what really happened, cool  */
+}
+:root[data-theme='light'] {
+  --fc-observed: #B86F16;
+  --fc-forecast: #B82E6A;
+  --fc-actual:   #0369A1;
+}
+
+.forecast-clock {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast-legend {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  margin-top: 9px; font-size: 11px; color: var(--text-dim);
+}
+.forecast-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.forecast-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+.forecast-rows {
+  display: grid; gap: 2px; margin-top: 12px;
+  border-top: 1px solid var(--border); padding-top: 10px;
+}
+.forecast-row {
+  display: grid;
+  grid-template-columns: 46px 1fr 1fr 16px;
+  align-items: center; gap: 8px;
+  font-size: 11.5px;
+}
+.forecast-row .fr-h {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+.forecast-row .fr-p { font-weight: 600; text-transform: capitalize; }
+.forecast-row .fr-a { color: var(--text-dim); text-transform: capitalize; }
+
+.forecast-note {
+  font-size: 10.5px; line-height: 1.5;
+  color: var(--text-faint);
+  margin-top: 10px;
+}
+.forecast-note strong { color: var(--text); }
+
+@media (max-width: 560px) {
+  .forecast-row { grid-template-columns: 42px 1fr 1fr 16px; font-size: 11px; }
+}

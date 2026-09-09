@@ -1,0 +1,71 @@
+<svg viewBox="0 0 860 496" role="img" aria-label="Sequence diagram of POST /routes/optimize across browser, API, service, adapter, engine and database" xmlns="http://www.w3.org/2000/svg" width="860" height="496"><rect x="0" y="0" width="860" height="496" fill="#ffffff"/>
+          
+
+          <!-- lifeline heads -->
+          <rect fill="#e6e2de" stroke="#191512" stroke-width="1.4" x="12"  y="12" width="112" height="36" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512" x="68"  y="35" text-anchor="middle">Browser</text>
+          <rect fill="#e6e2de" stroke="#191512" stroke-width="1.4" x="152" y="12" width="112" height="36" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512" x="208" y="35" text-anchor="middle">FastAPI</text>
+          <rect fill="#e6e2de" stroke="#191512" stroke-width="1.4" x="292" y="12" width="122" height="36" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512" x="353" y="35" text-anchor="middle">RouteService</text>
+          <rect fill="#e6e2de" stroke="#191512" stroke-width="1.4" x="442" y="12" width="132" height="36" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512" x="508" y="35" text-anchor="middle">GraphAdapter</text>
+          <rect fill="#e6e2de" stroke="#191512" stroke-width="1.4" x="602" y="12" width="122" height="36" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512" x="663" y="35" text-anchor="middle">QROEngine</text>
+          <rect fill="#e6e2de" stroke="#191512" stroke-width="1.4" x="752" y="12" width="96"  height="36" rx="3" />
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#191512" x="800" y="35" text-anchor="middle">MongoDB</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1" stroke-dasharray="4 4" opacity="0.45" x1="68"  y1="48" x2="68"  y2="470" />
+          <line fill="none" stroke="#191512" stroke-width="1" stroke-dasharray="4 4" opacity="0.45" x1="208" y1="48" x2="208" y2="470" />
+          <line fill="none" stroke="#191512" stroke-width="1" stroke-dasharray="4 4" opacity="0.45" x1="353" y1="48" x2="353" y2="470" />
+          <line fill="none" stroke="#191512" stroke-width="1" stroke-dasharray="4 4" opacity="0.45" x1="508" y1="48" x2="508" y2="470" />
+          <line fill="none" stroke="#191512" stroke-width="1" stroke-dasharray="4 4" opacity="0.45" x1="663" y1="48" x2="663" y2="470" />
+          <line fill="none" stroke="#191512" stroke-width="1" stroke-dasharray="4 4" opacity="0.45" x1="800" y1="48" x2="800" y2="470" />
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="68"  y1="84"  x2="204" y2="84" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="72"  y="78">POST /routes/optimize</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="208" y1="118" x2="349" y2="118" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="212" y="112">optimize(request)</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="353" y1="152" x2="504" y2="152" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="357" y="146">calculate_route()</text>
+
+          <line fill="none" stroke="#7b3070" stroke-width="1.8" x1="508" y1="186" x2="659" y2="186" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="10.5" fill="#7b3070" x="512" y="180">_nearest() ×2 — cached</text>
+
+          <line fill="none" stroke="#7b3070" stroke-width="1.8" x1="508" y1="220" x2="659" y2="220" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="10.5" fill="#7b3070" x="512" y="214">CostModel.calibrate — cached</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="508" y1="254" x2="659" y2="254" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="512" y="248">dijkstra_route()</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="659" y1="288" x2="512" y2="288" stroke-dasharray="5 4" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="516" y="282">Route — 673 points</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="504" y1="322" x2="357" y2="322" stroke-dasharray="5 4" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="361" y="316">GraphRoute</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="353" y1="356" x2="796" y2="356" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="357" y="350">persist — best effort, never blocks</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="349" y1="390" x2="212" y2="390" stroke-dasharray="5 4" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="216" y="384">RouteResponse</text>
+
+          <line fill="none" stroke="#191512" stroke-width="1.4" x1="204" y1="424" x2="72"  y2="424" stroke-dasharray="5 4" />
+          <text font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#191512" opacity="0.8" x="76"  y="418">200 — JSON</text>
+
+          <text font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="11.5" fill="#191512" opacity="0.75" x="68" y="458" text-anchor="middle">draws the route</text>
+        
+<polygon points="204.0,84.0 195.0,87.9 195.0,80.1" fill="#191512"/>
+<polygon points="349.0,118.0 340.0,121.9 340.0,114.1" fill="#191512"/>
+<polygon points="504.0,152.0 495.0,155.9 495.0,148.1" fill="#191512"/>
+<polygon points="659.0,186.0 650.0,189.9 650.0,182.1" fill="#7b3070"/>
+<polygon points="659.0,220.0 650.0,223.9 650.0,216.1" fill="#7b3070"/>
+<polygon points="659.0,254.0 650.0,257.9 650.0,250.1" fill="#191512"/>
+<polygon points="512.0,288.0 521.0,284.1 521.0,291.9" fill="#191512"/>
+<polygon points="357.0,322.0 366.0,318.1 366.0,325.9" fill="#191512"/>
+<polygon points="796.0,356.0 787.0,359.9 787.0,352.1" fill="#191512"/>
+<polygon points="212.0,390.0 221.0,386.1 221.0,393.9" fill="#191512"/>
+<polygon points="72.0,424.0 81.0,420.1 81.0,427.9" fill="#191512"/>
+</svg>

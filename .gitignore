@@ -62,3 +62,10 @@ data/vision/
 
 .vercel
 .env*
+
+# Training artifacts — large and reproducible from the scripts beside them.
+# The India LSTM is the exception: forecast_service.py loads it at runtime, it
+# is 30 KB, and without it the /forecast endpoints return 503.
+results/yolo/
+results/lstm/*.pt
+yolov8n.pt

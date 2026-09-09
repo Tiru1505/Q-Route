@@ -1,0 +1,24 @@
+{
+  "dataset": "METR-LA (Los Angeles freeway loop detectors)",
+  "not_hyderabad": true,
+  "train_rows": 600000,
+  "epochs": 15,
+  "val_mae_best": 4.577311873435974,
+  "horizons": {
+    "15 min": {
+      "persistence_mae": 4.027273654937744,
+      "lstm_mae": 3.5584254264831543,
+      "lstm_rmse": 8.073683738708496
+    },
+    "30 min": {
+      "persistence_mae": 5.094515323638916,
+      "lstm_mae": 4.5949530601501465,
+      "lstm_rmse": 10.496870994567871
+    },
+    "60 min": {
+      "persistence_mae": 6.802535533905029,
+      "lstm_mae": 6.153229236602783,
+      "lstm_rmse": 13.158376693725586
+    }
+  }
+}

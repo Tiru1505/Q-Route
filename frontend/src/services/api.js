@@ -333,6 +333,27 @@ export async function clearAlerts() {
   return { cleared: 0 }
 }
 
+/**
+ * Forecast from the trained Indian-traffic LSTM.
+ *
+ * This is a replay of recorded days the model never saw in training, so the
+ * response carries the real outcome next to the prediction. It is not a live
+ * forecast: the model needs three hours of recent vehicle counts for a road,
+ * which no live road in this system yet provides.
+ */
+export async function getForecast() {
+  return liveOrMock(
+    async () => {
+      const r = await request('/forecast/replay')
+      return { ...r, isDemoData: false }
+    },
+    async () => {
+      await delay(250)
+      return { unavailable: true, isDemoData: true }
+    },
+  )
+}
+
 export async function getAlerts() {
   return liveOrMock(
     async () => mapAlertsResponse(await request('/alerts/')),

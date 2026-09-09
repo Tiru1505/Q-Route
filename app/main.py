@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.analytics import router as analytics_router
+from app.api.forecast import router as forecast_router
 from app.api.health import router as health_router
 from app.api.routes import router as routes_router
 from app.api.alerts import router as alerts_router
@@ -157,6 +158,7 @@ app.include_router(places_router, prefix="/api")
 app.include_router(optimization_router, prefix="/api")
 app.include_router(traffic_router, prefix="/api")
 app.include_router(prediction_router, prefix="/api")
+app.include_router(forecast_router, prefix="/api")
 app.include_router(benchmark_router, prefix="/api")
 app.include_router(alerts_router, prefix="/api")
 app.include_router(assistant_router, prefix="/api")

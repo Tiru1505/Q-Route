@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Activity, AlertOctagon, BarChart3, Clock, RefreshCw, Route as RouteIcon, TrendingUp } from 'lucide-react'
 import StatCard from '../components/StatCard'
 import PredictionCard from '../components/PredictionCard'
+import ForecastCard from '../components/ForecastCard'
 import { CardSkeleton } from '../components/LoadingScreen'
 import {
   RoutePerformanceChart, TrafficDistributionChart, TrafficTrendChart,
@@ -106,10 +107,16 @@ export default function Analytics() {
           {data ? <TrafficTrendChart data={data.trend} /> : <CardSkeleton height={260} />}
         </div>
 
+        {/* The trained LSTM, forecasting held-out days it never saw. The
+            projection card below it is the old linear extrapolation, kept and
+            labelled so the difference between a model and a straight line is
+            visible side by side. */}
+        <ForecastCard />
+
         {data ? (
           <PredictionCard
             series={data.prediction}
-            title="Actual vs Predicted Congestion"
+            title="Congestion Projection — linear"
             note={data.predictionNote}
           />
         ) : (

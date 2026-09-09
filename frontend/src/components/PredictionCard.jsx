@@ -6,11 +6,13 @@ import { TrendingUp } from 'lucide-react'
  *
  * `note` says how that curve was produced and is supplied by the backend. It
  * matters: today the projection is current congestion grown at a fixed rate,
- * not the output of a trained model, and a chart titled "Actual vs Predicted"
- * with no caveat oversells that. When a real forecaster is wired in, the
- * backend changes the note and this card follows.
+ * not the output of a trained model. "Predicted" and "Forecast" now belong to
+ * the trained LSTM in ForecastCard, so this card says "projected" instead —
+ * a straight line extended forward is a projection, not a prediction, and the
+ * two sit next to each other on the Analytics page. When a real forecaster
+ * backs this curve, the backend changes the note and this card follows.
  */
-export default function PredictionCard({ series = [], title = 'Congestion Forecast', note = null }) {
+export default function PredictionCard({ series = [], title = 'Congestion Projection', note = null }) {
   return (
     <div className="card chart-card">
       <div className="card-title">
@@ -46,11 +48,11 @@ export default function PredictionCard({ series = [], title = 'Congestion Foreca
               labelStyle={{ color: 'var(--text)', fontWeight: 600 }}
             />
             <Area
-              type="monotone" dataKey="actual" name="Actual"
+              type="monotone" dataKey="actual" name="Measured"
               stroke="#A3E635" strokeWidth={2} fill="url(#gActual)" connectNulls={false}
             />
             <Area
-              type="monotone" dataKey="predicted" name="Predicted"
+              type="monotone" dataKey="predicted" name="Projected"
               stroke="#FFB347" strokeWidth={2} strokeDasharray="5 4" fill="url(#gPred)"
             />
           </AreaChart>
@@ -59,10 +61,10 @@ export default function PredictionCard({ series = [], title = 'Congestion Foreca
 
       <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 11.5 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-dim)' }}>
-          <span className="legend-swatch" style={{ background: '#A3E635' }} /> Actual
+          <span className="legend-swatch" style={{ background: '#A3E635' }} /> Measured
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-dim)' }}>
-          <span className="legend-swatch" style={{ background: '#FFB347' }} /> Predicted
+          <span className="legend-swatch" style={{ background: '#FFB347' }} /> Projected (linear)
         </span>
       </div>
 
