@@ -3393,3 +3393,120 @@
 @media (max-width: 560px) {
   .forecast-row { grid-template-columns: 42px 1fr 1fr 16px; font-size: 11px; }
 }
+
+/* ============================================================
+   ROAD VISION — upload, detect, count
+   ============================================================ */
+
+.vision-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 7px; text-align: center;
+  min-height: 168px; padding: 20px;
+  border: 1.5px dashed var(--border-strong); border-radius: var(--radius);
+  background: var(--panel-hover);
+  cursor: pointer; transition: border-color .18s var(--ease), background .18s var(--ease);
+}
+.vision-drop:hover, .vision-drop.is-dragging {
+  border-color: var(--brand); background: var(--brand-light);
+}
+.vision-drop.is-busy { cursor: progress; border-style: solid; }
+.vision-drop strong { font-size: 13px; }
+.vision-drop span { font-size: 11.5px; color: var(--text-faint); max-width: 34ch; }
+.vision-drop svg { color: var(--brand); }
+.spin { animation: vision-spin 1s linear infinite; }
+@keyframes vision-spin { to { transform: rotate(360deg); } }
+
+.vision-field {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 14px; font-size: 12px;
+}
+.vision-field label { color: var(--text-dim); }
+.vision-field input {
+  width: 78px; padding: 5px 8px; font-size: 12px;
+  background: var(--panel-hover); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.vision-field span { color: var(--text-faint); }
+
+.vision-hint {
+  font-size: 10.5px; line-height: 1.5; color: var(--text-faint); margin: 7px 0 0;
+}
+.vision-note {
+  font-size: 11px; line-height: 1.55; color: var(--text-dim);
+  margin: 10px 0 0; padding-left: 9px; border-left: 2px solid var(--border-strong);
+}
+.vision-error {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 11px; line-height: 1.5; color: var(--severe); margin: 9px 0 0;
+}
+.vision-error svg { flex: none; margin-top: 2px; }
+.vision-empty { font-size: 12px; color: var(--text-faint); margin-top: 8px; }
+
+.vision-explain {
+  display: grid; gap: 9px; margin-top: 14px;
+  border-top: 1px solid var(--border); padding-top: 12px;
+}
+.vision-explain > div { display: flex; gap: 8px; font-size: 11.5px; line-height: 1.5; color: var(--text-dim); }
+.vision-explain svg { flex: none; margin-top: 2px; color: var(--brand); }
+.vision-explain strong { color: var(--text); }
+
+.vision-shot {
+  width: 100%; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); display: block;
+}
+
+.vision-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px;
+}
+.vision-stats > div {
+  display: flex; flex-direction: column; gap: 1px;
+  font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em;
+}
+.vision-stats span {
+  font-size: 17px; font-weight: 650; color: var(--text);
+  letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums;
+}
+
+.vision-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.vision-chip {
+  font-size: 11px; padding: 3px 8px; border-radius: 999px;
+  background: var(--brand-light); color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.vision-chip b { color: var(--text); margin-left: 2px; }
+.vision-chip.muted { background: var(--panel-hover); }
+
+.vision-congestion { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+.vc-head { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-dim); }
+.vc-head strong { text-transform: capitalize; }
+.vc-bar {
+  height: 7px; border-radius: 4px; background: var(--panel-hover);
+  overflow: hidden; margin: 7px 0 6px;
+}
+.vc-bar > div { height: 100%; border-radius: 4px; transition: width .3s var(--ease); }
+.vc-nums {
+  display: flex; justify-content: space-between;
+  font-size: 10.5px; color: var(--text-faint); font-variant-numeric: tabular-nums;
+}
+
+.vision-flow { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+.vf-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11.5px; color: var(--text-dim); padding: 3px 0;
+}
+.vf-row b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.vision-steps {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--text-dim);
+}
+.vs-dot {
+  width: 26px; height: 5px; border-radius: 3px; background: var(--panel-hover);
+  border: 1px solid var(--border); transition: background .25s var(--ease);
+}
+.vs-dot.filled { background: var(--brand); border-color: var(--brand); }
+.vision-steps span { margin-left: 6px; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 560px) {
+  .vision-stats { grid-template-columns: repeat(2, 1fr); }
+}

@@ -43,7 +43,11 @@ SITUATIONS = ["low", "normal", "high", "heavy"]
 # forecast and an observation are expressed in identical units.
 PCU_FACTORS = {"CarCount": 1.0, "BikeCount": 0.5, "BusCount": 3.0, "TruckCount": 3.0}
 
-LOOKBACK = 12          # 3 hours at 15-minute steps
+LOOKBACK = 12          # default only; the checkpoint's own value wins
+# How much history the model reads is a property of the TRAINED WEIGHTS, not of
+# this file. A checkpoint trained with a one-hour window cannot be served with a
+# three-hour constant, so the value is read back from the checkpoint and this
+# constant is only the fallback for weights saved before it was recorded.
 STEPS = 4              # forecast horizon, +15 .. +60 minutes
 HORIZON_MINUTES = [15, 30, 45, 60]
 
@@ -102,6 +106,8 @@ class IndiaTrafficForecaster:
             )
 
         ck = torch.load(path, weights_only=False, map_location="cpu")
+        self.lookback = int(ck.get("lookback", LOOKBACK))
+        self.features = ck.get("features", "all")
         self._mu, self._sd = ck["mu"], ck["sd"]
         self._cmu, self._csd = ck["cmu"], ck["csd"]
         self.net = _build_net(ck["hidden"], ck["layers"], len(self._mu))
@@ -124,11 +130,13 @@ class IndiaTrafficForecaster:
 
     def predict(self, counts_history: np.ndarray, clock_history: np.ndarray) -> list[Forecast]:
         """
-        counts_history : (12, 4) vehicle counts, oldest first
-        clock_history  : (12, 4) clock features for those same steps
+        counts_history : (lookback, 4) vehicle counts, oldest first
+        clock_history  : (lookback, 4) clock features for those same steps
         """
-        if counts_history.shape[0] != LOOKBACK:
-            raise ValueError(f"need exactly {LOOKBACK} steps of history, got {counts_history.shape[0]}")
+        if counts_history.shape[0] != self.lookback:
+            raise ValueError(
+                f"need exactly {self.lookback} steps of history "
+                f"({self.lookback * 15} min), got {counts_history.shape[0]}")
 
         x = np.concatenate([counts_history, clock_history], axis=1).astype("float32")
         xn = ((x - self._mu) / self._sd)[None, ...]

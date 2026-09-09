@@ -1,33 +1,33 @@
 {
   "dataset": "Indian junction, 15-min counts, 31 contiguous days",
   "location_blind": true,
-  "lookback_steps": 4,
-  "lookback_minutes": 60,
+  "lookback_steps": 2,
+  "lookback_minutes": 30,
   "split": "by day \u2014 train 1-24, val 25-27, test 28-31",
   "windows": {
-    "train": 2300,
+    "train": 2302,
     "val": 288,
     "test": 380
   },
   "horizons": {
     "15 min": {
       "persistence_mae": 27.30789566040039,
-      "lstm_mae": 23.945526123046875,
-      "situation_accuracy": 0.7026315789473684,
+      "lstm_mae": 23.591066360473633,
+      "situation_accuracy": 0.7078947368421052,
       "majority_accuracy": 0.6,
       "persistence_accuracy": 0.6263157894736842
     },
     "30 min": {
       "persistence_mae": 33.26052474975586,
-      "lstm_mae": 28.27286148071289,
-      "situation_accuracy": 0.6973684210526315,
+      "lstm_mae": 28.725509643554688,
+      "situation_accuracy": 0.6868421052631579,
       "majority_accuracy": 0.6,
       "persistence_accuracy": 0.5789473684210527
     },
     "60 min": {
       "persistence_mae": 42.034210205078125,
-      "lstm_mae": 33.947853088378906,
-      "situation_accuracy": 0.6815789473684211,
+      "lstm_mae": 35.308650970458984,
+      "situation_accuracy": 0.6710526315789473,
       "majority_accuracy": 0.5947368421052631,
       "persistence_accuracy": 0.5368421052631579
     }

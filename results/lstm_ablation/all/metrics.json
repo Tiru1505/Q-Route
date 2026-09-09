@@ -1,6 +1,7 @@
 {
   "dataset": "Indian junction, 15-min counts, 31 contiguous days",
   "location_blind": true,
+  "features": "all",
   "lookback_steps": 4,
   "lookback_minutes": 60,
   "split": "by day \u2014 train 1-24, val 25-27, test 28-31",

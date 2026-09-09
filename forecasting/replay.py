@@ -38,7 +38,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from forecasting.model import COUNTS, LOOKBACK, SITUATIONS, STEPS, pcu_of
+from forecasting.model import COUNTS, LOOKBACK, SITUATIONS, STEPS, pcu_of  # noqa: F401
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CSV = ROOT / "data/raw/india/indian_junction_traffic.csv"
@@ -54,7 +54,10 @@ _DOW = {d: i for i, d in enumerate(
 class ReplaySource:
     """The held-out days, addressable by step."""
 
-    def __init__(self, csv: pathlib.Path | None = None):
+    def __init__(self, csv: pathlib.Path | None = None, lookback: int = LOOKBACK):
+        # The window length belongs to the trained weights, so the caller passes
+        # the forecaster's value rather than this module assuming one.
+        self.lookback = int(lookback)
         path = pathlib.Path(csv or CSV)
         if not path.exists():
             raise FileNotFoundError(f"No traffic series at {path}")
@@ -71,7 +74,7 @@ class ReplaySource:
         # full horizon ahead, and whose "now" falls inside the held-out days.
         lo, hi = TEST_DAYS
         day = self.df["Date"].to_numpy()
-        valid = [i for i in range(LOOKBACK, len(self.df) - STEPS)
+        valid = [i for i in range(self.lookback, len(self.df) - STEPS)
                  if lo <= day[i - 1] <= hi]
         if not valid:
             raise ValueError("no held-out window available in this series")
@@ -91,8 +94,8 @@ class ReplaySource:
 
     # ------------------------------------------------------------ windows
     def history(self, cursor: int):
-        """The 12 steps the model consumes, plus what they looked like."""
-        window = self.df.iloc[cursor - LOOKBACK:cursor]
+        """The steps the model consumes, plus what they looked like."""
+        window = self.df.iloc[cursor - self.lookback:cursor]
         counts = window[COUNTS].to_numpy("float32")
         clock = np.stack([
             window["minute_of_day"].to_numpy("float32"),

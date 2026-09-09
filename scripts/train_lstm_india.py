@@ -54,9 +54,20 @@ OUT = ROOT / "results" / "lstm_india"
 
 COUNTS = ["CarCount", "BikeCount", "BusCount", "TruckCount"]
 SITUATIONS = ["low", "normal", "high", "heavy"]
-LOOKBACK = 12                       # 3 hours of history
+LOOKBACK = 12                       # 3 hours of history; --lookback overrides
+# How far back the model reads is a design choice, not a property of the data.
+# It sets the cold-start wait for a live feed: 12 steps means three hours of
+# counts must accumulate before the first forecast, 2 means thirty minutes.
+# That difference decides whether a demo can be fed by hand, so the cost in
+# accuracy has to be measured rather than assumed.
 HORIZONS = {"15 min": 1, "30 min": 2, "60 min": 4}
 STEPS = 4                           # predict up to +4 steps (60 min)
+FEATURES = "all"                    # all | counts | clock; --features overrides
+# An ablation knob, not a tuning knob. Shortening the lookback cost nothing,
+# which raises the question of whether the model reads the traffic or merely
+# reads the time of day. Training on the clock alone and on the counts alone
+# answers it: if clock-only matches the full model, the counts are decoration.
+# Better to find that out here than to be asked it by a judge.
 
 
 def load_frame() -> pd.DataFrame:
@@ -84,9 +95,16 @@ def build_windows(df: pd.DataFrame):
     sit = df["situation"].to_numpy("int64")
     day = df["Date"].to_numpy()
 
+    if FEATURES == "counts":
+        feat = counts
+    elif FEATURES == "clock":
+        feat = clock
+    else:
+        feat = np.concatenate([counts, clock], axis=1)
+
     X, Yc, Ys, D, last = [], [], [], [], []
     for i in range(LOOKBACK, len(df) - STEPS):
-        X.append(np.concatenate([counts[i - LOOKBACK:i], clock[i - LOOKBACK:i]], axis=1))
+        X.append(feat[i - LOOKBACK:i])
         Yc.append(counts[i:i + STEPS])          # future counts, 4 steps x 4 classes
         Ys.append(sit[i:i + STEPS])             # future situation class
         D.append(day[i])
@@ -96,13 +114,30 @@ def build_windows(df: pd.DataFrame):
 
 
 def main() -> int:
+    # Declared up front: argparse reads LOOKBACK for its default, and Python
+    # forbids `global` after a name has been used in the function.
+    global LOOKBACK, OUT, FEATURES
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--epochs", type=int, default=120)
     ap.add_argument("--hidden", type=int, default=32)
     ap.add_argument("--layers", type=int, default=1)
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--lr", type=float, default=8e-4)
+    ap.add_argument("--lookback", type=int, default=LOOKBACK,
+                    help="steps of history fed to the model (1 step = 15 min)")
+    ap.add_argument("--features", choices=["all", "counts", "clock"], default=FEATURES,
+                    help="ablation: which inputs the model may see")
+    ap.add_argument("--out", default=None,
+                    help="output directory; defaults to results/lstm_india")
     args = ap.parse_args()
+
+    # Rebind the module constant so build_windows and the persistence baseline
+    # below both see the same value.
+    LOOKBACK = args.lookback
+    FEATURES = args.features
+    if args.out:
+        OUT = ROOT / args.out
 
     import torch
     import torch.nn as nn
@@ -114,7 +149,8 @@ def main() -> int:
 
     df = load_frame()
     X, Yc, Ys, D, last = build_windows(df)
-    print(f"windows: {len(X)}  features {X.shape[-1]}  horizon {STEPS} steps")
+    print(f"windows: {len(X)}  features {X.shape[-1]}  horizon {STEPS} steps"
+          f"  lookback {LOOKBACK} ({LOOKBACK*15} min)  features {FEATURES}")
 
     tr, va, te = D <= 24, (D >= 25) & (D <= 27), D >= 28
     print(f"  train {tr.sum()} (days 1-24)   val {va.sum()} (25-27)   test {te.sum()} (28-31)")
@@ -222,12 +258,15 @@ def main() -> int:
 
     torch.save({"state_dict": model.state_dict(), "mu": mu, "sd": sd,
                 "cmu": cmu, "csd": csd, "counts": COUNTS,
-                "situations": SITUATIONS, "lookback": LOOKBACK, "steps": STEPS,
+                "situations": SITUATIONS, "lookback": LOOKBACK, "steps": STEPS, "features": FEATURES,
                 "hidden": args.hidden, "layers": args.layers},
                OUT / "india_traffic_lstm.pt")
     (OUT / "metrics.json").write_text(json.dumps({
         "dataset": "Indian junction, 15-min counts, 31 contiguous days",
         "location_blind": True,
+        "features": FEATURES,
+        "lookback_steps": LOOKBACK,
+        "lookback_minutes": LOOKBACK * 15,
         "split": "by day — train 1-24, val 25-27, test 28-31",
         "windows": {"train": int(tr.sum()), "val": int(va.sum()), "test": int(te.sum())},
         "horizons": report,

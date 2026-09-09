@@ -43,7 +43,9 @@ def _load():
                 from forecasting.replay import ReplaySource
 
                 _forecaster = IndiaTrafficForecaster()
-                _replay = ReplaySource()
+                # The replay window must match what the weights were trained
+                # with, or predict() rejects the history it is handed.
+                _replay = ReplaySource(lookback=_forecaster.lookback)
                 _logger.info(
                     "Forecaster ready: %d held-out positions available",
                     len(_replay.cursors),

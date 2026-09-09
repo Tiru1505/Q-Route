@@ -96,7 +96,11 @@ export default function ForecastCard({ intervalMs = 6000 }) {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="t" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} interval={2} />
+            {/* The history window follows the trained weights, so this chart is 8
+                points wide with a one-hour model and 16 with a three-hour one.
+                A fixed interval labelled only three points on the short one. */}
+            <XAxis dataKey="t" axisLine={false} tickLine={false} tick={{ fontSize: 10 }}
+                   interval={series.length > 10 ? 2 : 0} />
             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} unit=" PCU" width={62} />
             <Tooltip
               contentStyle={{

@@ -63,9 +63,19 @@ data/vision/
 .vercel
 .env*
 
-# Training artifacts — large and reproducible from the scripts beside them.
-# The India LSTM is the exception: forecast_service.py loads it at runtime, it
-# is 30 KB, and without it the /forecast endpoints return 503.
-results/yolo/
+# Training artifacts. The bulky, reproducible ones stay out; the two trained
+# models the API actually loads at runtime stay in, because without them
+# /forecast and /vision both return 503 for anyone who clones this.
+#
+# Git cannot re-include a file whose parent directory is excluded, so the YOLO
+# run is excluded level by level and the pieces worth keeping are named.
+results/yolo/*
+!results/yolo/dats_v8n/
+results/yolo/dats_v8n/*
+!results/yolo/dats_v8n/results.csv
+!results/yolo/dats_v8n/args.yaml
+!results/yolo/dats_v8n/weights/
+results/yolo/dats_v8n/weights/*
+!results/yolo/dats_v8n/weights/best.pt
 results/lstm/*.pt
 yolov8n.pt

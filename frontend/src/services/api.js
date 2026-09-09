@@ -334,6 +334,47 @@ export async function clearAlerts() {
 }
 
 /**
+ * Analyse an uploaded road image or clip.
+ *
+ * Goes straight to fetch rather than through `request`: the body is
+ * multipart/form-data, so the Content-Type header must carry the boundary the
+ * browser generates. Setting it by hand breaks the upload.
+ *
+ * There is no mock fallback. A fabricated detection would be indistinguishable
+ * from a real one on screen, which is exactly the thing this feature must never
+ * do — so with no backend it fails loudly instead.
+ */
+export async function analyseRoadMedia(file, { session, segmentM, sampleFps, maxFrames } = {}) {
+  const body = new FormData()
+  body.append('file', file)
+  if (session) body.append('session', session)
+  if (segmentM != null) body.append('segment_m', String(segmentM))
+  if (sampleFps != null) body.append('sample_fps', String(sampleFps))
+  if (maxFrames != null) body.append('max_frames', String(maxFrames))
+
+  const res = await fetch(`${BASE}/vision/analyse`, { method: 'POST', body })
+  if (!res.ok) {
+    let detail = `Analysis failed (${res.status})`
+    try {
+      const j = await res.json()
+      detail = j?.detail || j?.error?.message || detail
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(detail, res.status)
+  }
+  return res.json()
+}
+
+export async function getVisionStatus() {
+  return request('/vision/status')
+}
+
+export async function resetVisionSession(session) {
+  const res = await fetch(`${BASE}/vision/reset?session=${encodeURIComponent(session)}`,
+                          { method: 'POST' })
+  return res.ok ? res.json() : { cleared: false }
+}
+
+/**
  * Forecast from the trained Indian-traffic LSTM.
  *
  * This is a replay of recorded days the model never saw in training, so the

@@ -1,6 +1,7 @@
 {
   "dataset": "Indian junction, 15-min counts, 31 contiguous days",
   "location_blind": true,
+  "features": "counts",
   "lookback_steps": 4,
   "lookback_minutes": 60,
   "split": "by day \u2014 train 1-24, val 25-27, test 28-31",
@@ -12,22 +13,22 @@
   "horizons": {
     "15 min": {
       "persistence_mae": 27.30789566040039,
-      "lstm_mae": 23.945526123046875,
-      "situation_accuracy": 0.7026315789473684,
+      "lstm_mae": 24.77083396911621,
+      "situation_accuracy": 0.718421052631579,
       "majority_accuracy": 0.6,
       "persistence_accuracy": 0.6263157894736842
     },
     "30 min": {
       "persistence_mae": 33.26052474975586,
-      "lstm_mae": 28.27286148071289,
-      "situation_accuracy": 0.6973684210526315,
+      "lstm_mae": 30.517704010009766,
+      "situation_accuracy": 0.6947368421052632,
       "majority_accuracy": 0.6,
       "persistence_accuracy": 0.5789473684210527
     },
     "60 min": {
       "persistence_mae": 42.034210205078125,
-      "lstm_mae": 33.947853088378906,
-      "situation_accuracy": 0.6815789473684211,
+      "lstm_mae": 37.40138244628906,
+      "situation_accuracy": 0.6447368421052632,
       "majority_accuracy": 0.5947368421052631,
       "persistence_accuracy": 0.5368421052631579
     }

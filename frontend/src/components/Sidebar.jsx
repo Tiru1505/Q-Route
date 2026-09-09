@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Activity, BarChart3, Bell, ChevronLeft, ChevronRight, FlaskConical,
-  History as HistoryIcon, LayoutDashboard, Menu, Pin, Route as RouteIcon,
+  History as HistoryIcon, LayoutDashboard, Menu, Pin, Route as RouteIcon, ScanEye,
   Settings as SettingsIcon, X,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
@@ -14,6 +14,7 @@ export const NAV_ITEMS = [
   { to: '/optimizer', label: 'Route Optimizer', icon: RouteIcon },
   { to: '/traffic', label: 'Live Traffic', icon: Activity },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/vision', label: 'Road Vision', icon: ScanEye },
   { to: '/benchmark', label: 'Benchmark', icon: FlaskConical },
   { to: '/alerts', label: 'Alerts', icon: Bell, showCount: true },
   { to: '/history', label: 'History', icon: HistoryIcon },

@@ -18,6 +18,7 @@ from app.api.optimization import router as optimization_router
 from app.api.places import router as places_router
 from app.api.prediction import router as prediction_router
 from app.api.traffic import router as traffic_router
+from app.api.vision import router as vision_router
 from app.core.config import get_settings
 from app.core.errors import SmartRouteError, domain_error_handler, validation_error_handler
 from app.core.logging import setup_logging, get_logger
@@ -159,6 +160,7 @@ app.include_router(optimization_router, prefix="/api")
 app.include_router(traffic_router, prefix="/api")
 app.include_router(prediction_router, prefix="/api")
 app.include_router(forecast_router, prefix="/api")
+app.include_router(vision_router, prefix="/api")
 app.include_router(benchmark_router, prefix="/api")
 app.include_router(alerts_router, prefix="/api")
 app.include_router(assistant_router, prefix="/api")
