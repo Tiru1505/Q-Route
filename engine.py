@@ -455,15 +455,127 @@ class QROEngine:
         }
 
     # =========================================================== benchmark
-    def benchmark(self, stops=6, trials=30, mode="balanced"):
-        """QPSO vs PSO vs GA on identical conditions — the core experiment."""
+    def _nearest_node(self, lat, lon):
+        """Closest graph node to a coordinate. Brute force; called a handful of times."""
+        best, best_d = None, float("inf")
+        coslat = math.cos(math.radians(lat))
+        for n, d in self.G.nodes(data=True):
+            dy = float(d["y"]) - lat
+            dx = (float(d["x"]) - lon) * coslat
+            dist = dy * dy + dx * dx
+            if dist < best_d:
+                best, best_d = n, dist
+        return best
+
+    def corridor_stops(self, source, target, stops=6):
+        """
+        A multi-stop problem anchored to one real journey.
+
+        WHY NOT JUST BENCHMARK THE USER'S ROUTE
+        Their route has two endpoints, and for a single origin-destination pair
+        with additive edge weights Dijkstra is provably optimal. Every
+        metaheuristic would find the same answer and the comparison would show
+        four algorithms tied — true, and completely uninformative. QPSO only has
+        something to prove where the search space is combinatorial, which is
+        stop ORDERING.
+
+        So the endpoints are theirs and the intermediate stops are placed along
+        the corridor between them.
+
+        WHY THE STOPS ARE OFFSET FROM THE STRAIGHT LINE
+        Collinear stops make the problem degenerate: the best tour is simply
+        "visit them in order", every algorithm finds it immediately, and the
+        benchmark measures nothing. Each intermediate stop is pushed
+        perpendicular to the corridor, alternating sides, so the ordering is a
+        real decision.
+
+        Deterministic: the same pair of endpoints always yields the same
+        problem, so a benchmark can be re-run and compared.
+        """
+        sy, sx = float(self.G.nodes[source]["y"]), float(self.G.nodes[source]["x"])
+        ty, tx = float(self.G.nodes[target]["y"]), float(self.G.nodes[target]["x"])
+
+        dy, dx = ty - sy, tx - sx
+        span = math.hypot(dy, dx)
+        if span < 1e-9:
+            raise ValueError("benchmark endpoints are the same point")
+
+        # Perpendicular unit vector, scaled to a fraction of the corridor so the
+        # detour is proportionate on a 20 km trip and on a 700 km one.
+        py, px = -dx / span, dy / span
+        amplitude = span * 0.18
+
+        nodes, seen = [source], {source}
+        for i in range(1, stops):
+            f = i / stops
+            side = 1.0 if i % 2 else -1.0
+            # Taper towards the ends so stops stay near the corridor rather
+            # than ballooning out at the halfway point.
+            bulge = math.sin(math.pi * f) * amplitude * side
+            lat = sy + dy * f + py * bulge
+            lon = sx + dx * f + px * bulge
+            n = self._nearest_node(lat, lon)
+            if n not in seen:
+                nodes.append(n)
+                seen.add(n)
+        if target not in seen:
+            nodes.append(target)
+        return nodes
+
+    def benchmark(self, stops=6, trials=30, mode="balanced",
+                  source=None, target=None):
+        """
+        QPSO vs PSO vs GA on identical conditions — the core experiment.
+
+        With `source` and `target` the problem is built around that journey, so
+        optimising a different route benchmarks a different instance. Without
+        them it falls back to the fixed curated round, which is what the
+        published headline figures were measured on.
+        """
         from benchmarking.benchmark import Budget, run_benchmark
         from optimization.multistop import MultiStopProblem
+
+        # Recorded as ASKED, not as resolved, so convergence can tell whether
+        # the summaries in hand belong to the instance it was asked about.
+        self._last_key = (stops, trials, source, target)
+
+        if source is not None and target is not None:
+            nodes = self.corridor_stops(source, target, stops=stops)
+            stop_names = [f"stop {i}" for i in range(len(nodes))]
+            stop_names[0], stop_names[-1] = "start", "destination"
+            return self._run_benchmark(
+                nodes, stop_names, stops, trials, mode,
+                Budget, run_benchmark, MultiStopProblem,
+                problem_label=f"{len(nodes) - 1}-stop round on your route, {self.scenario}",
+            )
 
         keys = ["hitec", "gachibowli", "jubilee", "panjagutta", "ameerpet",
                 "begumpet", "secunderabad", "charminar", "mehdipatnam",
                 "dilsukhnagar", "uppal"][: stops + 1]
-        nodes = [resolve_place(self.G, k)[0] for k in keys]
+        # Names are kept, not just node ids: the UI used to hardcode
+        # "Hitec City -> Charminar" and "30 Independent Runs" in its header,
+        # which silently misreported the run the moment stops or trials
+        # changed — and the trials default has already moved from 20 to 30
+        # once. Reporting what actually ran costs nothing.
+        resolved = [resolve_place(self.G, k) for k in keys]
+        nodes = [r[0] for r in resolved]
+        stop_names = [r[1] for r in resolved]
+        return self._run_benchmark(
+            nodes, stop_names, stops, trials, mode,
+            Budget, run_benchmark, MultiStopProblem,
+            problem_label=f"{stops}-stop delivery round, {self.scenario}",
+        )
+
+    def _summaries_for(self, stops, trials, source=None, target=None):
+        """Summaries for exactly this instance, re-running only when it differs."""
+        key = (stops, trials, source, target)
+        if getattr(self, "_last_key", None) != key or not hasattr(self, "_last_summaries"):
+            self.benchmark(stops=stops, trials=trials, source=source, target=target)
+        return self._last_summaries
+
+    def _run_benchmark(self, nodes, stop_names, stops, trials, mode,
+                       Budget, run_benchmark, MultiStopProblem, problem_label):
+        """The comparison itself, shared by the curated round and a live route."""
         cost_model = CostModel.calibrate(self.G, nodes[0], nodes[-1], mode=mode)
         problem = MultiStopProblem(self.G, cost_model, nodes[0], nodes[1:])
 
@@ -497,9 +609,19 @@ class QROEngine:
 
         self._last_summaries = summaries
         return {
-            "problem": f"{stops}-stop delivery round, {self.scenario}",
+            "problem": problem_label,
             "budget": budget.describe(),
             "exactOptimum": _round(optimum, 6),
+            # What was actually run, so the UI never has to assert it.
+            "scenario": self.scenario,
+            # The real number of legs, which can differ from what was asked for
+            # when two generated stops snap to the same graph node.
+            "stops": len(nodes) - 1,
+            "trials": trials,
+            "mode": mode,
+            "stopNames": stop_names,
+            "origin": stop_names[0],
+            "destination": stop_names[-1],
             "classical": [
                 {"algorithm": "Dijkstra",
                  "note": "cannot solve — no concept of stop ordering"},
@@ -510,11 +632,19 @@ class QROEngine:
             "isDemoData": False,
         }
 
-    def convergence(self, stops=6, trials=15):
-        """Iteration-vs-fitness curves, averaged across trials."""
-        if not hasattr(self, "_last_summaries"):
-            self.benchmark(stops=stops, trials=trials)
-        summaries = self._last_summaries
+    def convergence(self, stops=6, trials=15, source=None, target=None):
+        """
+        Iteration-vs-fitness curves, averaged across trials.
+
+        The endpoints are taken rather than inherited. This used to reuse
+        `_last_summaries` from whichever benchmark ran most recently, which was
+        harmless while there was one fixed problem and became a silent
+        mismatch once the benchmark follows the user's route: the table showed
+        one instance and the chart beneath it showed another, with nothing to
+        indicate they disagreed. Two people benchmarking different routes would
+        corrupt each other's chart.
+        """
+        summaries = self._summaries_for(stops, trials, source, target)
 
         longest = max(len(c) for s in summaries.values() for c in s.convergence_curves)
         data = []

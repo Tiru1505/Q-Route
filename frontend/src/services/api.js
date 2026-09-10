@@ -460,9 +460,37 @@ export async function getAnalytics() {
   )
 }
 
-export async function getBenchmark() {
+/**
+ * The algorithm comparison.
+ *
+ * Given a start and end, the problem is built around THAT journey, so
+ * benchmarking after optimising a different route measures a different
+ * instance. Without them the backend runs its fixed curated round — the one
+ * the published headline figures were measured on.
+ */
+export async function getBenchmark({ start, end, graph } = {}) {
+  const params = new URLSearchParams()
+  if (start && end) {
+    // coordsFor throws on a place with no coordinates. That should degrade to
+    // the curated benchmark, not fail the whole panel.
+    try {
+      const a = coordsFor(start)
+      const b = coordsFor(end)
+      params.set('origin_lat', a.lat)
+      params.set('origin_lon', a.lon)
+      params.set('dest_lat', b.lat)
+      params.set('dest_lon', b.lon)
+    } catch {
+      params.delete('origin_lat'); params.delete('origin_lon')
+      params.delete('dest_lat'); params.delete('dest_lon')
+    }
+  }
+  if (graph) params.set('graph', graph)
+  const qs = params.toString()
+
   return liveOrMock(
-    async () => mapBenchmarkResponse(await request('/benchmark/results')),
+    async () => mapBenchmarkResponse(
+      await request(`/benchmark/results${qs ? `?${qs}` : ''}`)),
     async () => {
       await delay(400)
       return clone(BENCHMARK)
@@ -470,9 +498,26 @@ export async function getBenchmark() {
   )
 }
 
-export async function getConvergence() {
+export async function getConvergence({ start, end, graph } = {}) {
+  // Same route as the table above it, or the chart describes a different
+  // problem than the numbers it sits under.
+  const params = new URLSearchParams()
+  if (start && end) {
+    try {
+      const a = coordsFor(start)
+      const b = coordsFor(end)
+      params.set('origin_lat', a.lat)
+      params.set('origin_lon', a.lon)
+      params.set('dest_lat', b.lat)
+      params.set('dest_lon', b.lon)
+    } catch { /* fall back to the curated instance */ }
+  }
+  if (graph) params.set('graph', graph)
+  const qs = params.toString()
+
   return liveOrMock(
-    async () => mapConvergenceResponse(await request('/benchmark/convergence/all')),
+    async () => mapConvergenceResponse(
+      await request(`/benchmark/convergence/all${qs ? `?${qs}` : ''}`)),
     async () => {
       await delay(400)
       return {

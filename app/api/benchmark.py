@@ -1,6 +1,6 @@
 """Benchmarking API endpoints."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from app.models.benchmark_models import BenchmarkRequest, BenchmarkResult, ConvergenceResult
 from app.services.benchmark_service import BenchmarkService
@@ -45,6 +45,12 @@ def benchmark_results(
         pattern="^(live|stored)$",
         description="'live' runs the real comparison; 'stored' returns saved run documents",
     ),
+    origin_lat: float | None = Query(default=None, ge=-90, le=90),
+    origin_lon: float | None = Query(default=None, ge=-180, le=180),
+    dest_lat: float | None = Query(default=None, ge=-90, le=90),
+    dest_lon: float | None = Query(default=None, ge=-180, le=180),
+    graph: str | None = Query(
+        default=None, description="Road network to benchmark on: 'hyderabad' or 'india'"),
 ) -> dict:
     """
     The algorithm comparison the Benchmark page renders.
@@ -65,9 +71,29 @@ def benchmark_results(
 
     from app.api.analytics import _cached
 
+    have_route = None not in (origin_lat, origin_lon, dest_lat, dest_lon)
+
     def build():
-        from app.integrations.engine_bridge import get_engine
-        data = get_engine().benchmark(stops=stops, trials=trials)
+        from app.integrations.engine_bridge import _nearest, get_engine
+        from app.models.route_models import Coordinate
+
+        engine = get_engine(graph)
+        if have_route:
+            # Anchored to the journey the caller actually optimised, so two
+            # different routes produce two different benchmark instances
+            # instead of the one fixed scenario everybody used to see.
+            src = _nearest(engine, Coordinate(lat=origin_lat, lon=origin_lon))
+            dst = _nearest(engine, Coordinate(lat=dest_lat, lon=dest_lon))
+            if src == dst:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Start and destination snap to the same node — "
+                           "nothing to benchmark between them.",
+                )
+            data = engine.benchmark(stops=stops, trials=trials,
+                                    source=src, target=dst)
+        else:
+            data = engine.benchmark(stops=stops, trials=trials)
         return {
             "results": [
                 {
@@ -91,10 +117,24 @@ def benchmark_results(
             "budget": data["budget"],
             "exact_optimum": data["exactOptimum"],
             "classical": data["classical"],
+            # Passed through so the page reports the run it is showing rather
+            # than asserting a scenario in hardcoded JSX.
+            "scenario": data.get("scenario"),
+            "stops": data.get("stops"),
+            "trials": data.get("trials"),
+            "mode": data.get("mode"),
+            "stop_names": data.get("stopNames"),
+            "origin": data.get("origin"),
+            "destination": data.get("destination"),
             "source": "live",
         }
 
-    return _cached(f"benchmark:{stops}:{trials}", build)
+    # The endpoints are part of the key, or the first route's results would be
+    # served for every later one — the cache is what made this look fixed.
+    key = f"benchmark:{graph or 'default'}:{stops}:{trials}"
+    if have_route:
+        key += f":{origin_lat:.4f},{origin_lon:.4f}->{dest_lat:.4f},{dest_lon:.4f}"
+    return _cached(key, build)
 
 
 @router.get(
@@ -120,13 +160,41 @@ def convergence(
 def convergence_all(
     stops: int = Query(default=6, ge=3, le=8),
     trials: int = Query(default=15, ge=1, le=40),
+    origin_lat: float | None = Query(default=None, ge=-90, le=90),
+    origin_lon: float | None = Query(default=None, ge=-180, le=180),
+    dest_lat: float | None = Query(default=None, ge=-90, le=90),
+    dest_lon: float | None = Query(default=None, ge=-180, le=180),
+    graph: str | None = Query(default=None),
 ) -> dict:
+    """
+    The same route parameters as /results, and for the same reason.
+
+    Without them the chart would render whichever instance happened to run
+    last, so the table and the curve underneath it could describe different
+    problems with nothing on screen saying so.
+    """
     from app.api.analytics import _cached
 
-    def build():
-        from app.integrations.engine_bridge import get_engine
-        engine = get_engine()
-        engine.benchmark(stops=stops, trials=trials)
-        return engine.convergence(stops=stops, trials=trials)
+    have_route = None not in (origin_lat, origin_lon, dest_lat, dest_lon)
 
-    return _cached(f"convergence:{stops}:{trials}", build)
+    def build():
+        from app.integrations.engine_bridge import _nearest, get_engine
+        from app.models.route_models import Coordinate
+
+        engine = get_engine(graph)
+        src = dst = None
+        if have_route:
+            src = _nearest(engine, Coordinate(lat=origin_lat, lon=origin_lon))
+            dst = _nearest(engine, Coordinate(lat=dest_lat, lon=dest_lon))
+            if src == dst:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Start and destination snap to the same node.",
+                )
+        return engine.convergence(stops=stops, trials=trials,
+                                  source=src, target=dst)
+
+    key = f"convergence:{graph or 'default'}:{stops}:{trials}"
+    if have_route:
+        key += f":{origin_lat:.4f},{origin_lon:.4f}->{dest_lat:.4f},{dest_lon:.4f}"
+    return _cached(key, build)

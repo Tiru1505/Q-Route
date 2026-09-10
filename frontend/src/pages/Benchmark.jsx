@@ -5,8 +5,46 @@ import ConvergenceChart from '../components/ConvergenceChart'
 import { ScalabilityChart } from '../components/TrafficChart'
 import { CardSkeleton } from '../components/LoadingScreen'
 import { getBenchmark, getConvergence, getScalability } from '../services/api'
+import { useApp } from '../store/AppContext'
+
+/**
+ * One scenario field, taken from the benchmark response.
+ *
+ * Returns an em dash while the run is still loading rather than a plausible
+ * default — a placeholder that looks like a real figure is worse than an
+ * obvious gap, because nobody goes back to check it.
+ */
+function scenarioText(bench, field) {
+  if (!bench) return '—'
+  switch (field) {
+    case 'route':
+      return bench.origin && bench.destination
+        ? `${bench.origin} → ${bench.destination}`
+        : '—'
+    case 'problem':
+      return bench.stops
+        ? `${bench.stops}-Stop Multi-Delivery Round${bench.scenario ? ` · ${bench.scenario}` : ''}`
+        : (bench.problem ?? '—')
+    case 'budget': {
+      // The backend describes the budget in a sentence; the headline number is
+      // the evaluation count, so pull that out and keep the sentence as a title.
+      const m = /([\d,]+)\s*evaluations/i.exec(bench.budget ?? '')
+      return m ? `${m[1]} Evaluations / Algorithm` : (bench.budget ?? '—')
+    }
+    case 'trials': {
+      const n = bench.trials ?? bench.rows?.[0]?.trials
+      return n ? `${n} Independent Runs` : '—'
+    }
+    default:
+      return '—'
+  }
+}
 
 export default function Benchmark() {
+  // The endpoints the user last routed. With them the backend builds the
+  // benchmark around that journey, so a different route is a different
+  // instance instead of the one fixed scenario everyone used to see.
+  const { start, end, graph } = useApp()
   const [bench, setBench] = useState(null)
   const [conv, setConv] = useState(null)
   const [scale, setScale] = useState(null)
@@ -21,13 +59,16 @@ export default function Benchmark() {
     // this page — sat behind a skeleton until the slowest call finished. Each
     // panel now appears as soon as its own data lands, and one failing does
     // not blank the others.
-    getBenchmark().then((d) => !cancelled && setBench(d))
+    setBench(null)
+    getBenchmark({ start, end, graph }).then((d) => !cancelled && setBench(d))
       .catch((e) => !cancelled && setError(e.message))
-    getConvergence().then((d) => !cancelled && setConv(d)).catch(() => {})
+    setConv(null)
+    getConvergence({ start, end, graph }).then((d) => !cancelled && setConv(d)).catch(() => {})
     getScalability().then((d) => !cancelled && setScale(d)).catch(() => {})
 
     return () => { cancelled = true }
-  }, [])
+    // Re-runs when the route changes, which is the whole point.
+  }, [start?.lat, start?.lon, end?.lat, end?.lon, graph])
 
   if (error) {
     return (
@@ -48,29 +89,39 @@ export default function Benchmark() {
         <p>QPSO measured against Dijkstra, PSO and GA on identical problem instances.</p>
       </div>
 
-      {/* Benchmark Scenario Parameters Card */}
+      {/* Scenario parameters, read from the run rather than asserted.
+          These four were hardcoded — "Hitec City → Charminar", "6-Stop",
+          "4,800 Evaluations", "30 Independent Runs" — so the header kept
+          claiming a fixed scenario however the benchmark was actually
+          configured. The trials default has already moved from 20 to 30 once
+          in this project, which is exactly how a caption starts lying. */}
       <div className="card" style={{ marginBottom: 14, padding: '12px 16px' }}>
         <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 8, letterSpacing: '0.05em' }}>
           Benchmark Scenario Parameters
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, fontSize: 12 }}>
           <div>
-            <span style={{ color: 'var(--text-faint)', display: 'block', fontSize: 10 }}>ORIGIN & DESTINATION</span>
-            <strong>Hitec City → Charminar</strong>
+            <span style={{ color: 'var(--text-faint)', display: 'block', fontSize: 10 }}>ORIGIN &amp; DESTINATION</span>
+            <strong>{scenarioText(bench, 'route')}</strong>
           </div>
           <div>
             <span style={{ color: 'var(--text-faint)', display: 'block', fontSize: 10 }}>PROBLEM CLASS</span>
-            <strong>6-Stop Multi-Delivery Round</strong>
+            <strong>{scenarioText(bench, 'problem')}</strong>
           </div>
           <div>
             <span style={{ color: 'var(--text-faint)', display: 'block', fontSize: 10 }}>EVALUATION BUDGET</span>
-            <strong>4,800 Evaluations / Algorithm</strong>
+            <strong>{scenarioText(bench, 'budget')}</strong>
           </div>
           <div>
             <span style={{ color: 'var(--text-faint)', display: 'block', fontSize: 10 }}>TRIALS / REPETITIONS</span>
-            <strong>30 Independent Runs</strong>
+            <strong>{scenarioText(bench, 'trials')}</strong>
           </div>
         </div>
+        {bench?.stopNames?.length ? (
+          <p style={{ fontSize: 10.5, color: 'var(--text-faint)', margin: '8px 0 0', lineHeight: 1.5 }}>
+            Stops in order: {bench.stopNames.join(' → ')}
+          </p>
+        ) : null}
       </div>
 
       {bench?.isDemoData === false ? (
@@ -84,7 +135,8 @@ export default function Benchmark() {
           }}
         >
           <Info size={13} />
-          Live engine benchmark results — {bench.problem ? ` ${bench.problem}` : ''}.
+          Live engine benchmark results — {bench.problem ? ` ${bench.problem}` : ''}
+          {start && end ? ' · built around the route you optimised' : ' · standard curated round'}.
         </div>
       ) : (
         <div className="demo-notice" style={{ marginBottom: 14 }}>

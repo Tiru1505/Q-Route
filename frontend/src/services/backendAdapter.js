@@ -161,6 +161,15 @@ export function mapBenchmarkResponse(payload) {
     budget: payload?.budget ?? null,
     exactOptimum: payload?.exact_optimum ?? null,
     classical: payload?.classical ?? [],
+    // What actually ran. The page used to state the scenario in hardcoded
+    // text, which quietly lied whenever stops or trials changed.
+    scenario: payload?.scenario ?? null,
+    stops: payload?.stops ?? null,
+    trials: payload?.trials ?? null,
+    mode: payload?.mode ?? null,
+    stopNames: payload?.stop_names ?? null,
+    origin: payload?.origin ?? null,
+    destination: payload?.destination ?? null,
     rows: (Array.isArray(rows) ? rows : []).map((r) => ({
       algorithm: r.algorithm ?? r.name ?? '?',
       deterministic: (r.algorithm ?? '').toLowerCase() === 'dijkstra',
