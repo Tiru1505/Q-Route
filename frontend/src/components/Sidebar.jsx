@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Activity, BarChart3, Bell, ChevronLeft, ChevronRight, FlaskConical,
   History as HistoryIcon, LayoutDashboard, Menu, Pin, Route as RouteIcon, ScanEye,
-  Settings as SettingsIcon, X,
+  Settings as SettingsIcon, ShieldCheck, X,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { SYSTEM_STATUS } from '../data/mockData'
@@ -15,6 +15,7 @@ export const NAV_ITEMS = [
   { to: '/traffic', label: 'Live Traffic', icon: Activity },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/vision', label: 'Road Vision', icon: ScanEye },
+  { to: '/command', label: 'Command Centre', icon: ShieldCheck },
   { to: '/benchmark', label: 'Benchmark', icon: FlaskConical },
   { to: '/alerts', label: 'Alerts', icon: Bell, showCount: true },
   { to: '/history', label: 'History', icon: HistoryIcon },

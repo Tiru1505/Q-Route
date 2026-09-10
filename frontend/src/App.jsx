@@ -57,6 +57,7 @@ const RouteOptimizer = lazy(() => import('./pages/RouteOptimizer'))
 const LiveTraffic = lazy(() => import('./pages/LiveTraffic'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const RoadVision = lazy(() => import('./pages/RoadVision'))
+const CommandCentre = lazy(() => import('./pages/CommandCentre'))
 const Benchmark = lazy(() => import('./pages/Benchmark'))
 const Alerts = lazy(() => import('./pages/Alerts'))
 const History = lazy(() => import('./pages/History'))
@@ -93,6 +94,7 @@ export default function App() {
                   <Route path="/traffic" element={<LiveTraffic />} />
                   <Route path="/analytics" element={<Analytics />} />
                   <Route path="/vision" element={<RoadVision />} />
+                  <Route path="/command" element={<CommandCentre />} />
                   <Route path="/benchmark" element={<Benchmark />} />
                   <Route path="/alerts" element={<Alerts />} />
                   <Route path="/history" element={<History />} />

@@ -220,6 +220,58 @@ export async function getGraphs() {
   return request('/graphs')
 }
 
+/* ------------------------------------------------- agent & simulation */
+
+/**
+ * Ask the AI Traffic Agent whether rerouting is worth it.
+ *
+ * No mock fallback anywhere in this group. A fabricated "13 minutes saved"
+ * is indistinguishable from a real one on screen, and that is exactly the
+ * claim this feature exists to make truthfully.
+ */
+export async function analyzeTraffic({ horizonMin = 15, predictive = true, force = false, graph } = {}) {
+  const p = new URLSearchParams({
+    horizon_min: String(horizonMin),
+    predictive: String(predictive),
+    force: String(force),
+  })
+  if (graph) p.set('graph', graph)
+  return request(`/agent/analyze?${p}`, { method: 'POST' })
+}
+
+export async function acceptReroute(graph) {
+  return request(`/agent/accept${graph ? `?graph=${graph}` : ''}`, { method: 'POST' })
+}
+
+export async function declineReroute(graph) {
+  return request(`/agent/decline${graph ? `?graph=${graph}` : ''}`, { method: 'POST' })
+}
+
+export async function getAgentStatus(graph) {
+  return request(`/agent/status${graph ? `?graph=${graph}` : ''}`)
+}
+
+export async function getScenarios(graph) {
+  return request(`/simulation/scenarios${graph ? `?graph=${graph}` : ''}`)
+}
+
+export async function triggerScenario(scenario, graph) {
+  const p = new URLSearchParams({ scenario })
+  if (graph) p.set('graph', graph)
+  return request(`/simulation/event?${p}`, { method: 'POST' })
+}
+
+export async function congestActiveRoute({ level = 0.92, graph } = {}) {
+  const p = new URLSearchParams({ level: String(level) })
+  if (graph) p.set('graph', graph)
+  return request(`/simulation/congest-route?${p}`, { method: 'POST' })
+}
+
+/** Component health, as reported by the backend rather than assumed. */
+export async function getSystemStatus() {
+  return request('/status')
+}
+
 /** Send open-ended navigation language to the server-side LLM tool runner. */
 export async function assistantChat({ messages, context } = {}) {
   if (USE_MOCK) {
