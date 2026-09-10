@@ -246,6 +246,60 @@ function InvalidateOnMount() {
 }
 
 /**
+ * Cap the map to the space actually below it.
+ *
+ * Every previous attempt at this was a guess at how far down the page the map
+ * begins — `100vh - 32px`, `100vh - navbar - 260px` — and each was wrong
+ * somewhere. The optimizer starts its map 177px down, Live Traffic 356px, and
+ * both move with the viewport. A constant cannot be right for both, so this
+ * measures the element instead of predicting it.
+ *
+ * Runs on mount and on every resize, so it stays correct when the window
+ * changes or the panels beside it grow.
+ */
+function FitToViewport({ gutter = 16 }) {
+  const map = useMap()
+
+  useEffect(() => {
+    const shell = map.getContainer().closest('.map-shell')
+    if (!shell) return undefined
+
+    const apply = () => {
+      const top = shell.getBoundingClientRect().top
+      // A sticky element reports its pinned position once stuck, which is the
+      // right number to use either way: it is where the map actually sits.
+      const available = Math.max(window.innerHeight - top - gutter, 240)
+
+      // height, and BOTH bounds. max-height alone loses to a min-height floor:
+      // .map-shell carries min-height 580px and Live Traffic added 420px
+      // inline, so on a 768px-tall screen the floor kept the map 8px past the
+      // fold no matter what the cap said. Setting all three leaves nothing to
+      // argue with.
+      const px = `${available}px`
+      shell.style.height = px
+      shell.style.minHeight = px
+      shell.style.maxHeight = px
+    }
+
+    apply()
+    window.addEventListener('resize', apply)
+    const observer = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(apply)
+      : null
+    // Watching the page, not the shell: the shell's own height is what we set,
+    // and observing that would loop.
+    observer?.observe(document.body)
+
+    return () => {
+      window.removeEventListener('resize', apply)
+      observer?.disconnect()
+    }
+  }, [map, gutter])
+
+  return null
+}
+
+/**
  * Keep Leaflet's idea of its own size in step with the element.
  *
  * Covers the no-route case; when routes are present FitBounds re-fits as well
@@ -790,6 +844,7 @@ export default function MapView({
         maxZoom={19}
       />
 
+      <FitToViewport />
       <InvalidateOnMount />
       <InvalidateOnResize />
 

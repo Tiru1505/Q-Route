@@ -510,10 +510,10 @@
      available — and the map stays in view while the side panels scroll. */
   position: sticky;
   top: 16px;
-  /* 177px is where the map starts: the 60px navbar plus the page heading and
-     its gutters. Plus 16px of breathing room underneath. Measured rather than
-     guessed — an earlier `100vh - 32px` assumed the map began at the top of
-     the viewport and left it 143px past the fold. */
+  /* A starting cap only. FitToViewport measures the element's real top on
+     mount and on resize and overwrites this inline, because the map begins at
+     a different height on every page — 177px on the optimizer, 356px on Live
+     Traffic — and no single constant is right for both. */
   max-height: calc(100vh - 193px);
   border-radius: var(--radius);
   overflow: hidden;

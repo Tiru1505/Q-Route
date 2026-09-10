@@ -70,7 +70,10 @@ export default function LiveTraffic() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 330px', gap: 14, alignItems: 'start' }} className="lt-grid">
-        <div className="map-shell" style={{ height: 'calc(100vh - var(--navbar-h) - 260px)', minHeight: 420 }}>
+        {/* Height is measured at runtime by FitToViewport, not guessed here. The
+            old `100vh - navbar - 260px` assumed this map began 320px down the
+            page; it actually begins at 356px, so it hung off the bottom. */}
+        <div className="map-shell">
           <MapView
             segments={segments}
             incidents={incidents}

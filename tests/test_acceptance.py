@@ -435,6 +435,80 @@ def test_17_history_is_scoped_to_the_user():
     ), "the two users' histories overlap"
 
 
+def test_18_monitor_runs_without_being_asked():
+    """
+    The loop must tick on its own, and must not fake work when nothing changed.
+
+    Two failures to guard. One is a loop that does not run — everything before
+    this had to be triggered by hand. The other is a loop that re-runs the model
+    on an unchanged 15-minute window and presents the identical answer as a
+    fresh prediction; that burns CPU to look busy and inflates any claim about
+    how often the system predicts.
+
+    Uses its own context-managed client. The module-level TestClient has no
+    persistent event loop between requests, so a task created by one request is
+    torn down before the next — the loop reported zero ticks not because it was
+    broken but because the harness kept killing it.
+    """
+    import time
+
+    with TestClient(app) as c:
+        c.post("/api/simulation/event?scenario=normal")
+        c.post("/api/routes/optimize", json={
+            "source": START, "destination": END, "algorithm": "qpso"})
+        c.post("/api/routes/reroute", json={"progress": 0.3, "spike": False})
+
+        r = c.post("/api/monitor/start?tick_seconds=1")
+        assert r.status_code == 200, r.text
+        assert r.json()["running"] is True
+
+        try:
+            time.sleep(6)
+            s = c.get("/api/monitor/status").json()
+
+            assert s["ticks"] >= 2, f"the loop did not tick on its own: {s['ticks']}"
+            assert s["errors"] == 0, f"ticks errored: {s['history'][:2]}"
+
+            # Far more ticks than forecasts: the model is not re-run per tick.
+            assert s["forecasts"] <= s["ticks"], s
+            reused = [h for h in s["history"] if h["kind"] == "evaluate"]
+            assert reused, "every tick re-forecast — the unchanged-input check is dead"
+            assert any("reused" in h["note"] for h in reused), reused[:2]
+        finally:
+            assert c.post("/api/monitor/stop").json()["running"] is False
+
+
+def test_19_monitor_notices_congestion_unprompted():
+    """A jam appearing mid-trip must be picked up by the loop, not by a click."""
+    import time
+
+    with TestClient(app) as c:
+        c.post("/api/simulation/event?scenario=normal")
+        c.post("/api/routes/optimize", json={
+            "source": START, "destination": END, "algorithm": "qpso"})
+        c.post("/api/routes/reroute", json={"progress": 0.3, "spike": False})
+        c.post("/api/monitor/start?tick_seconds=1")
+
+        try:
+            time.sleep(3)
+            before = c.get("/api/monitor/status").json()["ticks"]
+
+            c.post("/api/simulation/congest-route?level=0.97")
+            time.sleep(5)
+
+            after = c.get("/api/monitor/status").json()
+            assert after["ticks"] > before, "the loop stopped ticking"
+            evaluated = [h for h in after["history"]
+                         if h["kind"] in ("forecast", "evaluate")]
+            assert evaluated, "no route evaluation happened after congestion"
+            # Either it alerted, or it recorded why it stayed quiet. Silence
+            # with no reason is the thing that must not happen.
+            assert any(h["alerted"] or h["suppressed"] or h["decision"]
+                       for h in evaluated), evaluated[:3]
+        finally:
+            c.post("/api/monitor/stop")
+
+
 # --------------------------------------------------- contract guarantees
 
 def test_simulated_results_are_always_labelled():
