@@ -32,9 +32,9 @@ def status() -> dict:
         "version": settings.app_version,
         "environment": settings.app_env,
         "database": db_status,
-        # Reported from the adapters actually wired in, not hardcoded. graph,
-        # optimization and traffic run on the real OSM engine now; prediction
-        # is still a placeholder and says so.
+        # Reported from the adapters actually wired in, not hardcoded — every
+        # one of these is asked what it really is, including prediction, which
+        # was hardcoded to "mock" and stayed that way after the LSTM landed.
         "adapters": _adapter_status(),
     }
 
@@ -42,6 +42,7 @@ def status() -> dict:
 def _adapter_status() -> dict[str, str]:
     """Which implementation is behind each adapter right now."""
     from app.integrations.graph_adapter import get_graph_adapter
+    from app.integrations.prediction_adapter import get_prediction_adapter
     from app.integrations.qpso_adapter import get_optimization_adapter
     from app.integrations.traffic_adapter import get_traffic_adapter
 
@@ -53,10 +54,27 @@ def _adapter_status() -> dict[str, str]:
             "graph": label(get_graph_adapter()),
             "optimization": label(get_optimization_adapter("qpso")),
             "traffic": label(get_traffic_adapter()),
-            "prediction": "mock",          # no LSTM/GRU wired in yet
+            # Asked, not asserted: "lstm+anchored-history" when the trained
+            # weights load, "mock" when they do not.
+            "prediction": _prediction_label(),
             "benchmark": "osm",            # served from real benchmark runs
         }
     except Exception:                      # never let /status fail on this
         return {"graph": "unknown", "optimization": "unknown",
                 "traffic": "unknown", "prediction": "mock",
                 "benchmark": "unknown"}
+
+
+def _prediction_label() -> str:
+    """What the prediction adapter actually is, by asking it."""
+    from app.integrations.prediction_adapter import get_prediction_adapter
+    from app.models.route_models import Coordinate
+
+    adapter = get_prediction_adapter()
+    # The class name is not enough — LstmPredictionAdapter constructs fine and
+    # only reveals its data_source in a response, so ask it for one. Hyderabad
+    # centre; the coordinate does not matter, only the label that comes back.
+    try:
+        return adapter.predict(Coordinate(lat=17.4065, lon=78.4772), 30)["data_source"]
+    except Exception:
+        return type(adapter).__name__
