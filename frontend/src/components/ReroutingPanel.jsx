@@ -35,15 +35,21 @@ export default function ReroutingPanel({ state, result, onReroute, onAccept }) {
               <TriangleAlert size={15} />
             </motion.span>
             <div>
-              <h4 style={{ fontSize: 13, fontWeight: 600 }}>Congestion detected</h4>
+              <h4 style={{ fontSize: 13, fontWeight: 600 }}>Traffic spike on your route</h4>
               <p style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>
-                Congestion on your current route has increased sharply.
+                The road ahead just jammed. The monitor is re-checking your
+                route on its own — if a better one exists, the alert will
+                appear by itself.
               </p>
             </div>
           </div>
-          <button className="btn btn-primary btn-block btn-sm" onClick={onReroute}>
-            <Navigation size={13} /> Recalculate Route
-          </button>
+          {/* Only offered where a caller still wants a manual trigger. The
+              dashboard does not: the monitor raises the alert unprompted. */}
+          {onReroute && (
+            <button className="btn btn-primary btn-block btn-sm" onClick={onReroute}>
+              <Navigation size={13} /> Recalculate Route
+            </button>
+          )}
         </motion.div>
       )}
 

@@ -11,6 +11,15 @@ import {
 import * as api from '../services/api'
 import { mapOptimizeResponse } from '../services/backendAdapter'
 
+// How often the monitor looks while someone is watching for its alert, and
+// how often once they are not. The backend's own default is the relaxed one.
+const WATCH_TICK_S = 2
+const RELAXED_TICK_S = 15
+// The demo's starting traffic, restored on every run.
+const DEMO_SCENARIO = 'peak_hour'
+// How long the demo waits for the monitor before reporting that it stayed quiet.
+const ALERT_WAIT_MS = 25_000
+
 const AppContext = createContext(null)
 
 export function useApp() {
@@ -47,7 +56,14 @@ export function AppProvider({ children }) {
       // Clear legacy auto-login user from localStorage if present
       localStorage.removeItem('qro.user')
       const sess = sessionStorage.getItem('qro.session_user')
-      return sess ? JSON.parse(sess) : null
+      const stored = sess ? JSON.parse(sess) : null
+      // Guest sign-in has been removed. A guest session saved before that
+      // would otherwise keep working for the rest of the tab's life.
+      if (stored?.guest) {
+        sessionStorage.removeItem('qro.session_user')
+        return null
+      }
+      return stored
     } catch {
       return null
     }
@@ -82,17 +98,16 @@ export function AppProvider({ children }) {
     return true
   }, [])
 
-  const continueAsGuest = useCallback(() => {
-    const guestUser = {
-      email: 'guest@qro.local',
-      name: 'Guest',
-      initials: 'GU',
-      signedInAt: new Date().toISOString(),
-      guest: true,
-    }
-    setUser(guestUser)
+  /**
+   * A user the SERVER has verified — Google sign-in. Unlike signIn() below,
+   * nothing here decides who the user is: /api/auth/google checked Google's
+   * signature, audience and verified email before returning this.
+   */
+  const completeSignIn = useCallback((verified) => {
+    const u = { ...verified, signedInAt: new Date().toISOString(), guest: false }
+    setUser(u)
     try {
-      sessionStorage.setItem('qro.session_user', JSON.stringify(guestUser))
+      sessionStorage.setItem('qro.session_user', JSON.stringify(u))
     } catch {}
   }, [])
 
@@ -101,6 +116,8 @@ export function AppProvider({ children }) {
       sessionStorage.removeItem('qro.session_user')
       localStorage.removeItem('qro.user')
     } catch {}
+    // Otherwise Google would sign the same account straight back in.
+    try { window.google?.accounts?.id?.disableAutoSelect() } catch {}
     setUser(null)
   }, [])
 
@@ -173,7 +190,15 @@ export function AppProvider({ children }) {
   const [segments, setSegments] = useState(TRAFFIC_SEGMENTS)
   const [incidents, setIncidents] = useState([])
   const [alerts, setAlerts] = useState([])
-  const [predictiveAlert, setPredictiveAlert] = useState(null)
+  // The spike, and what the SYSTEM said about it. Nothing on this side decides
+  // that an alert happened: `latestAlert` is set only when the backend's
+  // monitor pushes one over the notification socket. The dashboard used to
+  // raise its own — two hard-coded mock segments painted red and a fixed
+  // "Mehdipatnam – Masab Tank, 62% → 94% in 15 min" that nothing had computed.
+  const [spikeAt, setSpikeAt] = useState(null)
+  const [spiking, setSpiking] = useState(false)
+  const [latestAlert, setLatestAlert] = useState(null)
+  const [routeCheck, setRouteCheck] = useState(null)
 
   /* --- rerouting -------------------------------------------------------- */
   const [rerouting, setRerouting] = useState(false)
@@ -221,7 +246,9 @@ export function AppProvider({ children }) {
     setOptimizing(true)
     setError(null)
     setRerouteResult(null)
-    setPredictiveAlert(null)
+    setLatestAlert(null)
+    setRouteCheck(null)
+    setSpikeAt(null)
     setLastRun(null)
     try {
       const res = await api.getRouteOptimization({
@@ -267,109 +294,216 @@ export function AppProvider({ children }) {
     })
   }, [mode, start?.name, end?.name])
 
-  /** Spikes congestion on the active corridor — the trigger for rerouting. */
-  const injectCongestion = useCallback(() => {
-    setSegments((prev) =>
-      prev.map((s) =>
-        s.id === 't3' || s.id === 't4'
-          ? { ...s, level: 'severe', congestion: 0.94 }
-          : s
-      )
-    )
-    setPredictiveAlert({
-      id: 'live-1',
-      location: 'Mehdipatnam – Masab Tank',
-      current: 0.62,
-      predicted: 0.94,
-      etaMinutes: 15,
-      coords: [17.395, 78.436],
-    })
+  /** Re-read the congestion overlay the map draws, from the backend. */
+  const refreshTraffic = useCallback(async () => {
+    try {
+      const d = await api.getTrafficData()
+      setSegments(d.segments)
+      setIncidents(d.incidents)
+    } catch { /* the map keeps its last overlay */ }
   }, [])
 
-  const runReroute = useCallback(async () => {
-    setRerouting(true)
+  /**
+   * Congest the road ahead of the driver — for real, on the backend graph.
+   *
+   * This does not raise an alert and does not say one is coming. It changes
+   * the traffic, makes sure the monitor is watching closely, and stops. Whether
+   * anything happens next is the monitor's decision, and if it decides the
+   * current route is still the best, that is the answer shown.
+   */
+  const triggerSpike = useCallback(async ({ progress = 0.3, level = 0.92 } = {}) => {
+    if (api.isMockMode()) {
+      setError('The traffic spike needs the backend: the alert comes from its monitor, which does not run in offline mode.')
+      return false
+    }
+    setSpiking(true)
+    setError(null)
+    setRerouteResult(null)
+    setRouteCheck(null)
     try {
-      const res = await api.reroute({ progress: 0.4, spike: true, oldRoute: selectedRoute })
-      setRerouteResult(res)
-      // shouldReroute === false means the current route is genuinely still the
-      // best one. That is a result worth showing, not an error, and there is no
-      // replacement route to swap in.
+      await api.startMonitor({ tickSeconds: WATCH_TICK_S, graph })
+      // Part-way along, so the jam lands on road still to be driven.
+      await api.advanceTrip({ progress, graph })
+      // Stamped before the spike, so an alert that arrives within milliseconds
+      // of it is still counted as the answer to it.
+      setSpikeAt(Date.now())
+      await api.congestActiveRoute({ level, graph })
+      await refreshTraffic()
+      return true
+    } catch (err) {
+      setSpikeAt(null)
+      setError(err.message || 'Could not apply the traffic spike.')
+      return false
+    } finally {
+      setSpiking(false)
+    }
+  }, [graph, refreshTraffic])
+
+  /**
+   * The driver took the suggested route.
+   *
+   * The map is redrawn from the route the backend says it switched to — the
+   * accept response carries it now. Before, accepting changed the trip on the
+   * server and returned nothing, so the popup closed and the map went on
+   * showing the old road.
+   */
+  const switchRoute = useCallback(async () => {
+    setRerouting(true)
+    if (demoMode) setDemoStep('rerouting')
+    const before = selectedRoute
+    try {
+      const res = await api.acceptReroute(graph)
+      if (!res?.ok) {
+        setError(res?.reason ? `Could not switch: ${res.reason}.` : 'Could not switch route.')
+        return null
+      }
       if (res.newRoute) {
-        setRoutes((prev) => [res.newRoute, ...prev.filter((r) => r.id !== res.newRoute.id)])
-        setSelectedRouteId(res.newRoute.id)
+        // A distinct id: the backend numbers routes from r1, which would
+        // replace the original on the map instead of standing beside it.
+        const newRoute = { ...res.newRoute, id: `rerouted-${Date.now()}`, label: 'New route', recommended: true }
+        setRoutes((prev) => [newRoute, ...prev.map((r) => ({ ...r, recommended: false }))])
+        setSelectedRouteId(newRoute.id)
+        setRoutesVersion((v) => v + 1)
+        setRerouteResult({
+          shouldReroute: true,
+          oldRoute: before,
+          newRoute,
+          previousEtaMin: res.previousEtaMin,
+          newEtaMin: res.newEtaMin,
+          timeSavedMin: res.timeSavedMin,
+          savedPct: res.savedPct,
+          reason: res.reason,
+          isDemoData: false,
+        })
       }
       return res
     } catch (err) {
-      setError(err.message || 'Rerouting failed.')
+      setError(err.message || 'Could not switch route.')
       return null
     } finally {
       setRerouting(false)
     }
-  }, [selectedRoute])
+  }, [demoMode, graph, selectedRoute])
+
+  const keepRoute = useCallback(async () => {
+    try { await api.declineReroute(graph) } catch { /* monitoring continues either way */ }
+  }, [graph])
+
+  /**
+   * Every notification the backend pushes passes through here, so the demo
+   * can follow what the SYSTEM did rather than a timeline of its own.
+   * Stamped with the time it arrived: comparing the server's clock with this
+   * one would break the moment they disagree.
+   */
+  const reportNotification = useCallback((note) => {
+    const stamped = { ...note, receivedAt: Date.now() }
+    if (note.kind === 'route-check') setRouteCheck(stamped)
+    else if (note.actionable) setLatestAlert(stamped)
+  }, [])
 
   const resetScenario = useCallback(() => {
     clearTimers()
     setRoutes([])
     setSelectedRouteId(null)
     setRerouteResult(null)
-    setPredictiveAlert(null)
-    setSegments(TRAFFIC_SEGMENTS)
+    setLatestAlert(null)
+    setRouteCheck(null)
+    setSpikeAt(null)
     setDemoMode(false)
     setDemoStep(null)
-  }, [clearTimers])
+    refreshTraffic()
+  }, [clearTimers, refreshTraffic])
+
+  /** Back to the everyday monitoring cadence once nobody is watching the demo. */
+  const relaxMonitor = useCallback(() => {
+    if (!api.isMockMode()) api.startMonitor({ tickSeconds: RELAXED_TICK_S, graph }).catch(() => {})
+  }, [graph])
 
   /**
-   * Deterministic demo: optimize → congestion spike → predictive alert →
-   * reroute → done. Fixed timings so it plays identically every run.
+   * The demonstration, driven by the system rather than a script.
+   *
+   *   optimise  →  spike the road ahead  →  the MONITOR notices and alerts
+   *   →  the route is switched  →  the assistant checks the new road
+   *
+   * The only timer is the pause before the spike, so the audience sees the
+   * route first. Every later step waits for the backend to actually do it:
+   * the alert step is reached when the monitor's alert arrives, not at a
+   * fixed second. If the monitor decides the route is still the best, the
+   * demo says so — that is a real answer, not a failure to paper over.
    */
   const startDemo = useCallback(async () => {
     clearTimers()
+    if (api.isMockMode()) {
+      setError('Demo Mode needs the backend: the alert comes from its monitor, which does not run in offline mode.')
+      return
+    }
     setDemoMode(true)
+    setError(null)
     setRerouteResult(null)
-    setPredictiveAlert(null)
-    setSegments(TRAFFIC_SEGMENTS)
+    setLatestAlert(null)
+    setRouteCheck(null)
+    setSpikeAt(null)
     setRoutes([])
 
+    try {
+      // Every run starts from the same traffic. Spikes persist on the
+      // network, so without this each replay would begin in a worse city.
+      await api.triggerScenario(DEMO_SCENARIO, graph)
+      await refreshTraffic()
+    } catch { /* carry on with whatever traffic is loaded */ }
+
     setDemoStep('optimizing')
-    const res = await api.getRouteOptimization({ start, end, algorithm: 'qpso', mode, vehicle })
-    setRoutes(res.routes)
-    setSelectedRouteId(res.recommended.id)
+    const res = await optimize()
+    if (!res) {
+      setDemoMode(false)
+      setDemoStep(null)
+      return
+    }
 
     const at = (ms, fn) => timers.current.push(setTimeout(fn, ms))
-
-    at(3600, () => {
+    at(3600, async () => {
       setDemoStep('traffic-rising')
-      injectCongestion()
-    })
-    at(6600, () => setDemoStep('alert'))
-    at(9600, async () => {
-      setDemoStep('rerouting')
-      setRerouting(true)
-      // Wrapped because this runs inside a timer: an unhandled rejection here
-      // would skip both setRerouting(false) and setDemoStep('done'), leaving
-      // the demo spinning on "rerouting" with no way out. A failed reroute
-      // should end the demo, not freeze it.
-      try {
-        const r = await api.reroute({ progress: 0.45, spike: true })
-        setRerouteResult(r)
-        if (r.newRoute) {
-          setRoutes((prev) => [r.newRoute, ...prev.filter((x) => x.id !== r.newRoute.id)])
-          setSelectedRouteId(r.newRoute.id)
-        }
-      } catch (err) {
-        setError(err.message || 'Rerouting failed.')
-      } finally {
-        setRerouting(false)
-        setDemoStep('done')
+      const ok = await triggerSpike()
+      if (!ok) {
+        setDemoMode(false)
+        setDemoStep(null)
+        return
       }
+      // A monitor that has said nothing in 25 s is itself a result. Say so
+      // rather than leave the demo waiting on an alert that is not coming.
+      at(ALERT_WAIT_MS, () => {
+        setDemoStep((step) => {
+          if (step !== 'traffic-rising') return step
+          setError('The monitor looked at the congested road and kept the current route — it found no alternative worth the switch.')
+          relaxMonitor()
+          return 'done'
+        })
+      })
     })
-  }, [clearTimers, injectCongestion, start, mode, vehicle])
+  }, [clearTimers, graph, optimize, refreshTraffic, relaxMonitor, triggerSpike])
 
   const stopDemo = useCallback(() => {
     clearTimers()
     setDemoMode(false)
     setDemoStep(null)
-  }, [clearTimers])
+    relaxMonitor()
+  }, [clearTimers, relaxMonitor])
+
+  // The demo advances on what the backend did. The alert step is reached only
+  // by an alert that arrived after this demo's spike.
+  useEffect(() => {
+    if (!demoMode || demoStep !== 'traffic-rising') return
+    if (latestAlert && spikeAt && latestAlert.receivedAt >= spikeAt) setDemoStep('alert')
+  }, [demoMode, demoStep, latestAlert, spikeAt])
+
+  // And it ends when the assistant has checked the road the driver switched to.
+  useEffect(() => {
+    if (!demoMode || !routeCheck || demoStep === 'done') return
+    if (demoStep === 'rerouting' || demoStep === 'alert') {
+      setDemoStep('done')
+      relaxMonitor()
+    }
+  }, [demoMode, demoStep, routeCheck, relaxMonitor])
 
   /** Re-read alerts from the backend. */
   const refreshAlerts = useCallback(async () => {
@@ -405,7 +539,7 @@ export function AppProvider({ children }) {
       await api.clearAlerts()
     } catch { /* clearing is best-effort */ }
     setAlerts([])
-    setPredictiveAlert(null)
+    setLatestAlert(null)
   }, [])
 
   const dismissAlert = useCallback((id) => {
@@ -430,7 +564,7 @@ export function AppProvider({ children }) {
   }, [])
 
   const value = {
-    user, signIn, signUp: signIn, continueAsGuest, signOut,
+    user, signIn, signUp: signIn, completeSignIn, signOut,
     theme, setTheme,
     collapsed, setCollapsed,
     settings, setSettings,
@@ -445,8 +579,8 @@ export function AppProvider({ children }) {
     lastDetection, setLastDetection,
     segments, incidents, alerts, dismissAlert,
     refreshAlerts, raiseAlert, wipeAlerts,
-    predictiveAlert, injectCongestion,
-    rerouting, rerouteResult, runReroute,
+    spikeAt, spiking, latestAlert, routeCheck, triggerSpike, reportNotification,
+    rerouting, rerouteResult, switchRoute, keepRoute,
     demoMode, demoStep, startDemo, stopDemo, resetScenario,
   }
 

@@ -147,6 +147,37 @@ def congest_route(
 
 
 @router.post(
+    "/advance",
+    summary="Move the simulated driver along the route",
+    description=(
+        "Places the driver `progress` of the way along the active trip. Nothing "
+        "else: no congestion, no reroute check.\n\n"
+        "A spike lands on the road AHEAD of the driver, so a demonstration needs "
+        "the driver part-way along first. /routes/reroute also moves the driver, "
+        "but it evaluates a reroute as it does — and an alert raised there, "
+        "before the monitor sees the jam, would put the monitor's own alert "
+        "inside the policy's cooldown."
+    ),
+    responses={409: {"description": "No active trip"}},
+)
+def advance(
+    progress: float = Query(default=0.3, ge=0.0, le=0.95,
+                            description="Fraction of the route already driven"),
+    graph: str | None = Query(default=None),
+) -> dict:
+    from app.integrations.engine_bridge import get_engine
+
+    engine = get_engine(graph)
+    if engine.trip is None:
+        raise HTTPException(status_code=409, detail="No active trip to advance.")
+    # Forward only. Re-running a demo step must not move the driver backwards
+    # onto road already driven.
+    target = max(float(progress), engine.trip.progress)
+    engine.advance(target)
+    return {"ok": True, "progress": round(engine.trip.progress, 3), "dataSource": "SIMULATED"}
+
+
+@router.post(
     "/reset",
     summary="Return traffic to normal",
     description="Clears events and closures by re-applying the 'normal' scenario.",

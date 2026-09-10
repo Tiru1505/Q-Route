@@ -2453,7 +2453,7 @@
 
 
 /* =========================================================
-   CONTINUE AS GUEST BUTTON (inside login)
+   SECONDARY BUTTONS (inside login) — the Google button uses these
    ========================================================= */
 
 .login .btn.btn-block {
@@ -3801,3 +3801,32 @@
 }
 .vehicle-rule svg { flex: none; margin-top: 2px; }
 .vehicle-assumed { font-style: normal; color: var(--moderate, #f59e0b); }
+
+/* The demo's automatic switch, and the assistant's check of the new route. */
+.toast-autoswitch {
+  margin-top: 8px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+.toast-route-check { border-color: color-mix(in srgb, var(--brand) 55%, var(--border)); }
+.toast-route-check .toast-head svg { color: var(--brand); }
+
+/* Popups inside the robot's floating column (see AssistantPanel). The column
+   is already fixed above the mobile bar and aligned right, so the stack flows
+   in it rather than being pinned to the corner the robot occupies. */
+.assistant-float .toast-stack {
+  position: static;
+  right: auto;
+  left: auto;
+  bottom: auto;
+  width: min(360px, calc(100vw - 32px));
+}
+
+/* Google sign-in: Google draws its own button into the slot. */
+.google-signin { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.google-signin-slot { display: flex; justify-content: center; min-height: 40px; }
+.google-signin-slot[hidden] { display: none; }
+.google-signin-note {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin: 0; font-size: 11px; line-height: 1.45; color: var(--text-dim); text-align: center;
+}

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
 from graph.errors import UnknownGraphError
 
@@ -51,15 +51,27 @@ def analyze(
 @router.post(
     "/accept",
     summary="Driver switched to the recommended route",
-    description="The recommended route becomes the active trip and monitoring continues.",
+    description=(
+        "The recommended route becomes the active trip and monitoring "
+        "continues. The response carries the new route, so the map can be "
+        "redrawn from what was switched to.\n\n"
+        "The assistant then checks the NEW road — forecast ahead, re-solve — "
+        "and pushes what it found to /notifications/ws as a `route-check`. It "
+        "runs after the response, so the switch itself is not held up by it."
+    ),
 )
-def accept(graph: str | None = Query(default=None)) -> dict:
+def accept(background: BackgroundTasks, graph: str | None = Query(default=None)) -> dict:
     from app.integrations.engine_bridge import get_engine
+    from app.services.helper_service import check_new_route
 
     engine = get_engine(graph)
     if engine.trip is None:
         raise HTTPException(status_code=409, detail="No active trip.")
-    return engine.accept_reroute()
+    out = engine.accept_reroute()
+    if out.get("ok") and out.get("newRoute"):
+        background.add_task(check_new_route, graph)
+        out["routeCheck"] = "scheduled"
+    return out
 
 
 @router.post(

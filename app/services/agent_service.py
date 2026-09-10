@@ -195,28 +195,35 @@ class TrafficAgent:
 
         t0 = time.perf_counter()
 
-        # Snapshot every edge we are about to touch, so a forecast is a
-        # question rather than a permanent edit to the shared graph.
-        snapshot = {}
-        reading = AgentReading(horizon_min=horizon_min)
-        if apply_forecast:
-            ahead = set(engine.trip.remaining_nodes)
-            for node in ahead:
-                for u, v, k, data in engine.G.edges(node, keys=True, data=True):
-                    snapshot.setdefault((u, v, k), float(data.get("congestion", 0.0)))
-            try:
-                reading = self.forecast_ahead(engine, horizon_min)
-            except Exception as exc:
-                _logger.warning("forecast unavailable: %s", exc)
-                reading.source = "unavailable"
+        # The whole overlay runs under the engine's lock. It writes predicted
+        # congestion, re-solves, and restores a snapshot — so a traffic change
+        # applied by another thread in the middle would be overwritten by the
+        # restore. That happened: a spike landing during a forecast tick was
+        # erased and the monitor never alerted. With the lock, the spike waits
+        # for the restore and then lands on the real values.
+        with engine.lock:
+            # Snapshot every edge we are about to touch, so a forecast is a
+            # question rather than a permanent edit to the shared graph.
+            snapshot = {}
+            reading = AgentReading(horizon_min=horizon_min)
+            if apply_forecast:
+                ahead = set(engine.trip.remaining_nodes)
+                for node in ahead:
+                    for u, v, k, data in engine.G.edges(node, keys=True, data=True):
+                        snapshot.setdefault((u, v, k), float(data.get("congestion", 0.0)))
+                try:
+                    reading = self.forecast_ahead(engine, horizon_min)
+                except Exception as exc:
+                    _logger.warning("forecast unavailable: %s", exc)
+                    reading.source = "unavailable"
 
-        try:
-            decision = engine.check_reroute(force=force)
-        finally:
-            # Restore, whatever happened above.
-            for (u, v, k), congestion in snapshot.items():
-                data = engine.G[u][v][k]
-                engine.model.apply_edge(data, congestion)
+            try:
+                decision = engine.check_reroute(force=force)
+            finally:
+                # Restore, whatever happened above.
+                for (u, v, k), congestion in snapshot.items():
+                    data = engine.G[u][v][k]
+                    engine.model.apply_edge(data, congestion)
 
         elapsed = (time.perf_counter() - t0) * 1000
         return self._contract(decision, reading, elapsed, apply_forecast)

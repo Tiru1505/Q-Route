@@ -20,7 +20,7 @@ const FILTERS = [
 ]
 
 export default function Alerts() {
-  const { alerts, dismissAlert, runReroute, raiseAlert, wipeAlerts } = useApp()
+  const { alerts, dismissAlert, switchRoute, raiseAlert, wipeAlerts } = useApp()
   const [filter, setFilter] = useState('all')
   const [raising, setRaising] = useState(null)
 
@@ -144,7 +144,7 @@ export default function Alerts() {
                 key={a.id}
                 alert={a}
                 onDismiss={dismissAlert}
-                onAction={a.kind !== 'incident' ? runReroute : undefined}
+                onAction={a.kind !== 'incident' ? switchRoute : undefined}
               />
             ))}
           </AnimatePresence>

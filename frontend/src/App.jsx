@@ -56,7 +56,6 @@ const Dashboard = lazy(() => import('./pages/Dashboard'))
 const LiveTraffic = lazy(() => import('./pages/LiveTraffic'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const RoadVision = lazy(() => import('./pages/RoadVision'))
-const NotificationToasts = lazy(() => import('./components/NotificationToasts'))
 const Benchmark = lazy(() => import('./pages/Benchmark'))
 const Alerts = lazy(() => import('./pages/Alerts'))
 const History = lazy(() => import('./pages/History'))
@@ -105,7 +104,6 @@ export default function App() {
           {/* Listens rather than asks — the backend pushes when traffic on the
               active route deteriorates, which is the one case where waiting to
               be asked is the wrong behaviour. */}
-          <NotificationToasts />
         </div>
       </div>
     </AppErrorBoundary>

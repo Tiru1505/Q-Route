@@ -174,15 +174,24 @@ def _broadcast(payload: dict) -> None:
         _logger.warning("Could not broadcast notification: %s", exc)
 
 
-async def publish(decision: dict, source: str = "agent") -> dict:
-    """Turn an agent decision into a notification, phrase it, and deliver it."""
-    facts = _template(decision)
+async def publish(decision: dict, source: str = "agent",
+                  facts: str | None = None, kind: str = "alert") -> dict:
+    """
+    Turn an agent decision into a notification, phrase it, and deliver it.
+
+    `facts` replaces the standard alert wording when the message is about
+    something else — the assistant's check of a route the driver has just
+    switched to. It is still built from measured values by the caller, and
+    still the only text a model may reword.
+    """
+    facts = facts or _template(decision)
     text, phrased_by = await _phrase_with_model(decision, facts)
 
     note = {
         "id": uuid.uuid4().hex[:12],
         "at": time.time(),
         "source": source,
+        "kind": kind,
         "severity": decision.get("severity", "info"),
         "decision": decision.get("decision"),
         "text": text,
@@ -193,7 +202,11 @@ async def publish(decision: dict, source: str = "agent") -> dict:
         "currentEta": decision.get("currentEta"),
         "alternativeEta": decision.get("alternativeEta"),
         "timeSaved": decision.get("timeSaved"),
-        "actionable": decision.get("decision") == "reroute" and bool(decision.get("alert")),
+        # A route check reports; it never asks the driver to act, even if the
+        # agent's comparison favours something — that is what the next alert,
+        # past the policy's cooldown, is for.
+        "actionable": (kind == "alert" and decision.get("decision") == "reroute"
+                       and bool(decision.get("alert"))),
         "reason": decision.get("reason"),
     }
 
@@ -204,12 +217,13 @@ async def publish(decision: dict, source: str = "agent") -> dict:
     return note
 
 
-def publish_threadsafe(decision: dict, source: str = "agent") -> None:
+def publish_threadsafe(decision: dict, source: str = "agent",
+                       facts: str | None = None, kind: str = "alert") -> None:
     """Publish from a worker thread — the monitor's ticks run in one."""
     if _loop is None:
         _logger.debug("No event loop bound; notification dropped")
         return
-    asyncio.run_coroutine_threadsafe(publish(decision, source), _loop)
+    asyncio.run_coroutine_threadsafe(publish(decision, source, facts, kind), _loop)
 
 
 # ---------------------------------------------------------------- reading

@@ -256,7 +256,15 @@ class OsmGraphAdapter(BaseGraphAdapter):
     # placeholder rather than trusting a hardcoded string.
     data_source = "osm"
 
+    # Routing reads live congestion. The monitor's forecast overlays predicted
+    # congestion on the same graph for a moment; a route computed during that
+    # moment would be priced on a prediction and presented as current. Each
+    # entry point therefore takes the engine's lock (see QROEngine.lock).
     def calculate_route(self, request: RouteRequest) -> GraphRoute:
+        with get_engine(request.graph).lock:
+            return self._calculate_route(request)
+
+    def _calculate_route(self, request: RouteRequest) -> GraphRoute:
         from optimization.dijkstra import dijkstra_route
 
         engine = get_engine(request.graph)
@@ -276,9 +284,14 @@ class OsmGraphAdapter(BaseGraphAdapter):
 
         engine.trip = ActiveTrip(route=route)
         engine.cost_model = cost_model
+        engine.alerts.new_trip()
         return _to_graph_route(engine, route)
 
     def alternative_routes(self, request: RouteRequest, count: int = 3):
+        with get_engine(request.graph).lock:
+            return self._alternative_routes(request, count)
+
+    def _alternative_routes(self, request: RouteRequest, count: int = 3):
         """
         Genuinely different corridors, not the same road re-labelled.
 
@@ -328,6 +341,13 @@ class OsmGraphAdapter(BaseGraphAdapter):
         return [_to_graph_route(engine, r) for r in routes[1:]]
 
     def reroute(self, progress=0.4, spike=True, spike_level=0.92, force=False) -> dict:
+        # Advance, spike and re-check must happen as one step: a monitor tick
+        # between the spike and the check would otherwise raise the alert
+        # this call is about to raise, and the two would collide on cooldown.
+        with get_engine().lock:
+            return self._reroute(progress, spike, spike_level, force)
+
+    def _reroute(self, progress=0.4, spike=True, spike_level=0.92, force=False) -> dict:
         """
         Mid-trip rerouting against the trip left behind by the last optimise.
 
@@ -402,6 +422,11 @@ class _EngineOptimizationAdapter(BaseOptimizationAdapter):
     def get_convergence(self) -> list[float]:
         return self._last_convergence
 
+    def optimize(self, request, baseline, iterations=100, particles=30):
+        """Every optimiser routes under the engine's lock; subclasses implement _optimize."""
+        with get_engine(request.graph).lock:
+            return self._optimize(request, baseline, iterations, particles)
+
     def _prepare(self, request: RouteRequest):
         engine = get_engine(request.graph)
         source = _snap_checked(engine, request.source, "start point")
@@ -414,7 +439,7 @@ class RealDijkstraAdapter(_EngineOptimizationAdapter):
 
     algorithm = "dijkstra"
 
-    def optimize(self, request, baseline, iterations=100, particles=30):
+    def _optimize(self, request, baseline, iterations=100, particles=30):
         from optimization.dijkstra import dijkstra_route
 
         engine, source, target, cost_model = self._prepare(request)
@@ -443,7 +468,7 @@ class RealQpsoAdapter(_EngineOptimizationAdapter):
 
     algorithm = "qpso"
 
-    def optimize(self, request, baseline, iterations=100, particles=30):
+    def _optimize(self, request, baseline, iterations=100, particles=30):
         from optimization.dijkstra import dijkstra_route
         from optimization.encoding import WaypointDecoder
         from optimization.qpso import QPSO, QPSOConfig

@@ -302,3 +302,63 @@ def answer(question: str, graph: str | None = None) -> dict:
         "suggestions": ["Will there be congestion?", "Should I reroute?",
                         "What is the traffic like?", "Help"],
     }
+
+
+# ------------------------------------------------------- after a switch
+
+def check_new_route(graph: str | None = None) -> dict | None:
+    """
+    Look at the route the driver has just switched to, and say what is there.
+
+    Runs after a reroute is accepted. The alert that prompted the switch was
+    about the OLD road; nothing had yet looked ahead on the NEW one. This is
+    the same analysis the monitor runs — forecast the road ahead, re-solve,
+    decide — pointed at the new trip, and its result is published as the
+    assistant's message to the driver.
+
+    If the new road is itself forecast to worsen, it says so. It does not raise
+    a fresh alert: the policy's cooldown, reset by the switch, is what stops
+    the system asking the driver to change route twice in a minute.
+    """
+    from app.integrations.engine_bridge import get_engine
+    from app.services import notify_service
+    from app.services.agent_service import AgentUnavailableError, TrafficAgent
+
+    try:
+        engine = get_engine(graph)
+        if engine.trip is None:
+            return None
+        d = TrafficAgent(graph=graph).analyse(apply_forecast=True)
+        remaining = engine.trip.remaining_on_current_route(engine.G, engine.cost_model)
+    except AgentUnavailableError:
+        return None
+    except Exception as exc:
+        _logger.warning("route check after switch failed: %s", exc)
+        return None
+
+    text = _route_check_text(d, remaining)
+    notify_service.publish_threadsafe(d, source="assistant", facts=text, kind="route-check")
+    return {"text": text, "decision": _compact(d)}
+
+
+def _route_check_text(d: dict, remaining) -> str:
+    """The check, in sentences built only from what was measured."""
+    if remaining is None:
+        return ("I checked your new route: the road ahead has since been closed, "
+                "so it needs replacing.")
+
+    parts = [f"I've checked your new route: about {remaining.time_min:.0f} min "
+             f"and {remaining.distance_km:.1f} km to go."]
+
+    fc = d.get("forecast") or {}
+    if fc.get("applied"):
+        trend = "rising" if fc.get("worsening") else "not rising"
+        parts.append(
+            f"Congestion ahead is {_pct(fc['observedMean'])} now and forecast "
+            f"{_pct(fc['predictedMean'])} in {fc['horizonMin']} minutes — {trend}.")
+    else:
+        parts.append("I couldn't forecast the road ahead just now, so this is "
+                     "based on conditions as they are.")
+
+    parts.append(_verdict(d))
+    return " ".join(parts)

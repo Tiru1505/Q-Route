@@ -31,7 +31,9 @@ writes it cannot accidentally invent a different contract.
 The engine deliberately knows nothing about HTTP. It is a service layer, not a
 server.
 """
+import functools
 import math
+import threading
 import time
 from pathlib import Path
 
@@ -55,6 +57,15 @@ def _round(v, n=3):
     return None if v is None or not math.isfinite(v) else round(float(v), n)
 
 
+def _serialised(method):
+    """Run under the engine's graph lock. See QROEngine.lock for why."""
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self.lock:
+            return method(self, *args, **kwargs)
+    return wrapper
+
+
 class QROEngine:
     """
     Stateful routing engine. Build one, keep it for the lifetime of the process.
@@ -69,6 +80,19 @@ class QROEngine:
         self.model = CongestionModel()
         self.sim = TrafficSimulator(self.G, self.model, seed=seed)
         self.alerts = AlertEngine(AlertPolicy())
+
+        # One graph, many writers and readers, several threads. The monitor's
+        # forecast writes predicted congestion onto the road ahead, re-solves,
+        # and restores the values it snapshotted; a traffic event that landed
+        # in between was then overwritten by that restore and silently lost. A
+        # spike applied during a forecast tick vanished and the monitor kept
+        # saying "keep" — measured, not hypothesised. Everything that changes
+        # congestion, or reads it to route, now takes turns.
+        #
+        # Reentrant, because check_reroute runs inside the agent's overlay.
+        # The benchmark methods do NOT take it: they run for minutes and would
+        # freeze the monitor and every route request behind them.
+        self.lock = threading.RLock()
 
         self.scenario = None
         self.state = None
@@ -110,6 +134,7 @@ class QROEngine:
                 for k, v in MODES.items()]
 
     # ============================================================= traffic
+    @_serialised
     def set_scenario(self, scenario):
         """Apply one of the eight traffic scenarios to the whole network."""
         if scenario not in SCENARIO_IDS:
@@ -120,6 +145,7 @@ class QROEngine:
         self.sim.apply(self.state)
         return self.health()
 
+    @_serialised
     def spike_route(self, level=0.92):
         """
         Congest the ACTIVE route. This is the rerouting trigger.
@@ -136,6 +162,7 @@ class QROEngine:
         return {"ok": True, "level": level,
                 "affected": self.state.incidents[-1]["edges_affected"]}
 
+    @_serialised
     def traffic(self, limit=400):
         """
         Congestion overlay for the map.
@@ -242,6 +269,7 @@ class QROEngine:
             "path": route.coordinates(self.G),
         }
 
+    @_serialised
     def plan(self, start, end, algorithm="qpso", mode="balanced", alternatives=2):
         """
         Plan a route, plus alternatives, in the frontend's exact shape.
@@ -288,6 +316,7 @@ class QROEngine:
         self._routes = routes
         self.trip = ActiveTrip(route=best)
         self.cost_model = cost_model
+        self.alerts.new_trip()
 
         return {
             "routes": payload,
@@ -342,6 +371,7 @@ class QROEngine:
                         seen.append(name)
         return " → ".join(seen[1:4]) if len(seen) > 2 else ""
 
+    @_serialised
     def plan_multistop(self, depot, stops, mode="balanced", trials=3):
         """
         Order a set of deliveries — the problem Dijkstra cannot express.
@@ -377,6 +407,7 @@ class QROEngine:
         order = problem.order_from_vector(best.best_vector)
         self.trip = ActiveTrip(route=route)
         self.cost_model = cost_model
+        self.alerts.new_trip()
 
         return {
             "route": self._serialise_route(route, 0, recommended=True, fastest=True,
@@ -395,6 +426,7 @@ class QROEngine:
         }
 
     # =========================================================== rerouting
+    @_serialised
     def advance(self, fraction):
         """Move the driver along the active route. Drives the demo."""
         if self.trip is None:
@@ -407,6 +439,7 @@ class QROEngine:
             "blocked": remaining is None,
         }
 
+    @_serialised
     def check_reroute(self, force=False):
         """Is a better route available from where the driver is NOW?"""
         if self.trip is None:
@@ -437,20 +470,46 @@ class QROEngine:
                 time_saved=decision.time_saved_min)
         return payload
 
+    @_serialised
     def accept_reroute(self):
         """Driver switched. The new route becomes the active trip."""
         if not self.alerts.history:
             return {"ok": False, "reason": "no alert to accept"}
         alert = self.alerts.history[-1]
+        if alert.resolved:
+            return {"ok": False, "reason": f"this suggestion was already {alert.resolved}"}
+        alert.resolved = "accepted"
         self.alerts.accepted(alert)
-        if alert.decision and alert.decision.new_route:
-            self.trip = ActiveTrip(route=alert.decision.new_route)
-        return {"ok": True, "reroutes": self.alerts.reroute_count}
+        out = {"ok": True, "reroutes": self.alerts.reroute_count}
+        decision = alert.decision
+        if decision and decision.new_route:
+            self.trip = ActiveTrip(route=decision.new_route)
+            # The route the driver is now on, so the map can be redrawn from
+            # what the backend switched to rather than what the client guessed.
+            # Before this, accepting changed the trip and returned nothing to
+            # draw: the popup closed and the map went on showing the old road.
+            out.update({
+                "newRoute": self._serialise_route(
+                    decision.new_route, 0, recommended=True, fastest=True,
+                    via=self._describe(decision.new_route),
+                    time_saved=decision.time_saved_min),
+                "previousEtaMin": _round(decision.current_eta_min, 1),
+                "newEtaMin": _round(decision.new_eta_min, 1),
+                "timeSavedMin": _round(decision.time_saved_min, 1),
+                "savedPct": _round(decision.saved_pct, 1),
+                "reason": decision.reason,
+            })
+        return out
 
+    @_serialised
     def decline_reroute(self):
         if not self.alerts.history:
             return {"ok": False, "reason": "no alert to decline"}
-        self.alerts.declined(self.alerts.history[-1])
+        alert = self.alerts.history[-1]
+        if alert.resolved:
+            return {"ok": False, "reason": f"this suggestion was already {alert.resolved}"}
+        alert.resolved = "declined"
+        self.alerts.declined(alert)
         return {"ok": True}
 
     def alert_history(self):

@@ -13,12 +13,14 @@ import TrafficLegend from '../components/TrafficLegend'
 import { useApp } from '../store/AppContext'
 import { ALGORITHMS } from '../data/mockData'
 
+// Each step is reached by the backend doing it, not by a timer: the alert
+// step by the monitor's own alert arriving, the last by the assistant's check.
 const DEMO_STEPS = [
   { id: 'optimizing', label: 'Optimize' },
-  { id: 'traffic-rising', label: 'Traffic rises' },
-  { id: 'alert', label: 'Predictive alert' },
-  { id: 'rerouting', label: 'Reroute' },
-  { id: 'done', label: 'New route' },
+  { id: 'traffic-rising', label: 'Traffic spike' },
+  { id: 'alert', label: 'Auto alert' },
+  { id: 'rerouting', label: 'Switch route' },
+  { id: 'done', label: 'AI checks route' },
 ]
 
 export default function Dashboard() {
@@ -26,8 +28,8 @@ export default function Dashboard() {
     routes, selectedRoute, selectedRouteId, setSelectedRouteId,
     optimize, optimizing, error,
     segments, incidents, start, end, algorithm,
-    predictiveAlert, injectCongestion,
-    rerouting, rerouteResult, runReroute,
+    spikeAt, spiking, latestAlert, triggerSpike,
+    rerouting, rerouteResult,
     demoMode, demoStep, settings, lastRun,
   } = useApp()
 
@@ -73,11 +75,16 @@ export default function Dashboard() {
 
   const showResults = revealed && routes.length > 0
 
+  // A spike is on the road and the monitor has not answered yet. Nothing here
+  // decides that an alert happened — that arrives from the backend.
+  const alertArrived = !!(latestAlert && spikeAt && latestAlert.receivedAt >= spikeAt)
+  const awaitingAlert = !!spikeAt && !alertArrived && !rerouteResult
+
   const rerouteState = rerouting
     ? 'rerouting'
     : rerouteResult
     ? 'result'
-    : predictiveAlert
+    : awaitingAlert
     ? 'detecting'
     : null
 
@@ -94,7 +101,7 @@ export default function Dashboard() {
             <Radio size={15} style={{ color: 'var(--quantum)' }} />
             <strong style={{ fontSize: 12.5 }}>Demo Mode</strong>
             <span style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>
-              Scripted end-to-end scenario
+              Live end-to-end — the system raises every alert itself
             </span>
             <div className="steps">
               {DEMO_STEPS.map((s, i) => {
@@ -140,7 +147,6 @@ export default function Dashboard() {
               incidents={incidents}
               startPoint={startPoint}
               endPoint={endPoint}
-              highlightCoords={predictiveAlert?.coords}
               mapStyle={settings.mapStyle}
               routeTransition={animating || optimizing}
             />
@@ -213,48 +219,25 @@ export default function Dashboard() {
             />
           )}
 
-          <AnimatePresence>
-            {predictiveAlert && !rerouteResult && (
-              <TrafficAlert
-                key="predictive"
-                alert={{
-                  id: predictiveAlert.id,
-                  kind: 'predictive',
-                  severity: 'severe',
-                  title: 'Predictive traffic alert',
-                  location: predictiveAlert.location,
-                  time: 'just now',
-                  current: predictiveAlert.current,
-                  predicted: predictiveAlert.predicted,
-                  etaMinutes: predictiveAlert.etaMinutes,
-                  description:
-                    'Congestion on your current route is forecast to rise sharply.',
-                  action: 'A faster alternative may be available.',
-                }}
-                onAction={runReroute}
-              />
-            )}
-          </AnimatePresence>
-
           <ReroutingPanel
             state={rerouteState}
             result={rerouteResult}
-            onReroute={runReroute}
             onAccept={() => setSelectedRouteId(rerouteResult?.newRoute?.id)}
           />
 
-          {!predictiveAlert && !rerouteResult && showResults && (
+          {!demoMode && !rerouteResult && !awaitingAlert && showResults && (
             <div className="card">
               <div className="card-title">
                 <TriangleAlert size={13} />
                 Traffic Simulation
               </div>
               <p style={{ fontSize: 11.5, color: 'var(--text-dim)', marginBottom: 11 }}>
-                Inject a congestion spike on the active corridor to trigger the
-                rerouting flow.
+                Congest the road ahead of the driver. The monitor detects it on
+                its own and alerts you if a better route exists — this button
+                changes the traffic, not the alert.
               </p>
-              <button className="btn btn-sm btn-block" onClick={injectCongestion}>
-                Simulate Congestion Spike
+              <button className="btn btn-sm btn-block" onClick={() => triggerSpike()} disabled={spiking}>
+                {spiking ? 'Applying spike…' : 'Simulate Congestion Spike'}
               </button>
             </div>
           )}

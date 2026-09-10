@@ -40,6 +40,10 @@ function coordsFor(place) {
 }
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
+
+/** True when the app runs without a backend. Features that exist only there
+ *  — the monitor, real alerts — use it to say so instead of failing silently. */
+export const isMockMode = () => USE_MOCK
 const BASE = import.meta.env.VITE_API_BASE || '/api'
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -293,6 +297,43 @@ export async function congestActiveRoute({ level = 0.92, graph } = {}) {
   const p = new URLSearchParams({ level: String(level) })
   if (graph) p.set('graph', graph)
   return request(`/simulation/congest-route?${p}`, { method: 'POST' })
+}
+
+/**
+ * Which sign-in methods the server offers. The Google client ID comes from
+ * here — one copy, on the server — rather than from the frontend's own .env.
+ */
+export async function getAuthConfig() {
+  if (USE_MOCK) return { google: { enabled: false, clientId: null }, offline: true }
+  return request('/auth/config')
+}
+
+/** Exchange a Google ID token for a user the server has verified. */
+export async function signInWithGoogle(credential) {
+  return request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) })
+}
+
+/**
+ * Place the simulated driver part-way along the active trip.
+ *
+ * A spike lands on the road AHEAD of the driver, so the demo needs the driver
+ * moving first. Deliberately not /routes/reroute: that also evaluates a
+ * reroute, and an alert raised there would beat the monitor to it.
+ */
+export async function advanceTrip({ progress = 0.3, graph } = {}) {
+  const p = new URLSearchParams({ progress: String(progress) })
+  if (graph) p.set('graph', graph)
+  return request(`/simulation/advance?${p}`, { method: 'POST' })
+}
+
+/**
+ * Start (or re-tune) the background monitor. Idempotent on the backend:
+ * calling it while running only changes the tick.
+ */
+export async function startMonitor({ tickSeconds = 15, graph } = {}) {
+  const p = new URLSearchParams({ tick_seconds: String(tickSeconds) })
+  if (graph) p.set('graph', graph)
+  return request(`/monitor/start?${p}`, { method: 'POST' })
 }
 
 /** Component health, as reported by the backend rather than assumed. */

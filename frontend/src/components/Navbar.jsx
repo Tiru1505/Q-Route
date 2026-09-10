@@ -173,15 +173,6 @@ export default function Navbar() {
                 </div>
               </div>
 
-              {user?.guest && (
-                <div
-                  className="badge badge-yellow"
-                  style={{ margin: '0 9px 7px', display: 'flex', justifyContent: 'center' }}
-                >
-                  Guest session
-                </div>
-              )}
-
               <button
                 className="item"
                 onClick={() => { setMenuOpen(false); navigate('/settings') }}

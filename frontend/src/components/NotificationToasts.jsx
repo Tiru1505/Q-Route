@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Bot, CheckCircle2, Route as RouteIcon, X } from 'lucide-react'
-import { acceptReroute, declineReroute } from '../services/api'
 import { useApp } from '../store/AppContext'
 
 /**
@@ -24,6 +23,35 @@ import { useApp } from '../store/AppContext'
 const ICON = { severe: AlertTriangle, moderate: AlertTriangle, info: CheckCircle2 }
 const MAX_VISIBLE = 3
 const DISMISS_AFTER_MS = 15_000
+// The assistant's check of a new route is read, not acted on; give it longer.
+const ROUTE_CHECK_DISMISS_MS = 25_000
+// In Demo Mode an alert switches by itself after this long, so the whole flow
+// runs untouched — visibly, and the presenter can still press either button.
+const DEMO_AUTO_SWITCH_S = 6
+
+/**
+ * The countdown on a demo alert. Fires once; unmounting (because the toast
+ * was acted on or dismissed) cancels it.
+ */
+function AutoSwitch({ seconds, onFire }) {
+  const [left, setLeft] = useState(seconds)
+  const fired = useRef(false)
+  useEffect(() => {
+    const id = setInterval(() => setLeft((n) => n - 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+  useEffect(() => {
+    if (left <= 0 && !fired.current) {
+      fired.current = true
+      onFire()
+    }
+  }, [left, onFire])
+  return (
+    <div className="toast-autoswitch">
+      Demo: switching automatically in {Math.max(left, 0)}s
+    </div>
+  )
+}
 
 function wsUrl() {
   const base = import.meta.env.VITE_API_BASE || '/api'
@@ -35,7 +63,7 @@ function wsUrl() {
 }
 
 export default function NotificationToasts() {
-  const { graph } = useApp()
+  const { demoMode, switchRoute, keepRoute, reportNotification } = useApp()
   const [toasts, setToasts] = useState([])
   const [connected, setConnected] = useState(false)
   const socketRef = useRef(null)
@@ -58,7 +86,8 @@ export default function NotificationToasts() {
     if (!note.actionable) {
       timersRef.current.set(
         note.id,
-        setTimeout(() => dismiss(note.id), DISMISS_AFTER_MS),
+        setTimeout(() => dismiss(note.id),
+          note.kind === 'route-check' ? ROUTE_CHECK_DISMISS_MS : DISMISS_AFTER_MS),
       )
     }
   }, [dismiss])
@@ -85,6 +114,9 @@ export default function NotificationToasts() {
         // The backlog is history, not news — showing it as toasts would pop
         // old alerts every time a page loads.
         if (data.type === 'backlog') return
+        // Reported before it is shown, so the demo moves on the SYSTEM's
+        // alert — the only signal that one happened.
+        reportNotification(data)
         show(data)
       }
 
@@ -106,14 +138,15 @@ export default function NotificationToasts() {
       timersRef.current.clear()
       socketRef.current?.close()
     }
-  }, [show])
+  }, [show, reportNotification])
 
-  const act = async (note, accept) => {
-    try {
-      await (accept ? acceptReroute(graph) : declineReroute(graph))
-    } catch { /* the card closes either way; the backend keeps monitoring */ }
+  // Switching goes through the app, not straight to the API, so the map is
+  // redrawn with the route the backend switched to. Before, the popup
+  // accepted, closed, and the map kept showing the old road.
+  const act = useCallback(async (note, accept) => {
     dismiss(note.id)
-  }
+    await (accept ? switchRoute() : keepRoute())
+  }, [dismiss, switchRoute, keepRoute])
 
   if (!toasts.length) return null
 
@@ -125,16 +158,18 @@ export default function NotificationToasts() {
           return (
             <motion.div
               key={note.id}
-              className={`toast toast-${note.severity}`}
+              className={`toast toast-${note.severity}${note.kind === 'route-check' ? ' toast-route-check' : ''}`}
               initial={{ opacity: 0, x: 40, scale: 0.97 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 40, scale: 0.97 }}
               transition={{ duration: 0.22 }}
             >
               <div className="toast-head">
-                <Icon size={14} />
+                {note.kind === 'route-check' ? <Bot size={14} /> : <Icon size={14} />}
                 <strong>
-                  {note.severity === 'info' ? 'Traffic update' : 'Traffic alert'}
+                  {note.kind === 'route-check'
+                    ? 'Q Route AI checked your new route'
+                    : note.severity === 'info' ? 'Traffic update' : 'Traffic alert'}
                 </strong>
                 <button className="toast-x" onClick={() => dismiss(note.id)}
                         aria-label="Dismiss">
@@ -151,6 +186,10 @@ export default function NotificationToasts() {
                   <span>{note.alternativeEta} min</span>
                   <b>saves {note.timeSaved}</b>
                 </div>
+              )}
+
+              {note.actionable && demoMode && (
+                <AutoSwitch seconds={DEMO_AUTO_SWITCH_S} onFire={() => act(note, true)} />
               )}
 
               {note.actionable && (

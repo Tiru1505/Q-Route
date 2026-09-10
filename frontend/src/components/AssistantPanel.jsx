@@ -4,6 +4,7 @@ import { Loader2, MessageCircle, Send, Sparkles, X } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import * as api from '../services/api'
 import robotImage from '../assets/q-route-ai-robot.png'
+import NotificationToasts from './NotificationToasts'
 
 /**
  * The robot, and what it is allowed to say.
@@ -201,6 +202,11 @@ export default function AssistantPanel() {
 
   return (
     <div className="assistant-float">
+      {/* The system's popups live in the robot's own column, so they stack
+          just above it at every screen size. Pinned separately to the same
+          corner, the robot covered their text and, on phones, the bottom bar
+          hid them — and the alerts are the robot talking, so they belong here. */}
+      <NotificationToasts />
       <AnimatePresence>
         {open && (
           <motion.section

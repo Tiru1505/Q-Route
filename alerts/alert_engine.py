@@ -65,6 +65,10 @@ class Alert:
     saved_pct: float = 0.0
     created_at: float = field(default_factory=time.time)
     decision: object = None
+    # Set once the driver answers. A suggestion can be taken or refused once:
+    # two clients answering the same alert — two tabs in Demo Mode, a double
+    # click — would otherwise count one switch twice.
+    resolved: str | None = None
 
     def to_dict(self):
         return {
@@ -105,6 +109,26 @@ class AlertEngine:
         self.declined_saving_min = None    # saving the driver last said no to
         self.reroute_count = 0
         self.suppressed = []               # (reason, saving) — for the report
+
+    def new_trip(self):
+        """
+        Forget the previous journey.
+
+        The cooldown, the reroute cap and "the driver already said no to this"
+        are facts about one trip. Held on the engine without this, they carried
+        into the next journey: optimise a new route within five minutes of the
+        last alert and the first real jam on it was suppressed "within
+        cooldown" — which made the demo silently fail on its second run.
+
+        Not called when a reroute is accepted. That is the same journey
+        continuing, and the cooldown is exactly what stops the system nagging
+        again straight after the driver switched.
+        """
+        self.history = []
+        self.last_alert_at = None
+        self.declined_saving_min = None
+        self.reroute_count = 0
+        self.suppressed = []
 
     # ------------------------------------------------------------ helpers
     def _suppress(self, reason, decision):
