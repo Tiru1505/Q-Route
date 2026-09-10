@@ -217,13 +217,62 @@ class LstmPredictionAdapter(BasePredictionAdapter):
         clock = np.asarray(clock, dtype="float32")
         return counts, self._forecaster.clock_features(clock[:, 0], clock[:, 1])
 
+    # -- real observations -----------------------------------------------
+    def _observed_series(self, location: Coordinate):
+        """
+        A full window of REAL counts near this point, if any road has one.
+
+        This is the difference between forecasting measured traffic and
+        forecasting an assumption. Uploaded footage on a nearby road gives the
+        model exactly what it was trained on — vehicles per 15 minutes — so
+        when that exists it is used, and the anchoring below is not.
+
+        Returns None when no road within range has a full window. A partial
+        series is refused rather than padded: padding is how a confident number
+        gets manufactured out of two data points.
+        """
+        import numpy as np
+
+        from app.services.observation_store import nearest_with_series
+        from forecasting.model import COUNTS
+
+        need = self._forecaster.lookback
+        found = nearest_with_series(location.lat, location.lon, need)
+        if not found:
+            return None
+
+        obs = found["observations"]
+        counts = np.array(
+            [[float(o["counts"].get(c, 0.0)) for c in COUNTS] for o in obs],
+            dtype="float32")
+
+        # The observations carry their own wall-clock times, so the clock the
+        # model sees is the clock they were taken at rather than a reconstruction.
+        from datetime import datetime
+
+        clock = np.array(
+            [[(t := datetime.fromtimestamp(o["at"])).hour * 60 + t.minute,
+              t.weekday()] for o in obs], dtype="float32")
+        return counts, self._forecaster.clock_features(clock[:, 0], clock[:, 1]), found
+
     # -- prediction ------------------------------------------------------
     def predict(self, location: Coordinate, horizon_minutes: int) -> dict:
         from app.integrations.engine_bridge import RealTrafficAdapter
         from forecasting.model import COUNTS, HORIZON_MINUTES
 
         observed = RealTrafficAdapter().get_congestion(location)
-        counts, clock = self._history(observed)
+
+        # Real counts win. Anchoring exists because no road here keeps a
+        # history; the moment one does, using the assumption instead would be
+        # perverse.
+        real = self._observed_series(location)
+        if real is not None:
+            counts, clock, found = real
+            basis, near = "uploaded-observations", found
+        else:
+            counts, clock = self._history(observed)
+            basis, near = "anchored-history", None
+
         steps = self._forecaster.predict(counts, clock)
 
         # The model speaks at fixed horizons; answer with the nearest one and
@@ -244,12 +293,21 @@ class LstmPredictionAdapter(BasePredictionAdapter):
         return {
             "predicted_congestion": round(float(predicted), 4),
             "confidence": round(float(step.confidence), 3),
-            "data_source": "lstm+anchored-history",
+            "data_source": f"lstm+{basis}",
+            "observed_road": (
+                {"roadId": near["road_id"], "name": near["name"],
+                 "distanceM": near["distance_m"], "observations": near["depth"]}
+                if near else None
+            ),
             "model_horizon_minutes": HORIZON_MINUTES[idx],
             "observed_congestion": observed,
             "predicted_vehicles_15min": round(float(vehicles), 1),
             "situation": step.situation,
             "assumption": (
+                f"Driven by {near['depth']} real counts uploaded for "
+                f"{near['name']}, {near['distance_m']:.0f} m away. This is "
+                "measured traffic, not a reconstruction."
+                if near else
                 "The model needs a run of recent counts and no road here keeps "
                 "one. History is reconstructed by scaling the congestion "
                 "observed now along the measured daily profile — an assumption, "

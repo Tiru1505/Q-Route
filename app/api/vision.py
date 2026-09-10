@@ -148,6 +148,50 @@ def reset(session: str = Query(..., description="Session id to clear")) -> dict:
 
 
 @router.get(
+    "/observations",
+    summary="Traffic observed from uploads, by road",
+    description=(
+        "Every road that has received uploaded footage, with how many "
+        "observations it holds and how long ago the last one arrived.\n\n"
+        "This is the surface the forecaster reads. A road with a full window "
+        "drives predictions from measured counts; one with fewer falls back to "
+        "reconstruction, and the prediction says which it used."
+    ),
+)
+def observations() -> dict:
+    from app.services.observation_store import summary
+
+    from app.services.forecast_service import _load
+
+    try:
+        model, _ = _load()
+        need = model.lookback
+    except Exception:
+        need = None
+
+    out = summary()
+    out["windowNeeded"] = need
+    out["note"] = (
+        f"A road needs {need} observations before it can drive a forecast."
+        if need else "The forecaster is not available."
+    )
+    return out
+
+
+@router.post(
+    "/observations/clear",
+    summary="Forget observed traffic",
+    description="Drops recorded observations for one road, or all of them.",
+)
+def clear_observations(
+    road_id: str | None = Query(default=None, description="Omit to clear everything"),
+) -> dict:
+    from app.services.observation_store import clear
+
+    return clear(road_id)
+
+
+@router.get(
     "/status",
     summary="Is the detector available?",
     description="Reports the trained weights, the classes, and the detector's known limits.",

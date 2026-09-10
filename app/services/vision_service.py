@@ -203,6 +203,19 @@ class VisionService:
                     "is very sensitive to a single detection. Use 60s or more."
                 ) if det.duration_s < 30 else None,
             })
+            # Recorded against the ROAD, not just the session. The session
+            # window drives this visitor's progress bar; the road store is what
+            # the forecaster and the routing agent read, and without it a real
+            # count on a real road never reaches the thing that routes on it.
+            if road:
+                from app.services.observation_store import record
+
+                out["recorded"] = record(
+                    road_id=road["road_id"], city=road["city"], name=road["name"],
+                    lat=road["lat"], lon=road["lon"],
+                    counts=det.per_15_min, source="upload",
+                )
+
             if session:
                 out["window"] = self._observe(session, det.per_15_min,
                                               city=city, road_id=road_id)

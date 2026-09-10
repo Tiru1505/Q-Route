@@ -1,0 +1,38 @@
+{
+  "city": "chennai",
+  "source": "Geofabrik india-latest.osm.pbf",
+  "scope": "Street level \u2014 every drivable public road class",
+  "not_included": "Service ways (parking aisles, driveways, alleys)",
+  "requested_bbox": [
+    79.95,
+    12.8,
+    80.35,
+    13.25
+  ],
+  "actual_bbox": [
+    79.95,
+    12.8,
+    80.3309,
+    13.25
+  ],
+  "nodes": 190679,
+  "edges": 466519,
+  "directed_km": 33132.6,
+  "edges_by_class": {
+    "residential": 389081,
+    "tertiary": 34417,
+    "primary": 10251,
+    "unclassified": 10234,
+    "secondary": 10155,
+    "living_street": 8855,
+    "trunk": 1080,
+    "primary_link": 923,
+    "motorway": 555,
+    "trunk_link": 375,
+    "tertiary_link": 214,
+    "secondary_link": 176,
+    "motorway_link": 171,
+    "road": 32
+  },
+  "pickle_mb": 129.2
+}

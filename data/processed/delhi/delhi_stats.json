@@ -1,0 +1,38 @@
+{
+  "city": "delhi",
+  "source": "Geofabrik india-latest.osm.pbf",
+  "scope": "Street level \u2014 every drivable public road class",
+  "not_included": "Service ways (parking aisles, driveways, alleys)",
+  "requested_bbox": [
+    76.8,
+    28.4,
+    77.55,
+    28.9
+  ],
+  "actual_bbox": [
+    76.8,
+    28.4,
+    77.55,
+    28.9
+  ],
+  "nodes": 401620,
+  "edges": 1039682,
+  "directed_km": 73967.7,
+  "edges_by_class": {
+    "residential": 898279,
+    "tertiary": 68752,
+    "living_street": 21391,
+    "secondary": 18343,
+    "unclassified": 16068,
+    "primary": 4825,
+    "trunk": 4221,
+    "secondary_link": 2188,
+    "tertiary_link": 1663,
+    "motorway": 1437,
+    "trunk_link": 1072,
+    "primary_link": 1015,
+    "motorway_link": 426,
+    "road": 2
+  },
+  "pickle_mb": 285.7
+}

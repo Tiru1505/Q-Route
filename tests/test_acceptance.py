@@ -267,6 +267,90 @@ def test_12_missing_trip_is_an_error_not_a_guess():
     assert "no active trip" in message.lower(), body
 
 
+def test_13_uploaded_counts_reach_the_forecaster():
+    """
+    The Lab and the routing agent must not be parallel universes.
+
+    Counting real vehicles on a road and then forecasting that road from a
+    reconstruction instead is the failure this guards: it looks identical on
+    screen, and the two would silently disagree about the same tarmac.
+    """
+    import glob
+    import pathlib
+    import tempfile
+
+    from app.integrations.prediction_adapter import get_prediction_adapter
+    from app.models.route_models import Coordinate
+    from app.services.observation_store import clear
+
+    images = sorted(glob.glob("data/vision/dats_yolo/images/val/*"))
+    if not images:
+        pytest.skip("no validation imagery available")
+
+    from scripts.test_pipeline import make_clip
+
+    road_id, lat, lon = "hyderabad:inner-ring-road", 17.34133, 78.50367
+    clear(road_id)
+
+    adapter = get_prediction_adapter()
+    if not hasattr(adapter, "_observed_series"):
+        pytest.skip("forecaster unavailable; the random placeholder is in use")
+
+    before = adapter.predict(Coordinate(lat=lat, lon=lon), 15)
+    assert before["data_source"] == "lstm+anchored-history", (
+        "with no observations the forecast should be reconstructed, and say so"
+    )
+
+    need = adapter._forecaster.lookback
+    tmp = pathlib.Path(tempfile.mkdtemp())
+    for i in range(need):
+        clip = make_clip(pathlib.Path(images[-(i + 1)]), tmp / f"c{i}.mp4", frames=180)
+        with open(clip, "rb") as fh:
+            r = client.post("/api/vision/analyse",
+                            files={"file": (f"c{i}.mp4", fh, "video/mp4")},
+                            data={"city": "hyderabad", "road_id": road_id,
+                                  "sample_fps": "12.5", "max_frames": "90"})
+        assert r.status_code == 200, r.text
+        assert r.json().get("recorded"), "the observation was not recorded on the road"
+
+    listing = client.get("/api/vision/observations").json()
+    assert any(x["roadId"] == road_id and x["observations"] >= need
+               for x in listing["roads"]), listing
+
+    after = adapter.predict(Coordinate(lat=lat, lon=lon), 15)
+    assert after["data_source"] == "lstm+uploaded-observations", (
+        f"real counts were on record and the forecaster still used "
+        f"{after['data_source']}"
+    )
+    assert after["observed_road"]["roadId"] == road_id
+    assert "measured traffic" in after["assumption"]
+    clear(road_id)
+
+
+def test_14_partial_series_is_not_padded():
+    """One observation short of a window must fall back, not be padded out."""
+    from app.integrations.prediction_adapter import get_prediction_adapter
+    from app.models.route_models import Coordinate
+    from app.services.observation_store import clear, record
+
+    adapter = get_prediction_adapter()
+    if not hasattr(adapter, "_observed_series"):
+        pytest.skip("forecaster unavailable")
+
+    road_id, lat, lon = "test:partial-road", 17.34133, 78.50367
+    clear(road_id)
+    need = adapter._forecaster.lookback
+    for _ in range(need - 1):                       # deliberately one short
+        record(road_id, "hyderabad", "Partial Road", lat, lon,
+               {"CarCount": 40, "BikeCount": 20, "BusCount": 2, "TruckCount": 2})
+
+    out = adapter.predict(Coordinate(lat=lat, lon=lon), 15)
+    assert out["data_source"] == "lstm+anchored-history", (
+        "a short series was used as if it were a full window"
+    )
+    clear(road_id)
+
+
 # --------------------------------------------------- contract guarantees
 
 def test_simulated_results_are_always_labelled():

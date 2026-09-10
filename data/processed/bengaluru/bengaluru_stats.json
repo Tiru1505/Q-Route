@@ -1,0 +1,38 @@
+{
+  "city": "bengaluru",
+  "source": "Geofabrik india-latest.osm.pbf",
+  "scope": "Street level \u2014 every drivable public road class",
+  "not_included": "Service ways (parking aisles, driveways, alleys)",
+  "requested_bbox": [
+    77.35,
+    12.75,
+    77.85,
+    13.2
+  ],
+  "actual_bbox": [
+    77.35,
+    12.75,
+    77.85,
+    13.2
+  ],
+  "nodes": 323725,
+  "edges": 781664,
+  "directed_km": 53274.3,
+  "edges_by_class": {
+    "residential": 660466,
+    "tertiary": 70845,
+    "secondary": 22631,
+    "primary": 8576,
+    "living_street": 6628,
+    "unclassified": 6614,
+    "trunk": 3284,
+    "primary_link": 632,
+    "trunk_link": 599,
+    "secondary_link": 392,
+    "tertiary_link": 391,
+    "motorway": 359,
+    "motorway_link": 197,
+    "road": 50
+  },
+  "pickle_mb": 216.5
+}

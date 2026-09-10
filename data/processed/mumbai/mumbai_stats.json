@@ -1,0 +1,37 @@
+{
+  "city": "mumbai",
+  "source": "Geofabrik india-latest.osm.pbf",
+  "scope": "Street level \u2014 every drivable public road class",
+  "not_included": "Service ways (parking aisles, driveways, alleys)",
+  "requested_bbox": [
+    72.75,
+    18.85,
+    73.05,
+    19.35
+  ],
+  "actual_bbox": [
+    72.7787,
+    18.85,
+    73.05,
+    19.35
+  ],
+  "nodes": 92676,
+  "edges": 210935,
+  "directed_km": 14503.5,
+  "edges_by_class": {
+    "residential": 157265,
+    "tertiary": 23251,
+    "secondary": 11491,
+    "primary": 5539,
+    "living_street": 5446,
+    "trunk": 1922,
+    "unclassified": 1583,
+    "tertiary_link": 1220,
+    "secondary_link": 1082,
+    "trunk_link": 749,
+    "primary_link": 723,
+    "motorway": 340,
+    "motorway_link": 324
+  },
+  "pickle_mb": 59.0
+}
