@@ -12,12 +12,14 @@ from app.api.forecast import router as forecast_router
 from app.api.graphs import router as graphs_router
 from app.api.health import router as health_router
 from app.api.routes import router as routes_router
+from app.api.agent import router as agent_router
 from app.api.alerts import router as alerts_router
 from app.api.assistant import router as assistant_router
 from app.api.benchmark import router as benchmark_router
 from app.api.optimization import router as optimization_router
 from app.api.places import router as places_router
 from app.api.prediction import router as prediction_router
+from app.api.simulation import router as simulation_router
 from app.api.traffic import router as traffic_router
 from app.api.vision import router as vision_router
 from app.core.config import get_settings
@@ -165,4 +167,6 @@ app.include_router(forecast_router, prefix="/api")
 app.include_router(vision_router, prefix="/api")
 app.include_router(benchmark_router, prefix="/api")
 app.include_router(alerts_router, prefix="/api")
+app.include_router(agent_router, prefix="/api")
+app.include_router(simulation_router, prefix="/api")
 app.include_router(assistant_router, prefix="/api")
