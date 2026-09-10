@@ -25,13 +25,6 @@ class Settings(BaseSettings):
     ai_model: str = "gpt-4o-mini"
     ai_base_url: str = "https://api.openai.com/v1"
 
-    # Google sign-in. The OAuth *client ID* from Google Cloud Console (Web
-    # application). Not a secret — it is sent to every browser that shows the
-    # button — so the frontend reads it from /api/auth/config rather than
-    # keeping a second copy in its own .env that could drift from this one.
-    # Empty means Google sign-in is off, and the login page says so.
-    google_client_id: str = ""
-
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

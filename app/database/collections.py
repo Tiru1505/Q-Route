@@ -36,9 +36,6 @@ def ensure_indexes(database: Database) -> None:
     database.benchmark_results.create_index("created_at")
     database.alerts.create_index([("user_id", 1), ("created_at", -1)])
     database.alerts.create_index("expires_at", expireAfterSeconds=0)
-    # One document per Google account. Sparse, so users created any other way
-    # (which have no google_sub) are not forced to share a null key.
-    database.users.create_index("google_sub", unique=True, sparse=True)
 
 
 # ---------------------------------------------------------------------------

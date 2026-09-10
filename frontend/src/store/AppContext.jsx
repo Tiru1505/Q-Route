@@ -98,26 +98,11 @@ export function AppProvider({ children }) {
     return true
   }, [])
 
-  /**
-   * A user the SERVER has verified — Google sign-in. Unlike signIn() below,
-   * nothing here decides who the user is: /api/auth/google checked Google's
-   * signature, audience and verified email before returning this.
-   */
-  const completeSignIn = useCallback((verified) => {
-    const u = { ...verified, signedInAt: new Date().toISOString(), guest: false }
-    setUser(u)
-    try {
-      sessionStorage.setItem('qro.session_user', JSON.stringify(u))
-    } catch {}
-  }, [])
-
   const signOut = useCallback(() => {
     try {
       sessionStorage.removeItem('qro.session_user')
       localStorage.removeItem('qro.user')
     } catch {}
-    // Otherwise Google would sign the same account straight back in.
-    try { window.google?.accounts?.id?.disableAutoSelect() } catch {}
     setUser(null)
   }, [])
 
@@ -564,7 +549,7 @@ export function AppProvider({ children }) {
   }, [])
 
   const value = {
-    user, signIn, signUp: signIn, completeSignIn, signOut,
+    user, signIn, signUp: signIn, signOut,
     theme, setTheme,
     collapsed, setCollapsed,
     settings, setSettings,
