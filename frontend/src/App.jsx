@@ -53,11 +53,9 @@ class AppErrorBoundary extends React.Component {
 }
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
-const RouteOptimizer = lazy(() => import('./pages/RouteOptimizer'))
 const LiveTraffic = lazy(() => import('./pages/LiveTraffic'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const RoadVision = lazy(() => import('./pages/RoadVision'))
-const CommandCentre = lazy(() => import('./pages/CommandCentre'))
 const NotificationToasts = lazy(() => import('./components/NotificationToasts'))
 const Benchmark = lazy(() => import('./pages/Benchmark'))
 const Alerts = lazy(() => import('./pages/Alerts'))
@@ -91,11 +89,9 @@ export default function App() {
               <motion.div key={location.pathname} className="page" {...pageMotion}>
                 <Routes location={location}>
                   <Route path="/" element={<Dashboard />} />
-                  <Route path="/optimizer" element={<RouteOptimizer />} />
                   <Route path="/traffic" element={<LiveTraffic />} />
                   <Route path="/analytics" element={<Analytics />} />
                   <Route path="/vision" element={<RoadVision />} />
-                  <Route path="/command" element={<CommandCentre />} />
                   <Route path="/benchmark" element={<Benchmark />} />
                   <Route path="/alerts" element={<Alerts />} />
                   <Route path="/history" element={<History />} />

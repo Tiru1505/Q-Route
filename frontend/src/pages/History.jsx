@@ -134,8 +134,8 @@ export default function History() {
                     <td>
                       <button
                         className="btn btn-sm"
-                        onClick={() => navigate('/optimizer')}
-                        title="Open in optimizer"
+                        onClick={() => navigate('/')}
+                        title="Open in the dashboard planner"
                       >
                         Open
                       </button>
