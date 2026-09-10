@@ -672,3 +672,39 @@ def test_every_detected_class_reaches_a_forecaster_class():
 
     d = distribution({name: 1 for name in VEHICLE_PCU})
     assert all(c["lstmClass"] in LSTM_COUNTS for c in d["classes"])
+
+
+def test_optimize_reports_how_it_searched_not_just_what_it_found():
+    """
+    The route response must carry the optimiser's own convergence history.
+
+    The dashboard drew hardcoded demo values for exactly as long as this field
+    was missing. The adapter always produced it; the response dropped it.
+    """
+    body = optimise(algorithm="qpso")
+
+    curve = body.get("convergence_history")
+    assert curve, "no convergence history — the dashboard has nothing real to draw"
+    assert body["iterations_used"] == len(curve)
+
+    # Best-so-far can only improve. A rise would mean the series is per-particle
+    # noise rather than the running best, and the widget's "convergence %"
+    # would be meaningless.
+    assert all(b <= a + 1e-9 for a, b in zip(curve, curve[1:])), curve
+
+    # The reported fitness is the end of the curve, not a separate number.
+    assert abs(min(curve) - body["fitness"]) < 1e-3, (min(curve), body["fitness"])
+
+
+def test_an_exact_algorithm_does_not_pretend_to_iterate():
+    """
+    Dijkstra computes an answer; it does not search towards one.
+
+    One value, not a fabricated curve — the widget keys off this to say
+    "exact" rather than showing a convergence percentage it cannot justify.
+    """
+    body = optimise(algorithm="dijkstra")
+    curve = body.get("convergence_history")
+
+    assert curve is not None and len(curve) == 1, curve
+    assert body["iterations_used"] == 1

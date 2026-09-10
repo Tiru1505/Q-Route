@@ -3763,3 +3763,13 @@
   margin-top: 12px; padding: 12px; border-radius: 10px;
   border: 1px dashed var(--border); color: var(--text-dim); font-size: 11px;
 }
+
+/* The convergence widget's footnote. It carries real figures now, so it needs
+   to be readable rather than a disclaimer tucked out of the way. */
+.qpso-note {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+.qpso-note b { color: var(--text); font-weight: 600; }

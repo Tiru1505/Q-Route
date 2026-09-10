@@ -81,6 +81,10 @@ class RouteService:
             fitness=opt_result.fitness if opt_result else None,
             execution_time_ms=round(elapsed_ms, 3),
             eta=eta,
+            iterations_used=getattr(opt_result, "iterations_used", None) if opt_result else None,
+            convergence_history=(
+                getattr(opt_result, "convergence_history", None) if opt_result else None
+            ),
             metadata={
                 # Reported from the adapter actually in use, not hardcoded: the
                 # services default to the real OSM engine now, and labelling

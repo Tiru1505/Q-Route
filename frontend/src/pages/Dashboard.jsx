@@ -28,7 +28,7 @@ export default function Dashboard() {
     segments, incidents, start, end, algorithm,
     predictiveAlert, injectCongestion,
     rerouting, rerouteResult, runReroute,
-    demoMode, demoStep, settings,
+    demoMode, demoStep, settings, lastRun,
   } = useApp()
 
   // Gate the reveal on the staged animation, not on the request finishing.
@@ -123,8 +123,9 @@ export default function Dashboard() {
 
           <QPSOVisualization
             active={animating || demoStep === 'optimizing'}
-            iterations={48}
-            bestFitness={0.418}
+            convergence={lastRun?.convergence}
+            algorithm={lastRun?.algorithm || algorithm}
+            runtimeMs={lastRun?.computeMs}
           />
         </div>
 

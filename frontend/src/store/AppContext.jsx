@@ -148,6 +148,11 @@ export function AppProvider({ children }) {
   // charts re-read the server after a new route is stored, instead of
   // showing whatever was true when the page first mounted.
   const [routesVersion, setRoutesVersion] = useState(0)
+  // What the last optimisation actually did — iterations, convergence curve,
+  // wall time. Kept so the dashboard can report the run rather than illustrate
+  // one, and cleared with every new run so a stale curve never sits beside a
+  // fresh route.
+  const [lastRun, setLastRun] = useState(null)
 
   /* --- live traffic + alerts ------------------------------------------- */
   const [segments, setSegments] = useState(TRAFFIC_SEGMENTS)
@@ -202,6 +207,7 @@ export function AppProvider({ children }) {
     setError(null)
     setRerouteResult(null)
     setPredictiveAlert(null)
+    setLastRun(null)
     try {
       const res = await api.getRouteOptimization({
         start, end, algorithm, mode, graph,
@@ -214,6 +220,7 @@ export function AppProvider({ children }) {
       setRoutes(res.routes)
       setSelectedRouteId(res.recommended.id || res.routes[0].id)
       setRoutesVersion((v) => v + 1)
+      setLastRun(res.meta || null)
       return res
     } catch (err) {
       setError(err.message || 'Optimization failed.')
@@ -419,6 +426,7 @@ export function AppProvider({ children }) {
     optimizing, optimize, error,
       applyAssistantActions,
     routesVersion,
+    lastRun,
     segments, incidents, alerts, dismissAlert,
     refreshAlerts, raiseAlert, wipeAlerts,
     predictiveAlert, injectCongestion,

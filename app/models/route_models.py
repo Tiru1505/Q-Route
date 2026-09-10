@@ -111,4 +111,18 @@ class RouteResponse(BaseModel):
     alerts: list[dict[str, Any]] | None = Field(
         default=None, description="Active alerts along this route"
     )
+    # How the optimiser got here, not just where it ended up. The adapter has
+    # always produced this and the response dropped it, so the dashboard had
+    # nothing real to draw and drew demo values instead.
+    iterations_used: int | None = Field(
+        default=None, description="Iterations the optimiser actually ran"
+    )
+    convergence_history: list[float] | None = Field(
+        default=None,
+        description=(
+            "Best fitness after each iteration. Lower is better, so this "
+            "series is non-increasing. A deterministic algorithm reports a "
+            "single value — it does not iterate towards an answer."
+        ),
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)

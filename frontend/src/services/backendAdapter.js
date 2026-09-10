@@ -99,6 +99,13 @@ export function mapOptimizeResponse(primary, alternatives = [], meta = {}) {
       algorithm: primary?.algorithm,
       computeMs: primary?.execution_time_ms,
       eta: primary?.eta,
+      // The optimiser's own search history, so the dashboard can replay the
+      // run instead of illustrating one. Absent on a fallback to the baseline
+      // route, and the widget says so rather than filling the gap.
+      iterationsUsed: primary?.iterations_used ?? null,
+      convergence: Array.isArray(primary?.convergence_history)
+        ? primary.convergence_history
+        : null,
       dataSource: primary?.metadata?.data_source,
       isDemoData: false,
     },
