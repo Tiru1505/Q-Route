@@ -1,0 +1,36 @@
+{
+  "city": "pune",
+  "source": "Geofabrik india-latest.osm.pbf",
+  "scope": "Street level \u2014 every drivable public road class",
+  "not_included": "Service ways (parking aisles, driveways, alleys)",
+  "requested_bbox": [
+    73.7,
+    18.4,
+    74.05,
+    18.7
+  ],
+  "actual_bbox": [
+    73.7,
+    18.4,
+    74.05,
+    18.7
+  ],
+  "nodes": 96197,
+  "edges": 219362,
+  "directed_km": 17538.6,
+  "edges_by_class": {
+    "residential": 177634,
+    "tertiary": 19147,
+    "primary": 7127,
+    "secondary": 6179,
+    "living_street": 3024,
+    "trunk": 2942,
+    "unclassified": 2159,
+    "primary_link": 406,
+    "trunk_link": 317,
+    "tertiary_link": 221,
+    "secondary_link": 204,
+    "motorway_link": 2
+  },
+  "pickle_mb": 61.3
+}
