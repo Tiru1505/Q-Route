@@ -187,12 +187,35 @@ function FitBounds({
 
     if (!pts.length) return
 
-    map.flyToBounds(
-      L.latLngBounds(pts).pad(0.18),
-      {
-        duration: 0.85,
-      }
-    )
+    const bounds = L.latLngBounds(pts).pad(0.18)
+    map.flyToBounds(bounds, { duration: 0.85 })
+
+    // Re-fit when the container changes size. Fitting is relative to the
+    // viewport Leaflet had at the time, so a map that grows or shrinks
+    // afterwards leaves the route occupying a fraction of the space — measured
+    // at 256x83px inside a 664x755px map, which reads as a tiny squiggle
+    // rather than a journey. invalidateSize alone does not correct it: it
+    // updates the size and keeps the old zoom.
+    if (typeof ResizeObserver === 'undefined') return undefined
+
+    let frame = 0
+    let first = true
+    const observer = new ResizeObserver(() => {
+      // The observer fires once on attach with the current size; refitting
+      // then would fight the flyToBounds still animating above.
+      if (first) { first = false; return }
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        map.invalidateSize({ animate: false })
+        map.fitBounds(bounds, { animate: false })
+      })
+    })
+    observer.observe(map.getContainer())
+
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
   }, [
     routes,
     map,
@@ -217,6 +240,48 @@ function InvalidateOnMount() {
 
     return () =>
       clearTimeout(timer)
+  }, [map])
+
+  return null
+}
+
+/**
+ * Keep Leaflet's idea of its own size in step with the element.
+ *
+ * Covers the no-route case; when routes are present FitBounds re-fits as well
+ * as re-measuring, because a correct size with a stale zoom still shows the
+ * route in the wrong place.
+ *
+ * Leaflet measures the container once and only re-measures on a WINDOW resize.
+ * This map lives in a grid row whose height is set by its siblings, so listing
+ * three routes instead of one grows the map without the window changing at all.
+ * Leaflet then keeps a stale size and requests only enough tiles for the old
+ * one — a long intercity route showed the polyline drawn over bare background,
+ * because the tiles for the newly exposed area were never asked for.
+ *
+ * A ResizeObserver watches the element itself, which is the thing that actually
+ * changes.
+ */
+function InvalidateOnResize() {
+  const map = useMap()
+
+  useEffect(() => {
+    const el = map.getContainer()
+    if (typeof ResizeObserver === 'undefined') return undefined
+
+    let frame = 0
+    const observer = new ResizeObserver(() => {
+      // Coalesced into one frame: a resize fires repeatedly during layout, and
+      // invalidateSize on every tick would refetch tiles the whole way.
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => map.invalidateSize({ animate: false }))
+    })
+    observer.observe(el)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
   }, [map])
 
   return null
@@ -726,6 +791,7 @@ export default function MapView({
       />
 
       <InvalidateOnMount />
+      <InvalidateOnResize />
 
       <FitBounds
         routes={routes}

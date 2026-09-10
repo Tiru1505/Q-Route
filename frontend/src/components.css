@@ -497,10 +497,24 @@
 }
 
 .map-shell {
-  position: relative;
   width: 100%;
   height: 100%;
   min-height: 580px;
+  /* The map sits in a grid row sized by its tallest sibling, so a long route
+     with three alternatives listed beside it stretched it to 1187px inside a
+     950px viewport and the map ran off the bottom of the screen.
+     Sticky rather than a fixed cap: a plain max-height has to guess the
+     distance from the top of the page, which changes with the header and the
+     viewport, and guessing it left the map 43px past the fold. Sticky pins the
+     top to a known offset, so `100vh - 2 * that` is exactly the space
+     available — and the map stays in view while the side panels scroll. */
+  position: sticky;
+  top: 16px;
+  /* 177px is where the map starts: the 60px navbar plus the page heading and
+     its gutters. Plus 16px of breathing room underneath. Measured rather than
+     guessed — an earlier `100vh - 32px` assumed the map began at the top of
+     the viewport and left it 143px past the fold. */
+  max-height: calc(100vh - 193px);
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--border);
