@@ -472,6 +472,20 @@
 .assistant-message { max-width: 92%; padding: 8px 10px; border-radius: 8px; font-size: 11.5px; line-height: 1.45; white-space: pre-wrap; }
 .assistant-message.user { align-self: flex-end; background: var(--brand); color: #fff; }
 .assistant-message.assistant { align-self: flex-start; display: flex; align-items: center; gap: 6px; background: var(--panel-hover); color: var(--text); }
+/* Assistant replies say where they came from. The label sits on its own line
+   below the text: the message row stays flex so the loading spinner still sits
+   beside its label, and flex-basis:100% breaks the provenance onto a new row
+   rather than needing a second layout mode. */
+.assistant-message.assistant { flex-wrap: wrap; }
+.assistant-provenance {
+  flex-basis: 100%;
+  margin-top: 4px;
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  opacity: 0.85;
+}
+.assistant-suggestions button:disabled { opacity: 0.45; cursor: default; }
 .assistant-suggestions { display: flex; flex-wrap: wrap; gap: 5px; }
 .assistant-suggestions button { border: 1px solid var(--border); border-radius: 999px; padding: 5px 8px; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 10px; }
 .assistant-suggestions button:hover { border-color: var(--brand); color: var(--text); }

@@ -34,3 +34,17 @@ class AssistantChatResponse(BaseModel):
     actions: list[AssistantAction] = Field(default_factory=list)
     provider: str
     model: str
+
+
+class AssistantAskRequest(BaseModel):
+    """
+    A question for the assistant's state-backed answering.
+
+    `context` is optional and only travels onward if the question has to fall
+    through to the language model — the state-backed answers read the backend
+    directly rather than trusting what the browser says is on screen.
+    """
+
+    question: str = Field(..., min_length=1, max_length=2000)
+    graph: str | None = None
+    context: AssistantContext | None = None

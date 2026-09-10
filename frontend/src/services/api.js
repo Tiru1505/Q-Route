@@ -287,6 +287,25 @@ export async function getSystemStatus() {
   return request('/status')
 }
 
+/**
+ * Ask the assistant about the journey.
+ *
+ * Answered from backend state, so this works with no AI key configured — the
+ * open-ended `assistantChat` below is the other half, and the backend decides
+ * when a question needs it.
+ */
+export async function assistantAsk({ question, graph, context } = {}) {
+  return request('/assistant/ask', {
+    method: 'POST',
+    body: JSON.stringify({ question, graph: graph || null, context: context || null }),
+  })
+}
+
+/** What the assistant would say unprompted: the current prediction. */
+export async function getAssistantBriefing(graph) {
+  return request(`/assistant/briefing${graph ? `?graph=${graph}` : ''}`)
+}
+
 /** Send open-ended navigation language to the server-side LLM tool runner. */
 export async function assistantChat({ messages, context } = {}) {
   if (USE_MOCK) {

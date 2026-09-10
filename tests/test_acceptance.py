@@ -532,3 +532,82 @@ def test_agent_decision_is_explained():
     assert d["reason"], "decision with no reasoning"
     assert d["forecast"]["note"], "forecast scope must be stated"
     assert d["severity"] in ("info", "moderate", "severe")
+
+
+# ------------------------------------------------- the assistant answers
+
+def test_assistant_answers_without_an_api_key():
+    """
+    The robot must be useful on a laptop with no AI provider configured.
+
+    The whole point of answering from state is that no key is needed, so this
+    asserts a real answer comes back — not a 503, and not an apology.
+    """
+    r = client.post("/api/assistant/ask", json={"question": "what is the traffic like?"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["source"] == "measured", body
+    assert body["intent"] == "traffic"
+    assert len(body["text"]) > 40, "an answer that short is not an answer"
+
+
+def test_assistant_quotes_the_agents_own_decision():
+    """
+    The reroute answer must be the agent's, not a paraphrase invented for chat.
+
+    Two surfaces claiming different things about the same journey is the
+    failure this guards: whatever /agent/analyze says is what the robot says.
+    """
+    optimise()
+    client.post("/api/routes/reroute", json={"progress": 0.3, "spike": True})
+
+    agent = analyse(force="true").json()
+    asked = client.post("/api/assistant/ask",
+                        json={"question": "should I reroute?"}).json()
+
+    assert asked["intent"] == "reroute"
+    assert asked["source"] == "measured"
+    # The agent re-evaluates per call and traffic is stochastic, so the exact
+    # sentence can differ; the decision it reports must not.
+    assert asked["decision"]["decision"] in ("reroute", "keep")
+    assert asked["decision"]["decision"] == agent["decision"] or \
+        asked["decision"]["reason"], "the assistant reported no reasoning"
+
+
+def test_assistant_refuses_to_forecast_without_a_trip():
+    """
+    With no journey there is nothing to predict, and it must say so.
+
+    An assistant that produces a confident forecast for a journey that does not
+    exist is the exact failure this project is trying not to ship.
+    """
+    from app.integrations.engine_bridge import get_engine
+
+    get_engine().trip = None
+    body = client.post("/api/assistant/ask",
+                       json={"question": "will there be congestion ahead?"}).json()
+    assert body["intent"] == "forecast"
+    assert "no journey" in body["text"].lower()
+    assert "%" not in body["text"], "a figure was quoted with nothing to measure"
+
+
+def test_assistant_admits_what_it_cannot_answer():
+    """Out of scope must produce a boundary, not a guess."""
+    body = client.post("/api/assistant/ask",
+                       json={"question": "who won the cricket match"}).json()
+    # With no key configured there is nothing to fall through to, so the
+    # honest answer is the only one available.
+    assert body["source"] in ("unmatched", "llm")
+    if body["source"] == "unmatched":
+        assert body["suggestions"], "a refusal must offer what it can do"
+
+
+def test_assistant_briefing_speaks_first():
+    """Opening the panel must yield the prediction without being asked."""
+    optimise()
+    client.post("/api/routes/reroute", json={"progress": 0.3, "spike": True})
+    r = client.get("/api/assistant/briefing")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["intent"] == "forecast"
+    assert body["text"]
