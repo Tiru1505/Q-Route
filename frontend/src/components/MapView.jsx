@@ -1,13 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import {
-  MapContainer,
-  Marker,
-  Polyline,
-  Popup,
-  TileLayer,
-  useMap,
-} from 'react-leaflet'
-import L from 'leaflet'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import * as maplibregl from 'maplibre-gl'
+import 'maplibre-gl/dist/maplibre-gl.css'
 
 import {
   HYDERABAD_CENTER,
@@ -15,335 +8,432 @@ import {
 } from '../data/mockData'
 
 /* ============================================================
-   BASIC MAP MARKERS
+   HELPERS
    ============================================================ */
 
-const pin = (label, color) =>
-  L.divIcon({
-    className: '',
-    html: `<div class="marker-pin" style="background:${color};box-shadow:0 0 14px ${color}">${label}</div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
-  })
+function normalizePoint(point) {
+  if (!point) return null
 
-const incidentIcon = (color) =>
-  L.divIcon({
-    className: '',
-    html: `
-      <div
-        class="incident-pin"
-        style="
-          background:${color}22;
-          border:2px solid ${color};
-        "
-      >
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="${color}"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-          <path d="M12 9v4"/>
-          <path d="M12 17h.01"/>
-        </svg>
-      </div>
-    `,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-  })
+  // [lat, lon]
+  if (Array.isArray(point) && point.length >= 2) {
+    const a = Number(point[0])
+    const b = Number(point[1])
 
-/* ============================================================
-   MAP TILES
-   ============================================================ */
+    if (Number.isFinite(a) && Number.isFinite(b)) {
+      return [a, b]
+    }
+  }
 
-const TILES = {
-  standard:
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  // { coords: [lat, lon] }
+  if (
+    Array.isArray(point.coords) &&
+    point.coords.length >= 2
+  ) {
+    const a = Number(point.coords[0])
+    const b = Number(point.coords[1])
 
-  humanitarian:
-    'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+    if (Number.isFinite(a) && Number.isFinite(b)) {
+      return [a, b]
+    }
+  }
+
+  // { lat, lon }
+  if (
+    point.lat !== undefined &&
+    point.lon !== undefined
+  ) {
+    const lat = Number(point.lat)
+    const lon = Number(point.lon)
+
+    if (
+      Number.isFinite(lat) &&
+      Number.isFinite(lon)
+    ) {
+      return [lat, lon]
+    }
+  }
+
+  // { lat, lng }
+  if (
+    point.lat !== undefined &&
+    point.lng !== undefined
+  ) {
+    const lat = Number(point.lat)
+    const lon = Number(point.lng)
+
+    if (
+      Number.isFinite(lat) &&
+      Number.isFinite(lon)
+    ) {
+      return [lat, lon]
+    }
+  }
+
+  return null
 }
 
 /* ============================================================
-   DISTANCE HELPER
+   GET ROUTE PATH
    ============================================================ */
 
-function pointDistance(a, b) {
-  if (!a || !b) return Infinity
+function getRoutePath(route) {
+  if (!route) return []
 
-  const latDiff = a[0] - b[0]
-  const lngDiff = a[1] - b[1]
+  /*
+   * Normal application format:
+   * route.path
+   */
+  if (Array.isArray(route.path)) {
+    return route.path
+  }
 
-  return Math.sqrt(
-    latDiff * latDiff +
-    lngDiff * lngDiff
-  )
+  /*
+   * GeoJSON format:
+   */
+  if (
+    route.geometry &&
+    Array.isArray(route.geometry.coordinates)
+  ) {
+    return route.geometry.coordinates.map(
+      ([lon, lat]) => [lat, lon]
+    )
+  }
+
+  /*
+   * Alternative names just in case
+   */
+  if (Array.isArray(route.coordinates)) {
+    return route.coordinates
+  }
+
+  if (Array.isArray(route.points)) {
+    return route.points
+  }
+
+  return []
 }
 
 /* ============================================================
-   GET ROUTE IN A -> B DIRECTION
+   ROUTE DIRECTION
    ============================================================ */
 
 function getDirectionalPath(
   route,
-  startPoint,
-  endPoint
+  startPoint
 ) {
-  if (
-    !route?.path ||
-    route.path.length < 2
-  ) {
+  const rawPath =
+    getRoutePath(route)
+
+  const path =
+    rawPath
+      .map(normalizePoint)
+      .filter(Boolean)
+
+  if (path.length < 2) {
     return []
   }
 
-  const originalPath = route.path
+  const start =
+    normalizePoint(startPoint)
 
-  /*
-   * If A/B coordinates are unavailable,
-   * use the original route direction.
-   */
-
-  if (
-    !startPoint?.coords ||
-    !endPoint?.coords
-  ) {
-    return originalPath
+  if (!start) {
+    return path
   }
 
   const first =
-    originalPath[0]
+    path[0]
 
   const last =
-    originalPath[
-      originalPath.length - 1
-    ]
+    path[path.length - 1]
 
-  /*
-   * Check which end of the route is
-   * closer to the current START.
-   */
+  const distance = (a, b) => {
+    const lat =
+      a[0] - b[0]
 
-  const normalDistance =
-    pointDistance(
-      first,
-      startPoint.coords
+    const lon =
+      a[1] - b[1]
+
+    return Math.sqrt(
+      lat * lat +
+      lon * lon
     )
-
-  const reversedDistance =
-    pointDistance(
-      last,
-      startPoint.coords
-    )
-
-  /*
-   * If the last point is closer to A,
-   * reverse the route.
-   */
-
-  if (
-    reversedDistance <
-    normalDistance
-  ) {
-    return [
-      ...originalPath,
-    ].reverse()
   }
 
-  return originalPath
+  /*
+   * Make sure route starts at A.
+   */
+  if (
+    distance(last, start) <
+    distance(first, start)
+  ) {
+    return [...path].reverse()
+  }
+
+  return path
 }
 
 /* ============================================================
-   FIT MAP TO ROUTES
+   MAPLIBRE COORDINATES
+   IMPORTANT:
+   Application = [lat, lon]
+   MapLibre = [lon, lat]
    ============================================================ */
 
-function FitBounds({
+function toMapLibreCoordinates(
+  route,
+  startPoint
+) {
+  const path =
+    getDirectionalPath(
+      route,
+      startPoint
+    )
+
+  return path
+    .map(([lat, lon]) => [
+      Number(lon),
+      Number(lat),
+    ])
+    .filter(
+      ([lon, lat]) =>
+        Number.isFinite(lon) &&
+        Number.isFinite(lat) &&
+        Math.abs(lat) <= 90 &&
+        Math.abs(lon) <= 180
+    )
+}
+
+/* ============================================================
+   BOUNDS
+   ============================================================ */
+
+function getRouteBounds(
   routes,
-  fallbackCenter,
-}) {
-  const map = useMap()
+  startPoint,
+  endPoint
+) {
+  const bounds =
+    new maplibregl.LngLatBounds()
 
-  useEffect(() => {
-    if (!routes?.length) {
-      map.setView(
-        fallbackCenter,
-        12,
-        {
-          animate: true,
-        }
+  let found = false
+
+  routes.forEach((route) => {
+    const coordinates =
+      toMapLibreCoordinates(
+        route,
+        startPoint
       )
 
-      return
-    }
+    coordinates.forEach(
+      ([lon, lat]) => {
+        bounds.extend([
+          lon,
+          lat,
+        ])
 
-    const pts =
-      routes.flatMap(
-        (r) => r.path || []
-      )
-
-    if (!pts.length) return
-
-    map.flyToBounds(
-      L.latLngBounds(pts).pad(0.18),
-      {
-        duration: 0.85,
+        found = true
       }
     )
-  }, [
-    routes,
-    map,
-    fallbackCenter,
-  ])
+  })
 
-  return null
+  if (found) {
+    return bounds
+  }
+
+  const start =
+    normalizePoint(startPoint)
+
+  const end =
+    normalizePoint(endPoint)
+
+  if (start) {
+    bounds.extend([
+      start[1],
+      start[0],
+    ])
+
+    found = true
+  }
+
+  if (end) {
+    bounds.extend([
+      end[1],
+      end[0],
+    ])
+
+    found = true
+  }
+
+  return found
+    ? bounds
+    : null
 }
 
 /* ============================================================
-   LEAFLET SIZE FIX
+   MARKER
    ============================================================ */
 
-function InvalidateOnMount() {
-  const map = useMap()
+function makeMarker(
+  label,
+  color
+) {
+  const el =
+    document.createElement('div')
 
-  useEffect(() => {
-    const timer =
-      setTimeout(() => {
-        map.invalidateSize()
-      }, 180)
+  el.innerHTML = `
+    <div
+      style="
+        width:30px;
+        height:30px;
+        border-radius:50%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:${color};
+        color:#fff;
+        font-size:13px;
+        font-weight:800;
+        border:2px solid #fff;
+        box-shadow:0 0 14px ${color};
+      "
+    >
+      ${label}
+    </div>
+  `
 
-    return () =>
-      clearTimeout(timer)
-  }, [map])
+  return el
+}
 
-  return null
+function makeIncidentMarker(
+  color
+) {
+  const el =
+    document.createElement('div')
+
+  el.innerHTML = `
+    <div
+      style="
+        width:30px;
+        height:30px;
+        border-radius:50%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:${color}22;
+        border:2px solid ${color};
+        color:${color};
+        font-size:16px;
+        font-weight:900;
+        box-shadow:0 0 14px ${color}55;
+      "
+    >
+      !
+    </div>
+  `
+
+  return el
 }
 
 /* ============================================================
-   MAIN OPTIMIZED CAR
+   ANIMATED CAR
    ============================================================ */
 
 function AnimatedCar({
+  map,
   route,
   startPoint,
-  endPoint,
-  active = true,
 }) {
-  const [position, setPosition] =
-    useState(null)
-
-  const [angle, setAngle] =
-    useState(0)
-
-  /*
-   * Build the route specifically in
-   * the current A -> B direction.
-   */
-
-  const directionalPath =
-    useMemo(
-      () =>
-        getDirectionalPath(
-          route,
-          startPoint,
-          endPoint
-        ),
-      [
-        route,
-        startPoint,
-        endPoint,
-      ]
-    )
+  const frame =
+    useRef(null)
 
   useEffect(() => {
-    /*
-     * Clear the old car immediately
-     * when A/B changes.
-     */
+    if (!map) return
 
-    setPosition(null)
-    setAngle(0)
+    const coordinates =
+      toMapLibreCoordinates(
+        route,
+        startPoint
+      )
 
     if (
-      !active ||
-      directionalPath.length < 2
+      coordinates.length < 2
     ) {
       return
     }
 
-    let segment = 0
+    const el =
+      document.createElement('div')
+
+    el.innerHTML = `
+      <div
+        style="
+          width:28px;
+          height:28px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          filter:drop-shadow(0 0 7px #ff6b35);
+        "
+      >
+        🚗
+      </div>
+    `
+
+    const marker =
+      new maplibregl.Marker({
+        element: el,
+        anchor: 'center',
+      })
+        .setLngLat(
+          coordinates[0]
+        )
+        .addTo(map)
+
+    let index = 0
     let progress = 0
 
-    let animationFrame
-
     const animate = () => {
       if (
-        segment >=
-        directionalPath.length - 1
+        index >=
+        coordinates.length - 1
       ) {
-        /*
-         * When the car reaches B,
-         * restart from A.
-         */
-
-        segment = 0
+        index = 0
         progress = 0
       }
 
-      const start =
-        directionalPath[segment]
+      const a =
+        coordinates[index]
 
-      const end =
-        directionalPath[
-          segment + 1
-        ]
+      const b =
+        coordinates[index + 1]
 
-      if (!start || !end) {
+      if (!a || !b) {
         return
       }
 
+      const lon =
+        a[0] +
+        (b[0] - a[0]) *
+          progress
+
       const lat =
-        start[0] +
-        (end[0] - start[0]) *
+        a[1] +
+        (b[1] - a[1]) *
           progress
 
-      const lng =
-        start[1] +
-        (end[1] - start[1]) *
-          progress
-
-      setPosition([
+      marker.setLngLat([
+        lon,
         lat,
-        lng,
       ])
 
-      /*
-       * Calculate vehicle direction.
-       */
-
-      const dx =
-        end[1] - start[1]
-
-      const dy =
-        end[0] - start[0]
-
-      const direction =
-        Math.atan2(dx, dy) *
-        (180 / Math.PI)
-
-      setAngle(direction)
-
-      progress += 0.006
+      progress += 0.004
 
       if (progress >= 1) {
         progress = 0
-        segment += 1
+        index += 1
       }
 
-      animationFrame =
+      frame.current =
         requestAnimationFrame(
           animate
         )
@@ -352,256 +442,21 @@ function AnimatedCar({
     animate()
 
     return () => {
-      cancelAnimationFrame(
-        animationFrame
-      )
-    }
-  }, [
-    directionalPath,
-    active,
-  ])
-
-  if (!position) {
-    return null
-  }
-
-  const carIcon =
-    L.divIcon({
-      className:
-        'animated-car-marker',
-
-      html: `
-        <div
-          class="animated-car"
-          style="
-            transform:rotate(${angle}deg);
-          "
-        >
-
-          <div class="car-glow"></div>
-
-          <div class="car-body">
-
-            <div class="car-roof">
-              <div class="car-window"></div>
-            </div>
-
-            <div class="car-headlight left"></div>
-            <div class="car-headlight right"></div>
-
-            <div class="car-wheel left"></div>
-            <div class="car-wheel right"></div>
-
-          </div>
-
-        </div>
-      `,
-
-      iconSize: [
-        32,
-        32,
-      ],
-
-      iconAnchor: [
-        16,
-        16,
-      ],
-    })
-
-  return (
-    <Marker
-      position={position}
-      icon={carIcon}
-      interactive={false}
-      zIndexOffset={1000}
-    />
-  )
-}
-
-/* ============================================================
-   SMALL TRAFFIC CAR
-   ============================================================ */
-
-function TrafficCar({
-  route,
-  startPoint,
-  endPoint,
-  speed = 1,
-  delay = 0,
-  color = '#facc15',
-}) {
-  const [position, setPosition] =
-    useState(null)
-
-  const [angle, setAngle] =
-    useState(0)
-
-  const directionalPath =
-    useMemo(
-      () =>
-        getDirectionalPath(
-          route,
-          startPoint,
-          endPoint
-        ),
-      [
-        route,
-        startPoint,
-        endPoint,
-      ]
-    )
-
-  useEffect(() => {
-    setPosition(null)
-    setAngle(0)
-
-    if (
-      directionalPath.length < 2
-    ) {
-      return
-    }
-
-    let segment = 0
-
-    /*
-     * Delay controls starting position
-     * along the route.
-     */
-
-    let progress = delay
-
-    let animationFrame
-
-    const animate = () => {
-      if (
-        segment >=
-        directionalPath.length - 1
-      ) {
-        segment = 0
-        progress = 0
-      }
-
-      const start =
-        directionalPath[segment]
-
-      const end =
-        directionalPath[
-          segment + 1
-        ]
-
-      if (!start || !end) {
-        return
-      }
-
-      const lat =
-        start[0] +
-        (end[0] - start[0]) *
-          progress
-
-      const lng =
-        start[1] +
-        (end[1] - start[1]) *
-          progress
-
-      setPosition([
-        lat,
-        lng,
-      ])
-
-      const dx =
-        end[1] - start[1]
-
-      const dy =
-        end[0] - start[0]
-
-      setAngle(
-        Math.atan2(dx, dy) *
-          (180 / Math.PI)
-      )
-
-      progress +=
-        0.0025 * speed
-
-      if (progress >= 1) {
-        progress = 0
-        segment += 1
-      }
-
-      animationFrame =
-        requestAnimationFrame(
-          animate
+      if (frame.current) {
+        cancelAnimationFrame(
+          frame.current
         )
-    }
+      }
 
-    animate()
-
-    return () => {
-      cancelAnimationFrame(
-        animationFrame
-      )
+      marker.remove()
     }
   }, [
-    directionalPath,
-    speed,
-    delay,
+    map,
+    route,
+    startPoint,
   ])
 
-  if (!position) {
-    return null
-  }
-
-  const icon =
-    L.divIcon({
-      className:
-        'traffic-car-marker',
-
-      html: `
-        <div
-          class="traffic-car"
-          style="
-            transform:rotate(${angle}deg);
-            --traffic-car-color:${color};
-          "
-        >
-
-          <div class="traffic-car-shadow"></div>
-
-          <div class="traffic-car-body">
-
-            <div class="traffic-car-roof">
-              <div class="traffic-car-window"></div>
-            </div>
-
-            <div class="traffic-car-light left"></div>
-            <div class="traffic-car-light right"></div>
-
-            <div class="traffic-car-wheel left"></div>
-            <div class="traffic-car-wheel right"></div>
-
-          </div>
-
-        </div>
-      `,
-
-      iconSize: [
-        24,
-        24,
-      ],
-
-      iconAnchor: [
-        12,
-        12,
-      ],
-    })
-
-  return (
-    <Marker
-      position={position}
-      icon={icon}
-      interactive={false}
-      zIndexOffset={700}
-    />
-  )
+  return null
 }
 
 /* ============================================================
@@ -611,11 +466,6 @@ function TrafficCar({
 export default function MapView({
   routes = [],
   selectedRouteId = null,
-
-  /*
-   * Kept for compatibility with Dashboard.
-   * We intentionally do not draw these as roads.
-   */
 
   segments = [],
 
@@ -634,469 +484,1065 @@ export default function MapView({
 
   center = HYDERABAD_CENTER,
   zoom = 12,
+
+  routeTransition = false,
 }) {
+  const mapContainerRef =
+    useRef(null)
+
+  const mapRef =
+    useRef(null)
+
+  const [mapReady, setMapReady] =
+    useState(false)
+
+  const [globeMode, setGlobeMode] =
+    useState(true)
+
+  const routeIdsRef =
+    useRef([])
+
+  const markerRefs =
+    useRef([])
+
   /* ==========================================================
-     ORDER ROUTES
+     INITIALIZE MAP
      ========================================================== */
 
-  const ordered =
-    useMemo(() => {
-      const selected =
-        routes.filter(
-          (r) =>
-            r.id ===
-            selectedRouteId
-        )
+  useEffect(() => {
+    if (
+      mapRef.current ||
+      !mapContainerRef.current
+    ) {
+      return
+    }
 
-      const rest =
-        routes.filter(
-          (r) =>
-            r.id !==
-            selectedRouteId
-        )
+    const map =
+      new maplibregl.Map({
+        container:
+          mapContainerRef.current,
 
-      return [
-        ...rest,
-        ...selected,
-      ]
-    }, [
-      routes,
-      selectedRouteId,
-    ])
+        style: {
+          version: 8,
+
+          sources: {
+            osm: {
+              type: 'raster',
+
+              tiles: [
+                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              ],
+
+              tileSize: 256,
+
+              attribution:
+                '© OpenStreetMap contributors',
+            },
+          },
+
+          layers: [
+            {
+              id: 'osm',
+              type: 'raster',
+              source: 'osm',
+            },
+          ],
+        },
+
+        center: [
+          Number(
+            center?.[1] ??
+              78.4867
+          ),
+
+          Number(
+            center?.[0] ??
+              17.3850
+          ),
+        ],
+
+        zoom: 1.2,
+
+        pitch: 0,
+
+        bearing: 0,
+      })
+
+    mapRef.current =
+      map
+
+    map.addControl(
+      new maplibregl.NavigationControl(),
+      'top-right'
+    )
+
+    map.on('load', () => {
+      /*
+       * REAL GLOBE
+       */
+      map.setProjection({
+        type: 'globe',
+      })
+
+      setMapReady(true)
+    })
+
+    map.on(
+      'dragstart',
+      () => {
+        setGlobeMode(false)
+      }
+    )
+
+    return () => {
+      map.remove()
+      mapRef.current =
+        null
+    }
+  }, [])
 
   /* ==========================================================
-     ACTIVE ROUTE
+     GLOBE ROTATION
+     ========================================================== */
+
+  useEffect(() => {
+    const map =
+      mapRef.current
+
+    if (
+      !map ||
+      !mapReady
+    ) {
+      return
+    }
+
+    let animationFrame
+
+    const rotate = () => {
+      if (
+        globeMode &&
+        !routeTransition &&
+        routes.length === 0
+      ) {
+        map.setBearing(
+          map.getBearing() + 0.012
+        )
+      }
+
+      animationFrame =
+        requestAnimationFrame(
+          rotate
+        )
+    }
+
+    animationFrame =
+      requestAnimationFrame(
+        rotate
+      )
+
+    return () => {
+      cancelAnimationFrame(
+        animationFrame
+      )
+    }
+  }, [
+    mapReady,
+    globeMode,
+    routeTransition,
+    routes.length,
+  ])
+
+  /* ==========================================================
+     GLOBE -> LOCATION
+     ========================================================== */
+
+  useEffect(() => {
+    const map =
+      mapRef.current
+
+    if (
+      !map ||
+      !mapReady ||
+      !routeTransition
+    ) {
+      return
+    }
+
+    const bounds =
+      getRouteBounds(
+        routes,
+        startPoint,
+        endPoint
+      )
+
+    if (!bounds) {
+      return
+    }
+
+    setGlobeMode(false)
+
+    map.stop()
+
+    map.setProjection({
+      type: 'globe',
+    })
+
+    const centerPoint =
+      bounds.getCenter()
+
+    /*
+     * Globe zoom toward city.
+     */
+    map.easeTo({
+      center: [
+        centerPoint.lng,
+        centerPoint.lat,
+      ],
+
+      zoom: 3.2,
+
+      duration: 1500,
+
+      essential: true,
+    })
+
+    const timer =
+      setTimeout(() => {
+        if (!mapRef.current) {
+          return
+        }
+
+        map.setProjection({
+          type: 'mercator',
+        })
+
+        const latestBounds =
+          getRouteBounds(
+            routes,
+            startPoint,
+            endPoint
+          )
+
+        if (!latestBounds) {
+          return
+        }
+
+        map.fitBounds(
+          latestBounds,
+          {
+            padding: 80,
+
+            duration: 1600,
+
+            maxZoom: 14,
+
+            essential: true,
+          }
+        )
+      }, 1500)
+
+    return () =>
+      clearTimeout(timer)
+  }, [
+    mapReady,
+    routeTransition,
+    routes,
+    startPoint,
+    endPoint,
+  ])
+
+  /* ==========================================================
+     FINAL ROUTE FIT
+     ========================================================== */
+
+  useEffect(() => {
+    const map =
+      mapRef.current
+
+    if (
+      !map ||
+      !mapReady ||
+      routeTransition ||
+      routes.length === 0
+    ) {
+      return
+    }
+
+    const bounds =
+      getRouteBounds(
+        routes,
+        startPoint,
+        endPoint
+      )
+
+    if (!bounds) {
+      return
+    }
+
+    setGlobeMode(false)
+
+    map.stop()
+
+    map.setProjection({
+      type: 'mercator',
+    })
+
+    map.fitBounds(
+      bounds,
+      {
+        padding: 70,
+
+        duration: 1000,
+
+        maxZoom: 14,
+
+        essential: true,
+      }
+    )
+  }, [
+    mapReady,
+    routes,
+    startPoint,
+    endPoint,
+    routeTransition,
+  ])
+
+  /* ==========================================================
+     DRAW ROUTES
+     ========================================================== */
+
+  useEffect(() => {
+    const map =
+      mapRef.current
+
+    if (
+      !map ||
+      !mapReady
+    ) {
+      return
+    }
+
+    /*
+     * REMOVE OLD ROUTES
+     */
+
+    routeIdsRef.current.forEach(
+      (item) => {
+        if (
+          map.getLayer(
+            item.glow
+          )
+        ) {
+          map.removeLayer(
+            item.glow
+          )
+        }
+
+        if (
+          map.getLayer(
+            item.line
+          )
+        ) {
+          map.removeLayer(
+            item.line
+          )
+        }
+
+        if (
+          map.getSource(
+            item.source
+          )
+        ) {
+          map.removeSource(
+            item.source
+          )
+        }
+      }
+    )
+
+    routeIdsRef.current =
+      []
+
+    /*
+     * WAIT UNTIL ROUTES ARE REVEALED
+     */
+
+    if (
+      routeTransition ||
+      !routes.length
+    ) {
+      return
+    }
+
+    /*
+     * DRAW EVERY ROUTE
+     */
+
+    routes.forEach(
+      (route, index) => {
+        const coordinates =
+          toMapLibreCoordinates(
+            route,
+            startPoint
+          )
+
+        console.log(
+          `Q-Route ${index + 1}:`,
+          route
+        )
+
+        console.log(
+          `Q-Route ${index + 1} coordinates:`,
+          coordinates
+        )
+
+        /*
+         * THIS SHOULD NEVER HAPPEN
+         * IF THE BACKEND ROUTE IS VALID.
+         */
+        if (
+          coordinates.length < 2
+        ) {
+          console.error(
+            'Q-Route: route has no valid coordinates',
+            route
+          )
+
+          return
+        }
+
+        const routeKey =
+          route.id ??
+          index
+
+        const sourceId =
+          `qroute-source-${routeKey}`
+
+        const glowId =
+          `qroute-glow-${routeKey}`
+
+        const lineId =
+          `qroute-line-${routeKey}`
+
+        const color =
+          route.color ||
+          [
+            '#ff6b35',
+            '#2f6fed',
+            '#d946ef',
+          ][
+            index % 3
+          ]
+
+        const selected =
+          route.id ===
+          selectedRouteId
+
+        /*
+         * SOURCE
+         */
+
+        map.addSource(
+          sourceId,
+          {
+            type: 'geojson',
+
+            data: {
+              type: 'Feature',
+
+              properties: {
+                id:
+                  route.id ??
+                  index,
+              },
+
+              geometry: {
+                type: 'LineString',
+
+                coordinates,
+              },
+            },
+          }
+        )
+
+        /*
+         * GLOW
+         */
+
+        map.addLayer({
+          id: glowId,
+
+          type: 'line',
+
+          source: sourceId,
+
+          layout: {
+            'line-cap':
+              'round',
+
+            'line-join':
+              'round',
+          },
+
+          paint: {
+            'line-color':
+              color,
+
+            'line-width':
+              selected
+                ? 13
+                : 8,
+
+            'line-opacity':
+              selected
+                ? 0.22
+                : 0.08,
+
+            'line-blur':
+              selected
+                ? 1.2
+                : 0.5,
+          },
+        })
+
+        /*
+         * ACTUAL ROUTE
+         *
+         * SOLID LINE
+         */
+
+        map.addLayer({
+          id: lineId,
+
+          type: 'line',
+
+          source: sourceId,
+
+          layout: {
+            'line-cap':
+              'round',
+
+            'line-join':
+              'round',
+          },
+
+          paint: {
+            'line-color':
+              color,
+
+            'line-width':
+              selected
+                ? 6
+                : 4,
+
+            'line-opacity':
+              selected
+                ? 1
+                : 0.9,
+          },
+        })
+
+        /*
+         * CLICK
+         */
+
+        map.on(
+          'click',
+          lineId,
+          () => {
+            onSelectRoute?.(
+              route.id
+            )
+          }
+        )
+
+        /*
+         * CURSOR
+         */
+
+        map.on(
+          'mouseenter',
+          lineId,
+          () => {
+            map.getCanvas().style.cursor =
+              'pointer'
+          }
+        )
+
+        map.on(
+          'mouseleave',
+          lineId,
+          () => {
+            map.getCanvas().style.cursor =
+              ''
+          }
+        )
+
+        routeIdsRef.current.push({
+          source: sourceId,
+          glow: glowId,
+          line: lineId,
+        })
+      }
+    )
+
+    /*
+     * FORCE SELECTED ROUTE TO TOP
+     */
+
+    const selectedIndex =
+      routes.findIndex(
+        (route) =>
+          route.id ===
+          selectedRouteId
+      )
+
+    if (
+      selectedIndex !== -1
+    ) {
+      const selectedRoute =
+        routes[selectedIndex]
+
+      const key =
+        selectedRoute.id ??
+        selectedIndex
+
+      const glowId =
+        `qroute-glow-${key}`
+
+      const lineId =
+        `qroute-line-${key}`
+
+      if (
+        map.getLayer(glowId)
+      ) {
+        map.moveLayer(
+          glowId
+        )
+      }
+
+      if (
+        map.getLayer(lineId)
+      ) {
+        map.moveLayer(
+          lineId
+        )
+      }
+    }
+
+    return () => {
+      routeIdsRef.current.forEach(
+        (item) => {
+          if (
+            map.getLayer(
+              item.glow
+            )
+          ) {
+            map.removeLayer(
+              item.glow
+            )
+          }
+
+          if (
+            map.getLayer(
+              item.line
+            )
+          ) {
+            map.removeLayer(
+              item.line
+            )
+          }
+
+          if (
+            map.getSource(
+              item.source
+            )
+          ) {
+            map.removeSource(
+              item.source
+            )
+          }
+        }
+      )
+
+      routeIdsRef.current =
+        []
+    }
+  }, [
+    mapReady,
+    routes,
+    selectedRouteId,
+    startPoint,
+    routeTransition,
+    onSelectRoute,
+  ])
+
+  /* ==========================================================
+     MARKERS
+     ========================================================== */
+
+  useEffect(() => {
+    const map =
+      mapRef.current
+
+    if (
+      !map ||
+      !mapReady
+    ) {
+      return
+    }
+
+    /*
+     * Remove old markers.
+     */
+
+    markerRefs.current.forEach(
+      (marker) =>
+        marker.remove()
+    )
+
+    markerRefs.current =
+      []
+
+    /* --------------------------------------------------------
+       START
+       -------------------------------------------------------- */
+
+    const start =
+      normalizePoint(
+        startPoint
+      )
+
+    if (start) {
+      const marker =
+        new maplibregl.Marker({
+          element:
+            makeMarker(
+              'A',
+              '#2F6FED'
+            ),
+        })
+          .setLngLat([
+            start[1],
+            start[0],
+          ])
+          .addTo(map)
+
+      markerRefs.current.push(
+        marker
+      )
+
+      if (startPoint?.name) {
+        marker.setPopup(
+          new maplibregl.Popup({
+            offset: 18,
+          }).setHTML(
+            `<strong>Start</strong><br>${startPoint.name}`
+          )
+        )
+      }
+    }
+
+    /* --------------------------------------------------------
+       END
+       -------------------------------------------------------- */
+
+    const end =
+      normalizePoint(
+        endPoint
+      )
+
+    if (end) {
+      const marker =
+        new maplibregl.Marker({
+          element:
+            makeMarker(
+              'B',
+              '#1F4D3A'
+            ),
+        })
+          .setLngLat([
+            end[1],
+            end[0],
+          ])
+          .addTo(map)
+
+      markerRefs.current.push(
+        marker
+      )
+
+      if (endPoint?.name) {
+        marker.setPopup(
+          new maplibregl.Popup({
+            offset: 18,
+          }).setHTML(
+            `<strong>Destination</strong><br>${endPoint.name}`
+          )
+        )
+      }
+    }
+
+    /* --------------------------------------------------------
+       INCIDENTS
+       -------------------------------------------------------- */
+
+    if (
+      showIncidents &&
+      Array.isArray(incidents)
+    ) {
+      incidents.forEach(
+        (incident) => {
+          const point =
+            normalizePoint(
+              incident
+            )
+
+          if (!point) {
+            return
+          }
+
+          const color =
+            TRAFFIC_COLORS[
+              incident.severity
+            ] ||
+            '#facc15'
+
+          const marker =
+            new maplibregl.Marker({
+              element:
+                makeIncidentMarker(
+                  color
+                ),
+            })
+              .setLngLat([
+                point[1],
+                point[0],
+              ])
+              .addTo(map)
+
+          markerRefs.current.push(
+            marker
+          )
+
+          marker.setPopup(
+            new maplibregl.Popup({
+              offset: 18,
+            }).setHTML(`
+              <strong>
+                ${
+                  incident.name ||
+                  'Traffic incident'
+                }
+              </strong>
+              <br>
+              ${
+                incident.location ||
+                ''
+              }
+              <br>
+              ${
+                incident.description ||
+                ''
+              }
+            `)
+          )
+        }
+      )
+    }
+
+    /* --------------------------------------------------------
+       PREDICTIVE ALERT
+       -------------------------------------------------------- */
+
+    const alert =
+      normalizePoint(
+        highlightCoords
+      )
+
+    if (alert) {
+      const marker =
+        new maplibregl.Marker({
+          element:
+            makeIncidentMarker(
+              '#D64545'
+            ),
+        })
+          .setLngLat([
+            alert[1],
+            alert[0],
+          ])
+          .addTo(map)
+
+      markerRefs.current.push(
+        marker
+      )
+
+      marker.setPopup(
+        new maplibregl.Popup({
+          offset: 18,
+        }).setHTML(
+          '<strong>Predicted congestion spike</strong>'
+        )
+      )
+    }
+
+    return () => {
+      markerRefs.current.forEach(
+        (marker) =>
+          marker.remove()
+      )
+
+      markerRefs.current =
+        []
+    }
+  }, [
+    mapReady,
+    startPoint,
+    endPoint,
+    incidents,
+    showIncidents,
+    highlightCoords,
+  ])
+
+  /* ==========================================================
+     SELECTED ROUTE
      ========================================================== */
 
   const selectedRoute =
     routes.find(
-      (r) =>
-        r.id ===
+      (route) =>
+        route.id ===
         selectedRouteId
     ) || null
-
-  /* ==========================================================
-     TRAFFIC LEVEL
-     ========================================================== */
-
-  const trafficLevel =
-    selectedRoute?.congestion <
-    0.3
-      ? 'low'
-      : selectedRoute?.congestion <
-          0.5
-        ? 'moderate'
-        : selectedRoute?.congestion <
-            0.7
-          ? 'heavy'
-          : 'severe'
-
-  const trafficColor =
-    TRAFFIC_COLORS[
-      trafficLevel
-    ] || '#facc15'
 
   /* ==========================================================
      RENDER
      ========================================================== */
 
   return (
-    <MapContainer
-      center={center}
-      zoom={zoom}
-      zoomControl
-      scrollWheelZoom
+    <div
       style={{
-        height: '100%',
+        position: 'relative',
         width: '100%',
+        height: '100%',
+        overflow: 'hidden',
       }}
     >
-
-      {/* ======================================================
-          MAP
-          ====================================================== */}
-
-      <TileLayer
-        url={
-          TILES[mapStyle] ||
-          TILES.standard
-        }
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        maxZoom={19}
+      <div
+        ref={mapContainerRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+        }}
       />
 
-      <InvalidateOnMount />
+      {/* GLOBAL VIEW */}
 
-      <FitBounds
-        routes={routes}
-        fallbackCenter={center}
-      />
-
-      {/* ======================================================
-          ROUTES
-          ====================================================== */}
-
-      {ordered.map((r) => {
-        const selected =
-          r.id ===
-          selectedRouteId
-
-        if (
-          !r.path ||
-          r.path.length < 2
-        ) {
-          return null
-        }
-
-        /*
-         * Display route in current A -> B
-         * direction as well.
-         */
-
-        const displayPath =
-          getDirectionalPath(
-            r,
-            startPoint,
-            endPoint
-          )
-
-        return (
-          <div key={r.id}>
-
-            {/* Active route glow */}
-
-            {selected && (
-              <Polyline
-                positions={
-                  displayPath
-                }
-                pathOptions={{
-                  color: r.color,
-                  weight: 15,
-                  opacity: 0.18,
-                  lineCap:
-                    'round',
-                }}
-              />
-            )}
-
-            {/* Actual route */}
-
-            <Polyline
-              positions={
-                displayPath
-              }
-              eventHandlers={{
-                click: () =>
-                  onSelectRoute?.(
-                    r.id
-                  ),
-              }}
-              pathOptions={{
-                color: r.color,
-                weight: selected
-                  ? 5.5
-                  : 3.5,
-
-                opacity: selected
-                  ? 1
-                  : 0.5,
-
-                dashArray: selected
-                  ? null
-                  : '9 9',
-
-                lineCap:
-                  'round',
-
-                className:
-                  selected
-                    ? 'route-flow'
-                    : undefined,
-              }}
-            >
-
-              <Popup>
-
-                <strong>
-                  {r.label}
-                </strong>
-
-                <br />
-
-                {r.distanceKm} km ·{' '}
-                {r.etaMin} min ·{' '}
-
-                {Math.round(
-                  r.congestion *
-                    100
-                )}
-                % congestion
-
-                {r.via && (
-                  <>
-                    <br />
-                    <em>
-                      {r.via}
-                    </em>
-                  </>
-                )}
-
-              </Popup>
-
-            </Polyline>
-
+      {!routes.length &&
+        !routeTransition && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 14,
+              left: 14,
+              zIndex: 20,
+              padding:
+                '7px 12px',
+              borderRadius: 8,
+              background:
+                'rgba(8,12,20,.82)',
+              color: '#fff',
+              fontSize: 11,
+              fontWeight: 700,
+              pointerEvents:
+                'none',
+            }}
+          >
+            Global view
           </div>
-        )
-      })}
-
-      {/* ======================================================
-          MAIN CAR
-          ====================================================== */}
-
-      {showTraffic &&
-        selectedRoute && (
-          <AnimatedCar
-            key={`
-              ${selectedRoute.id}-
-              ${startPoint?.id}-
-              ${endPoint?.id}
-            `}
-            route={
-              selectedRoute
-            }
-            startPoint={
-              startPoint
-            }
-            endPoint={
-              endPoint
-            }
-            active={
-              true
-            }
-          />
         )}
 
-      {/* ======================================================
-          TRAFFIC CARS
-          ====================================================== */}
+      {/* OPTIMIZING */}
+
+      {routeTransition && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 14,
+            left: 14,
+            zIndex: 20,
+            padding:
+              '7px 12px',
+            borderRadius: 8,
+            background:
+              'rgba(8,12,20,.85)',
+            color: '#fff',
+            fontSize: 11,
+            fontWeight: 700,
+            pointerEvents:
+              'none',
+          }}
+        >
+          Calculating optimal routes...
+        </div>
+      )}
+
+      {/* SELECTED ROUTE */}
+
+      {selectedRoute &&
+        !routeTransition && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 14,
+              bottom: 14,
+              zIndex: 20,
+              padding:
+                '9px 12px',
+              borderRadius: 9,
+              background:
+                'rgba(8,12,20,.85)',
+              color: '#fff',
+              fontSize: 11,
+              pointerEvents:
+                'none',
+            }}
+          >
+            <strong>
+              {selectedRoute.label ||
+                'Selected route'}
+            </strong>
+
+            <br />
+
+            <span
+              style={{
+                opacity: 0.75,
+              }}
+            >
+              {selectedRoute.distanceKm ??
+                '--'}{' '}
+              km ·{' '}
+              {selectedRoute.etaMin ??
+                '--'}{' '}
+              min
+            </span>
+          </div>
+        )}
+
+      {/* ANIMATED CAR */}
 
       {showTraffic &&
         selectedRoute &&
-        selectedRoute.path
-          ?.length >= 2 && (
-          <>
-            <TrafficCar
-              key={`
-                traffic-1-
-                ${selectedRoute.id}-
-                ${startPoint?.id}-
-                ${endPoint?.id}
-              `}
-              route={
-                selectedRoute
-              }
-              startPoint={
-                startPoint
-              }
-              endPoint={
-                endPoint
-              }
-              speed={
-                trafficLevel ===
-                'low'
-                  ? 1.7
-                  : trafficLevel ===
-                      'moderate'
-                    ? 1.2
-                    : trafficLevel ===
-                        'heavy'
-                      ? 0.8
-                      : 0.5
-              }
-              delay={0.22}
-              color={
-                trafficColor
-              }
-            />
-
-            <TrafficCar
-              key={`
-                traffic-2-
-                ${selectedRoute.id}-
-                ${startPoint?.id}-
-                ${endPoint?.id}
-              `}
-              route={
-                selectedRoute
-              }
-              startPoint={
-                startPoint
-              }
-              endPoint={
-                endPoint
-              }
-              speed={
-                trafficLevel ===
-                'low'
-                  ? 1.5
-                  : trafficLevel ===
-                      'moderate'
-                    ? 1.05
-                    : trafficLevel ===
-                        'heavy'
-                      ? 0.7
-                      : 0.45
-              }
-              delay={0.58}
-              color={
-                trafficColor
-              }
-            />
-
-            {trafficLevel !==
-              'low' && (
-              <TrafficCar
-                key={`
-                  traffic-3-
-                  ${selectedRoute.id}-
-                  ${startPoint?.id}-
-                  ${endPoint?.id}
-                `}
-                route={
-                  selectedRoute
-                }
-                startPoint={
-                  startPoint
-                }
-                endPoint={
-                  endPoint
-                }
-                speed={
-                  trafficLevel ===
-                  'moderate'
-                    ? 0.95
-                    : trafficLevel ===
-                        'heavy'
-                      ? 0.65
-                      : 0.4
-                }
-                delay={0.82}
-                color={
-                  trafficColor
-                }
-              />
-            )}
-          </>
+        !routeTransition && (
+          <AnimatedCar
+            map={mapRef.current}
+            route={selectedRoute}
+            startPoint={startPoint}
+          />
         )}
-
-      {/* ======================================================
-          START (Origin: Blue Marker)
-          ====================================================== */}
-
-      {startPoint && (
-        <Marker
-          position={
-            startPoint.coords
-          }
-          icon={pin(
-            'A',
-            '#2F6FED'
-          )}
-        >
-          <Popup>
-            Start ·{' '}
-            {
-              startPoint.name
-            }
-          </Popup>
-        </Marker>
-      )}
-
-      {/* ======================================================
-          DESTINATION (Destination: Forest Green Marker)
-          ====================================================== */}
-
-      {endPoint && (
-        <Marker
-          position={
-            endPoint.coords
-          }
-          icon={pin(
-            'B',
-            '#1F4D3A'
-          )}
-        >
-          <Popup>
-            Destination ·{' '}
-            {
-              endPoint.name
-            }
-          </Popup>
-        </Marker>
-      )}
-
-      {/* ======================================================
-          INCIDENTS
-          ====================================================== */}
-
-      {showIncidents &&
-        incidents.map((i) => (
-          <Marker
-            key={i.id}
-            position={
-              i.coords
-            }
-            icon={incidentIcon(
-              TRAFFIC_COLORS[
-                i.severity
-              ]
-            )}
-          >
-            <Popup>
-
-              <strong>
-                {i.name}
-              </strong>
-
-              <br />
-
-              {i.location} ·{' '}
-              {
-                i.reportedAt
-              }
-
-              <br />
-
-              {
-                i.description
-              }
-
-            </Popup>
-          </Marker>
-        ))}
-
-      {/* ======================================================
-          PREDICTIVE ALERT
-          ====================================================== */}
-
-      {highlightCoords && (
-        <Marker
-          position={
-            highlightCoords
-          }
-          icon={incidentIcon(
-            '#D64545'
-          )}
-        >
-          <Popup>
-            Predicted
-            congestion
-            spike
-          </Popup>
-        </Marker>
-      )}
-
-    </MapContainer>
+    </div>
   )
 }
