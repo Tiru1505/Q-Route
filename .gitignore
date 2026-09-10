@@ -79,3 +79,14 @@ results/yolo/dats_v8n/weights/*
 !results/yolo/dats_v8n/weights/best.pt
 results/lstm/*.pt
 yolov8n.pt
+
+# The national highway graph. 147 MB — past GitHub's 100 MB per-file hard
+# limit, so this cannot be committed even if we wanted to; a push carrying it
+# is rejected outright. Rebuild it in ~17 min:
+#   curl -L -o data/raw/osm/geofabrik/india-latest.osm.pbf #     https://download.geofabrik.de/asia/india-latest.osm.pbf
+#   python scripts/build_india_highways.py
+# The stats file beside it IS committed, so the graph's shape is on record
+# without the graph.
+data/processed/india-highways/*.pkl
+data/raw/osm/geofabrik/
+data/raw/osm/india_tiles/

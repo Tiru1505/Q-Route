@@ -1,0 +1,39 @@
+{
+  "slug": "india_highways",
+  "source": "Geofabrik india-latest.osm.pbf",
+  "scope": "National arterial network: motorway, trunk, primary (+ links)",
+  "not_included": "Secondary, tertiary, residential and service roads",
+  "reference_bbox": [
+    68.0,
+    6.5,
+    97.5,
+    35.7
+  ],
+  "actual_bbox": [
+    68.5284,
+    8.0815,
+    97.0303,
+    34.6018
+  ],
+  "nodes": 317431,
+  "edges": 497431,
+  "directed_km": 589931.9,
+  "edges_by_class": {
+    "trunk": 225397,
+    "primary": 199831,
+    "trunk_link": 32308,
+    "motorway": 20997,
+    "primary_link": 14638,
+    "motorway_link": 4260
+  },
+  "free_flow_speeds_kph": {
+    "motorway": 90,
+    "motorway_link": 50,
+    "trunk": 70,
+    "trunk_link": 40,
+    "primary": 55,
+    "primary_link": 35
+  },
+  "speed_note": "Intercity free-flow speeds, distinct from the urban table in osm_processor.py. The same OSM tag describes a different road between cities than inside one.",
+  "pickle_mb": 147.2
+}
