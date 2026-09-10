@@ -267,7 +267,17 @@ export default function CommandCentre() {
               <div><span>{decision.analysisMs}</span>analysis (ms)</div>
             </div>
 
-            {decision.decision === 'reroute' && (
+            {decision.betterButBelowThreshold && (
+              <p className="vision-hint">
+                A better route exists but the alert policy held its tongue, so
+                there is nothing to switch to — the comparison is shown above.
+              </p>
+            )}
+
+            {/* Only when an alert actually survived the policy. Offering a
+                switch with no alert behind it produced a button that failed
+                when pressed. */}
+            {decision.decision === 'reroute' && decision.alert && (
               <div className="agent-actions">
                 <button className="btn-primary btn-sm" disabled={busy != null} onClick={onSwitch}>
                   <RouteIcon size={12} /> Switch route

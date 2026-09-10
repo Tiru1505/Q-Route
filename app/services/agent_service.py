@@ -225,9 +225,20 @@ class TrafficAgent:
     def _contract(self, decision: dict, reading: AgentReading,
                   elapsed_ms: float, predictive: bool) -> dict:
         """The agent's output contract, with the reason spelled out."""
-        should = bool(decision.get("shouldReroute"))
         saved = float(decision.get("timeSavedMin") or 0.0)
         alert = decision.get("alert")
+
+        # "reroute" means the driver is actually being asked to switch, which
+        # requires an alert to have survived the policy gates. The factual
+        # comparison can favour an alternative that the policy then suppresses
+        # for being too small — a 4.2 min saving against a 5 min floor — and
+        # reporting that as "reroute" put a Switch button on screen that failed
+        # when pressed, because there was no alert to accept. The comparison is
+        # still reported in full; it is simply not presented as an instruction.
+        should = bool(decision.get("shouldReroute")) and alert is not None
+        recommended_but_suppressed = (
+            bool(decision.get("shouldReroute")) and alert is None
+        )
 
         if decision.get("blocked"):
             severity = "severe"
@@ -240,6 +251,9 @@ class TrafficAgent:
 
         return {
             "decision": "reroute" if should else "keep",
+            # True when an alternative was genuinely better but the policy held
+            # its tongue. The UI can show the numbers without offering a switch.
+            "betterButBelowThreshold": recommended_but_suppressed,
             "reason": self._explain(decision, reading, predictive),
             "severity": severity,
             "alert": alert,
@@ -295,7 +309,7 @@ class TrafficAgent:
             basis = ("No forecast was available for the road ahead, so this "
                      "decision used present conditions only. ")
 
-        if decision.get("shouldReroute"):
+        if decision.get("shouldReroute") and decision.get("alert") is not None:
             return (f"{basis}Rerouting recommended: the alternative saves "
                     f"{saved:.1f} min ({pct:.0f}%), "
                     f"{decision.get('currentEtaMin')} min down to "
@@ -303,8 +317,11 @@ class TrafficAgent:
                     f"{decision.get('algorithm') or 'Dijkstra'}.")
 
         suppressed = decision.get("suppressedBecause")
-        if suppressed:
-            return (f"{basis}No alert raised: {suppressed}. The comparison still "
-                    f"ran — the alternative would save {saved:.1f} min.")
+        if suppressed or (decision.get("shouldReroute") and not decision.get("alert")):
+            why = (f": {suppressed}" if suppressed
+                   else " because the saving is below the policy threshold")
+            return (f"{basis}A better route exists — it would save "
+                    f"{saved:.1f} min ({pct:.0f}%) — but no alert was raised{why}. "
+                    "Staying on the current route.")
         return (f"{basis}Staying on the current route: "
                 f"{decision.get('reason') or 'no better alternative found'}.")
