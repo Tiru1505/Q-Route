@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Query
 
-from app.models.alert_models import Alert, AlertSubscription, TriggerAlertRequest
+from app.models.alert_models import Alert, TriggerAlertRequest
 from app.services.alert_service import AlertService
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
@@ -46,20 +46,3 @@ def clear_alerts(user_id: str | None = Query(default=None)) -> dict:
     return {"cleared": _service.clear(user_id=user_id)}
 
 
-@router.post(
-    "/subscribe",
-    summary="Subscribe to alerts",
-    description="Register a webhook or FCM token to receive push alerts.",
-    responses={
-        200: {
-            "description": "Subscription created",
-            "content": {
-                "application/json": {
-                    "example": {"subscription_id": "uuid-here", "status": "subscribed"}
-                }
-            },
-        }
-    },
-)
-def subscribe(subscription: AlertSubscription) -> dict:
-    return _service.subscribe(subscription)

@@ -1,6 +1,6 @@
 """Public re-exports for the models package."""
 
-from app.models.alert_models import Alert, AlertSubscription, AlertSeverity, AlertType
+from app.models.alert_models import Alert, AlertSeverity, AlertType
 from app.models.benchmark_models import (
     BenchmarkAlgorithmResult,
     BenchmarkRequest,
@@ -26,7 +26,6 @@ from app.models.traffic_models import (
 __all__ = [
     "Alert",
     "AlertSeverity",
-    "AlertSubscription",
     "AlertType",
     "Algorithm",
     "BenchmarkAlgorithmResult",

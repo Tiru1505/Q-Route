@@ -16,7 +16,6 @@ COLLECTIONS = (
     "traffic_records",
     "benchmark_results",
     "alerts",
-    "alert_subscriptions",
 )
 
 
@@ -37,7 +36,6 @@ def ensure_indexes(database: Database) -> None:
     database.benchmark_results.create_index("created_at")
     database.alerts.create_index([("user_id", 1), ("created_at", -1)])
     database.alerts.create_index("expires_at", expireAfterSeconds=0)
-    database.alert_subscriptions.create_index("user_id", unique=True)
 
 
 # ---------------------------------------------------------------------------
@@ -62,10 +60,6 @@ def get_benchmark_results_col() -> Collection:
 
 def get_alerts_col() -> Collection:
     return get_database()["alerts"]
-
-
-def get_alert_subscriptions_col() -> Collection:
-    return get_database()["alert_subscriptions"]
 
 
 def get_users_col() -> Collection:

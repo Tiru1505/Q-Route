@@ -317,8 +317,10 @@ pytest tests/ -q
 | `VITE_USE_MOCK` | `true` runs the frontend with no backend | `false` |
 | `VITE_API_TARGET` | Where the Vite proxy sends `/api` | `http://127.0.0.1:8010` |
 
-`FCM_SERVER_KEY` appears in `app/core/config.py` and is read by nothing. Push
-notifications are not implemented; the setting is a leftover.
+There is no Firebase / FCM push. An earlier `FCM_SERVER_KEY` setting and a
+`POST /alerts/subscribe` endpoint were removed: the endpoint stored a token and
+answered `"subscribed"`, but nothing ever delivered to it. Driver notifications
+are pushed over the WebSocket at `/api/notifications/ws` to any open tab.
 
 Never commit `.env`.
 

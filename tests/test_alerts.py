@@ -7,23 +7,22 @@ def test_get_alerts_empty(client):
     assert isinstance(response.json(), list)
 
 
-def test_subscribe_to_alerts(client, sample_subscription):
-    response = client.post("/api/alerts/subscribe", json=sample_subscription)
-    assert response.status_code == 200
-    data = response.json()
-    assert "subscription_id" in data
-    assert data["status"] == "subscribed"
+def test_there_is_no_subscription_that_never_delivers(client):
+    """
+    /alerts/subscribe was removed, and this records why.
 
+    It accepted a webhook or FCM token, stored it, and answered
+    {"status": "subscribed"} — but nothing ever read the subscriptions back and
+    nothing delivered to them. The three tests that used to live here asserted
+    that it SAID "subscribed", which is the one thing it did correctly.
 
-def test_subscribe_missing_user_id(client):
+    Driver notifications are delivered over /api/notifications/ws. If push
+    delivery to closed tabs is ever wanted, build the delivery first; an
+    endpoint that promises it without it is worse than no endpoint.
+    """
     response = client.post("/api/alerts/subscribe", json={
-        "endpoint": "https://example.com/webhook",
+        "user_id": "test-user-001", "endpoint": "https://example.com/webhook",
     })
-    assert response.status_code == 422
-
-
-def test_subscribe_missing_endpoint(client):
-    response = client.post("/api/alerts/subscribe", json={
-        "user_id": "test-user-001",
-    })
-    assert response.status_code == 422
+    assert response.status_code in (404, 405), (
+        "a subscription endpoint is back — does anything deliver to it?"
+    )

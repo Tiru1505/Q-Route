@@ -55,11 +55,3 @@ def sample_traffic_update() -> dict:
     }
 
 
-@pytest.fixture
-def sample_subscription() -> dict:
-    """Return a sample alert subscription body."""
-    return {
-        "user_id": "test-user-001",
-        "endpoint": "https://example.com/webhook",
-        "enabled": True,
-    }

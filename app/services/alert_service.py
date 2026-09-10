@@ -1,35 +1,16 @@
-"""Alert service — manages alert subscriptions and alert creation."""
+"""Alert service — alert creation and retrieval."""
 
 from uuid import uuid4
 
 from app.core.logging import get_logger
-from app.models.alert_models import Alert, AlertSubscription, AlertType, AlertSeverity
+from app.models.alert_models import Alert, AlertType, AlertSeverity
 from app.utils.time_helpers import utc_now_iso
 
 _logger = get_logger("services.alert")
 
 
 class AlertService:
-    """Service for managing alerts and subscriptions."""
-
-    def subscribe(self, subscription: AlertSubscription) -> dict:
-        """Register or update an alert subscription."""
-        sub_id = str(uuid4())
-        try:
-            from app.database.collections import get_alert_subscriptions_col
-            doc = subscription.model_dump()
-            doc["subscription_id"] = sub_id
-            doc["created_at"] = utc_now_iso()
-            get_alert_subscriptions_col().update_one(
-                {"user_id": subscription.user_id},
-                {"$set": doc},
-                upsert=True,
-            )
-        except Exception as exc:
-            _logger.warning("Failed to persist subscription: %s", exc)
-
-        _logger.info("Subscription %s created for user %s", sub_id, subscription.user_id)
-        return {"subscription_id": sub_id, "status": "subscribed"}
+    """Service for creating and retrieving alerts."""
 
     def get_alerts(self, user_id: str | None = None, limit: int = 50) -> list[Alert]:
         """Retrieve alerts, optionally filtered by user_id."""

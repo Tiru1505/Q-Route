@@ -21,13 +21,6 @@ class AlertSeverity(str, Enum):
     critical = "critical"
 
 
-class AlertSubscription(BaseModel):
-    user_id: str
-    endpoint: str = Field(..., min_length=1, description="Webhook or FCM token")
-    fcm_token: str | None = None
-    enabled: bool = True
-
-
 class TriggerAlertRequest(BaseModel):
     """
     Raise an alert on demand.

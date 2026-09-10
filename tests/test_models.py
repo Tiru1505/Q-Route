@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from app.models.route_models import Coordinate, RouteRequest, Algorithm
 from app.models.traffic_models import TrafficRecord, TrafficUpdate
 from app.models.benchmark_models import BenchmarkRequest
-from app.models.alert_models import AlertSubscription, AlertType, AlertSeverity
+from app.models.alert_models import AlertType, AlertSeverity
 
 
 class TestCoordinate:
@@ -75,6 +75,3 @@ class TestAlertModels:
     def test_severity_enum(self):
         assert AlertSeverity.critical.value == "critical"
 
-    def test_subscription_requires_endpoint(self):
-        with pytest.raises(ValidationError):
-            AlertSubscription(user_id="u1", endpoint="")

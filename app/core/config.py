@@ -19,8 +19,6 @@ class Settings(BaseSettings):
     # CORS – comma-separated origins
     allowed_origins: str = "http://localhost:5173"
 
-    # Firebase Cloud Messaging (optional – supplied at deployment)
-    fcm_server_key: str = ""
 
     # Server-side, OpenAI-compatible LLM gateway. Never expose these to Vite.
     ai_api_key: str = ""
