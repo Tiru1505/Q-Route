@@ -133,6 +133,12 @@ export function AppProvider({ children }) {
   const [end, setEnd] = useState(DEFAULT_END)
   const [algorithm, setAlgorithm] = useState('qpso')
   const [mode, setMode] = useState('balanced')
+  /* Which road network to route on. 'hyderabad' has every street but stops at
+   * the ORR; 'india' reaches the whole country along arterial roads only, so
+   * it cannot deliver to an address. Switching it clears the endpoints,
+   * because a place found on one network is frequently not routable on the
+   * other and a stale pin produces a confidently wrong route. */
+  const [graph, setGraphState] = useState('hyderabad')
 
   const [routes, setRoutes] = useState([])
   const [selectedRouteId, setSelectedRouteId] = useState(null)
@@ -197,7 +203,7 @@ export function AppProvider({ children }) {
     setRerouteResult(null)
     setPredictiveAlert(null)
     try {
-      const res = await api.getRouteOptimization({ start, end, algorithm, mode })
+      const res = await api.getRouteOptimization({ start, end, algorithm, mode, graph })
       if (!res || !Array.isArray(res.routes) || !res.routes.length || !res.recommended) {
         throw new Error('The optimizer returned no usable route. Please try again.')
       }
@@ -211,7 +217,7 @@ export function AppProvider({ children }) {
     } finally {
       setOptimizing(false)
     }
-  }, [start, end, algorithm, mode])
+  }, [start, end, algorithm, mode, graph])
 
   const applyAssistantActions = useCallback((actions = []) => {
     actions.forEach((action) => {
@@ -380,6 +386,23 @@ export function AppProvider({ children }) {
     setAlerts((prev) => prev.filter((a) => a.id !== id))
   }, [])
 
+  /* Changing network invalidates the endpoints. A Hyderabad street exists on
+   * the city graph and not on the national one; a place 40 km from any
+   * arterial road is fine on the city graph and snaps badly on the other. The
+   * routes go too, since they were solved on a network we are leaving. */
+  const setGraph = useCallback((next) => {
+    setGraphState((prev) => {
+      if (prev !== next) {
+        setStart(null)
+        setEnd(null)
+        setRoutes([])
+        setSelectedRouteId(null)
+        setError(null)
+      }
+      return next
+    })
+  }, [])
+
   const value = {
     user, signIn, signUp: signIn, continueAsGuest, signOut,
     theme, setTheme,
@@ -387,6 +410,7 @@ export function AppProvider({ children }) {
     settings, setSettings,
     start, setStart, end, setEnd,
     algorithm, setAlgorithm, mode, setMode,
+    graph, setGraph,
     routes, selectedRoute, selectedRouteId, setSelectedRouteId,
     optimizing, optimize, error,
       applyAssistantActions,

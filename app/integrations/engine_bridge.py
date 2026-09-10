@@ -43,67 +43,128 @@ from app.models.route_models import Coordinate, RouteRequest
 
 _logger = get_logger("integrations.engine_bridge")
 
-_engine = None
+_engines: dict = {}
 _lock = threading.Lock()
 
 
-def get_engine():
-    """Process-wide singleton. First call pays the ~30 s graph load."""
-    global _engine
-    if _engine is None:
-        with _lock:
-            if _engine is None:
-                _logger.info("Loading QRO engine (graph load takes ~30s)…")
-                import sys
-                from pathlib import Path
+def get_engine(graph: str | None = None):
+    """
+    Process-wide engine for one named graph.
 
-                root = Path(__file__).resolve().parents[2]
-                if str(root) not in sys.path:
-                    sys.path.insert(0, str(root))
+    Engines are cached per graph and built on demand, so the India graph costs
+    nothing until something asks for it. Both can be resident at once — roughly
+    1.7 GB for Hyderabad and 1.2 GB for India — which is why neither is loaded
+    speculatively.
+    """
+    from graph.graph_loader import DEFAULT_GRAPH_NAME, graph_path
 
-                from engine import QROEngine
+    name = graph or DEFAULT_GRAPH_NAME
+    if name in _engines:
+        return _engines[name]
 
-                # peak_hour is the demo default: under "normal" the whole city sits
-                # below 30% congestion, so the map overlay renders a uniform
-                # green and shows nothing interesting. Switchable at runtime
-                # via engine.set_scenario().
-                _engine = QROEngine(scenario="peak_hour", verbose=False)
-                _logger.info(
-                    "QRO engine ready: %s nodes, %s edges",
-                    f"{_engine.G.number_of_nodes():,}",
-                    f"{_engine.G.number_of_edges():,}",
-                )
-    return _engine
+    with _lock:
+        if name in _engines:
+            return _engines[name]
+
+        import sys
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[2]
+        if str(root) not in sys.path:
+            sys.path.insert(0, str(root))
+
+        path = graph_path(name)          # raises on unknown name or missing file
+        _logger.info("Loading '%s' engine from %s (this takes ~30s)…", name, path)
+
+        from engine import QROEngine
+
+        # peak_hour is the demo default: under "normal" the whole city sits
+        # below 30% congestion, so the map overlay renders a uniform
+        # green and shows nothing interesting. Switchable at runtime
+        # via engine.set_scenario().
+        eng = QROEngine(graph_path=path, scenario="peak_hour", verbose=False)
+        eng.graph_name = name
+        _engines[name] = eng
+        _logger.info(
+            "Engine '%s' ready: %s nodes, %s edges",
+            name, f"{eng.G.number_of_nodes():,}", f"{eng.G.number_of_edges():,}",
+        )
+        return eng
 
 
-_kdtree = None
-_node_ids = None
+def loaded_engines() -> list[str]:
+    """Which graphs are currently resident in memory."""
+    return sorted(_engines)
+
+
+# Every cache below is keyed by graph name. They used to be plain globals,
+# which was correct while exactly one graph existed and becomes a silent
+# correctness bug the moment a second one does: a KD-tree built over
+# Hyderabad's nodes would happily answer queries against the India graph and
+# return a node id that belongs to a different network entirely. The route
+# would still be produced. It would just be nonsense.
+_kdtrees: dict = {}
+_node_id_lists: dict = {}
 _cost_models: dict = {}
 _decoders: dict = {}
 
 
 def _nearest(engine, coord: Coordinate):
     """
-    Snap a lat/lon to the nearest graph node.
+    Snap a lat/lon to the nearest node of THIS engine's graph.
 
-    osmnx.nearest_nodes rebuilds a spatial index over all 286,603 nodes on
-    EVERY call, which dominated request latency — a single /routes/optimize
-    call makes four of them. We build one KD-tree at first use and reuse it,
-    which turns seconds into microseconds.
+    osmnx.nearest_nodes rebuilds a spatial index over every node on EVERY call,
+    which dominated request latency — a single /routes/optimize call makes four
+    of them. One KD-tree per graph is built at first use and reused, which turns
+    seconds into microseconds.
     """
-    global _kdtree, _node_ids
-    if _kdtree is None:
+    name = getattr(engine, "graph_name", "hyderabad")
+    if name not in _kdtrees:
         import numpy as np
         from scipy.spatial import cKDTree
 
-        _node_ids = list(engine.G.nodes)
+        ids = list(engine.G.nodes)
         coords = np.array([[float(engine.G.nodes[n]["y"]),
-                            float(engine.G.nodes[n]["x"])] for n in _node_ids])
-        _kdtree = cKDTree(coords)
-        _logger.info("Built spatial index over %s nodes", f"{len(_node_ids):,}")
+                            float(engine.G.nodes[n]["x"])] for n in ids])
+        _kdtrees[name] = cKDTree(coords)
+        _node_id_lists[name] = ids
+        _logger.info("Built spatial index for '%s' over %s nodes",
+                     name, f"{len(ids):,}")
 
-    _dist, idx = _kdtree.query([coord.lat, coord.lon])
-    return _node_ids[int(idx)]
+    _dist, idx = _kdtrees[name].query([coord.lat, coord.lon])
+    return _node_id_lists[name][int(idx)]
+
+
+def _snap_checked(engine, coord: Coordinate, what: str):
+    """
+    Snap a coordinate, refusing the request when it lands too far away.
+
+    Without this the router answers anyway. Asking for Hyderabad to Mumbai on
+    the city graph returned a confident 707 km journey as 71.9 km, because
+    Mumbai snapped to the nearest node on the Outer Ring Road and Dijkstra
+    routed to that instead. Nothing in the response said the destination was
+    600 km off the map, and that is far worse than an error.
+    """
+    import osmnx as ox
+
+    from graph.graph_loader import GRAPHS
+
+    name = getattr(engine, "graph_name", "hyderabad")
+    node = _nearest(engine, coord)
+    snap_m = float(ox.distance.great_circle(
+        coord.lat, coord.lon,
+        float(engine.G.nodes[node]["y"]), float(engine.G.nodes[node]["x"]),
+    ))
+
+    limit = GRAPHS.get(name, {}).get("snap_limit_m", 2_000.0)
+    if snap_m > limit:
+        other = "india" if name == "hyderabad" else "hyderabad"
+        raise ValueError(
+            f"The {what} is {snap_m / 1000:.0f} km from the nearest road on the "
+            f"'{name}' network ({GRAPHS[name]['scope']}). "
+            f"Route on the '{other}' network instead, or pick a nearer point."
+        )
+    return node
 
 
 def _cost_model_for(engine, source, target, mode="balanced"):
@@ -117,7 +178,10 @@ def _cost_model_for(engine, source, target, mode="balanced"):
     """
     from graph.edge_weights import CostModel
 
-    key = (source, target, engine.scenario, mode)
+    # The graph is part of the key: node ids are not unique across graphs, so
+    # without it a model calibrated on one network could be served for another.
+    key = (getattr(engine, "graph_name", "hyderabad"),
+           source, target, engine.scenario, mode)
     if key not in _cost_models:
         _cost_models[key] = CostModel.calibrate(engine.G, source, target, mode=mode)
     return _cost_models[key]
@@ -151,9 +215,9 @@ class OsmGraphAdapter(BaseGraphAdapter):
     def calculate_route(self, request: RouteRequest) -> GraphRoute:
         from optimization.dijkstra import dijkstra_route
 
-        engine = get_engine()
-        source = _nearest(engine, request.source)
-        target = _nearest(engine, request.destination)
+        engine = get_engine(request.graph)
+        source = _snap_checked(engine, request.source, "start point")
+        target = _snap_checked(engine, request.destination, "destination")
 
         cost_model = _cost_model_for(engine, source, target)
         route = dijkstra_route(engine.G, source, target, cost_model)
@@ -182,9 +246,9 @@ class OsmGraphAdapter(BaseGraphAdapter):
         from optimization.dijkstra import dijkstra_route
         from routing.route import evaluate_route
 
-        engine = get_engine()
-        source = _nearest(engine, request.source)
-        target = _nearest(engine, request.destination)
+        engine = get_engine(request.graph)
+        source = _snap_checked(engine, request.source, "start point")
+        target = _snap_checked(engine, request.destination, "destination")
         cost_model = _cost_model_for(engine, source, target)
 
         best = dijkstra_route(engine.G, source, target, cost_model)
@@ -230,6 +294,10 @@ class OsmGraphAdapter(BaseGraphAdapter):
         then re-solves from the current node, which is provably optimal for a
         single destination and fast enough to run live.
         """
+        # Rerouting follows the trip, and the trip lives on the engine that
+        # created it. A route optimised on the India graph therefore cannot be
+        # rerouted here yet — this always operates on the default city graph,
+        # which is where the live-trip demo runs.
         engine = get_engine()
         if engine.trip is None:
             raise ValueError(
@@ -288,9 +356,9 @@ class _EngineOptimizationAdapter(BaseOptimizationAdapter):
         return self._last_convergence
 
     def _prepare(self, request: RouteRequest):
-        engine = get_engine()
-        source = _nearest(engine, request.source)
-        target = _nearest(engine, request.destination)
+        engine = get_engine(request.graph)
+        source = _snap_checked(engine, request.source, "start point")
+        target = _snap_checked(engine, request.destination, "destination")
         return engine, source, target, _cost_model_for(engine, source, target)
 
 

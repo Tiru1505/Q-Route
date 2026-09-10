@@ -41,6 +41,16 @@ class RouteRequest(BaseModel):
     source_name: str | None = Field(default=None, max_length=200)
     destination_name: str | None = Field(default=None, max_length=200)
     user_id: str | None = None
+    # Which road network to route on. "hyderabad" has every street but stops at
+    # the ORR; "india" reaches the whole country but only along motorway, trunk
+    # and primary roads, so it cannot deliver to an address. Neither contains
+    # the other, so the caller chooses and nothing here guesses. Omitted means
+    # the default city graph, which keeps every existing client working.
+    graph: str | None = Field(
+        default=None,
+        description="Road network: 'hyderabad' (all streets, one city) or "
+                    "'india' (national highways). Defaults to 'hyderabad'.",
+    )
 
     @model_validator(mode="after")
     def locations_must_differ(self) -> "RouteRequest":

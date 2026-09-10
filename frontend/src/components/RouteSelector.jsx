@@ -1,6 +1,7 @@
 import {
   ArrowUpDown,
   Flag,
+  Globe2,
   MapPin,
   Navigation,
   Play,
@@ -28,6 +29,8 @@ export default function RouteSelector({ onOptimize, busy }) {
     setAlgorithm,
     mode,
     setMode,
+    graph,
+    setGraph,
     demoMode,
     startDemo,
     stopDemo,
@@ -40,6 +43,8 @@ export default function RouteSelector({ onOptimize, busy }) {
   }
 
   const activeAlgo = ALGORITHMS.find((a) => a.id === algorithm)
+  const national = graph === 'india'
+  const where = national ? 'India' : 'Hyderabad'
 
   const incomplete = !start || !end
   const identical = samePlace(start, end)
@@ -54,14 +59,34 @@ export default function RouteSelector({ onOptimize, busy }) {
         <span>Route Planner</span>
       </div>
 
+      {/* ROAD NETWORK — decides what the other fields can even mean */}
+      <div className="field route-field">
+        <label htmlFor="graph"><Globe2 size={12} /> Road network</label>
+        <select
+          id="graph"
+          className="select route-select"
+          value={graph}
+          onChange={(e) => setGraph(e.target.value)}
+        >
+          <option value="hyderabad">Hyderabad — every street</option>
+          <option value="india">India — highways only</option>
+        </select>
+        <p className="route-hint">
+          {national
+            ? 'Motorway, trunk and primary roads nationwide. Routes between cities; cannot reach a residential address.'
+            : 'Every drivable street inside the ORR. Routes to an address; stops at the city limit.'}
+        </p>
+      </div>
+
       {/* START LOCATION */}
       <PlaceInput
         id="start"
         label="Start location"
         value={start}
         onChange={setStart}
-        placeholder="Type start location in Hyderabad…"
+        placeholder={`Type start location in ${where}…`}
         icon={<MapPin size={14} />}
+        graph={graph}
       />
 
       {/* SWAP BUTTON */}
@@ -82,8 +107,9 @@ export default function RouteSelector({ onOptimize, busy }) {
         label="Destination"
         value={end}
         onChange={setEnd}
-        placeholder="Type destination in Hyderabad…"
+        placeholder={`Type destination in ${where}…`}
         icon={<Flag size={14} />}
+        graph={graph}
       />
 
       {/* ALGORITHM */}

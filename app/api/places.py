@@ -37,9 +37,23 @@ from app.models.route_models import Coordinate
 router = APIRouter(prefix="/places", tags=["places"])
 _logger = get_logger("api.places")
 
-# The box the graph was built with (preprocessing/osm_processor.METRO_BBOX).
+# The box the city graph was built with (preprocessing/osm_processor.METRO_BBOX).
 # Order: lon_min, lat_min, lon_max, lat_max
 METRO_BBOX = (78.15, 17.15, 78.75, 17.70)
+
+
+def _bbox_for(graph: str | None) -> tuple:
+    """
+    The search box for a graph.
+
+    A result outside its graph's extent is not routable on it — the optimiser
+    would silently start somewhere else — so the box has to follow the network
+    the caller intends to route on, not a constant.
+    """
+    from graph.graph_loader import DEFAULT_GRAPH_NAME, GRAPHS
+
+    cfg = GRAPHS.get(graph or DEFAULT_GRAPH_NAME)
+    return tuple(cfg["bbox"]) if cfg else METRO_BBOX
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 CONTACT = ""          # add a contact address before any public deployment
@@ -93,12 +107,12 @@ def _match_presets(q: str, limit: int) -> list[dict]:
 
 # ---------------------------------------------------------------- geocoding
 
-def _inside_bbox(lat: float, lon: float) -> bool:
-    lon_min, lat_min, lon_max, lat_max = METRO_BBOX
+def _inside_bbox(lat: float, lon: float, graph: str | None = None) -> bool:
+    lon_min, lat_min, lon_max, lat_max = _bbox_for(graph)
     return lat_min <= lat <= lat_max and lon_min <= lon <= lon_max
 
 
-def _snap_metres(lat: float, lon: float) -> float | None:
+def _snap_metres(lat: float, lon: float, graph: str | None = None) -> float | None:
     """
     Distance from this point to the nearest road node, or None when the graph
     is not loaded yet.
@@ -109,7 +123,10 @@ def _snap_metres(lat: float, lon: float) -> float | None:
     """
     from app.integrations import engine_bridge
 
-    engine = engine_bridge._engine
+    # Engines are now held per graph. Reading a single `_engine` global here
+    # broke the moment that became a dict, and it broke quietly: the exception
+    # surfaced as an empty search rather than an error.
+    engine = engine_bridge._engines.get(graph or "hyderabad")
     if engine is None:
         return None
 
@@ -140,8 +157,8 @@ def _throttled_get(params: dict) -> list[dict]:
     return res.json()
 
 
-def _geocode(q: str, limit: int) -> list[dict]:
-    lon_min, lat_min, lon_max, lat_max = METRO_BBOX
+def _geocode(q: str, limit: int, graph: str | None = None) -> list[dict]:
+    lon_min, lat_min, lon_max, lat_max = _bbox_for(graph)
     raw = _throttled_get({
         "q": q,
         "format": "jsonv2",
@@ -158,11 +175,17 @@ def _geocode(q: str, limit: int) -> list[dict]:
             lat, lon = float(item["lat"]), float(item["lon"])
         except (KeyError, TypeError, ValueError):
             continue
-        if not _inside_bbox(lat, lon):
+        if not _inside_bbox(lat, lon, graph):
             continue
 
-        snap = _snap_metres(lat, lon)
-        if snap is not None and snap > SNAP_LIMIT_M:
+        # On the national graph a place can be genuinely far from the nearest
+        # arterial road — that network has no residential streets — so the
+        # 1.5 km limit would reject most of the country. The distance is still
+        # reported, so the caller can see how far the route will really start
+        # from; it just is not grounds for dropping the result.
+        snap = _snap_metres(lat, lon, graph)
+        limit_m = SNAP_LIMIT_M if (graph or "hyderabad") == "hyderabad" else float("inf")
+        if snap is not None and snap > limit_m:
             _logger.debug("dropping %s: %.0f m from the graph", item.get("name"), snap)
             continue
 
@@ -173,7 +196,7 @@ def _geocode(q: str, limit: int) -> list[dict]:
         out.append({
             "id": f"osm:{item.get('osm_type', 'n')}{item.get('osm_id', '')}",
             "name": head,
-            "address": tail or "Hyderabad, Telangana",
+            "address": tail or "India",
             "lat": lat,
             "lon": lon,
             "source": "osm",
@@ -184,18 +207,21 @@ def _geocode(q: str, limit: int) -> list[dict]:
 
 # ---------------------------------------------------------------- cache
 
-_cache: dict[tuple[str, int], list[dict]] = {}
+_cache: dict[tuple[str, int, str], list[dict]] = {}
 _CACHE_MAX = 512
 
 
-def _cached_geocode(q: str, limit: int) -> tuple[list[dict], bool]:
+def _cached_geocode(q: str, limit: int,
+                    graph: str | None = None) -> tuple[list[dict], bool]:
     """Returns (results, degraded); degraded=True means the geocoder failed."""
-    key = (q.lower(), limit)
+    # The graph is part of the key: the same query is filtered against a
+    # different bounding box per graph, so the results genuinely differ.
+    key = (q.lower(), limit, graph or "hyderabad")
     if key in _cache:
         return _cache[key], False
 
     try:
-        results = _geocode(q, limit)
+        results = _geocode(q, limit, graph)
     except Exception as exc:                    # network, timeout, 429, bad JSON
         _logger.warning("geocoder unavailable for %r: %s", q, exc)
         return [], True
@@ -212,17 +238,25 @@ def _cached_geocode(q: str, limit: int) -> tuple[list[dict], bool]:
     "/search",
     summary="Search for a routable place",
     description=(
-        "Free-text place search restricted to the Hyderabad metro area. "
-        "Curated landmarks come first, then OpenStreetMap matches. Only "
-        "places that sit on the routing graph are returned."
+        "Free-text place search, scoped to the road network you intend to "
+        "route on. With graph='hyderabad' (the default) results are confined "
+        "to the metro area and must sit on the street graph. With "
+        "graph='india' the whole country is searched, and results are not "
+        "required to be near a road — the national graph carries only "
+        "arterial roads, so `snap_m` reports how far the route would really "
+        "begin from."
     ),
 )
 def search_places(
     q: str = Query(default="", description="What the user typed"),
     limit: int = Query(default=8, ge=1, le=20),
+    graph: str | None = Query(
+        default=None,
+        description="Road network to scope the search to: 'hyderabad' or 'india'.",
+    ),
 ) -> dict:
     q = q.strip()
-    presets = _match_presets(q, limit)
+    presets = _match_presets(q, limit) if (graph or "hyderabad") == "hyderabad" else []
 
     # One- and two-letter fragments match half the city. Hitting the network on
     # every keystroke is not worth it; presets answer these well enough.
@@ -232,7 +266,7 @@ def search_places(
     remaining = limit - len(presets)
     geocoded, degraded = [], False
     if remaining > 0:
-        geocoded, degraded = _cached_geocode(q, remaining)
+        geocoded, degraded = _cached_geocode(q, remaining, graph)
 
     seen = {(round(p["lat"], 4), round(p["lon"], 4)) for p in presets}
     merged = list(presets)
@@ -242,4 +276,5 @@ def search_places(
             seen.add(gkey)
             merged.append(g)
 
-    return {"query": q, "results": merged[:limit], "degraded": degraded}
+    return {"query": q, "graph": graph or "hyderabad",
+            "results": merged[:limit], "degraded": degraded}

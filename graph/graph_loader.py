@@ -23,6 +23,75 @@ DEFAULT_GRAPH = Path(
 )
 PLACES_FILE = ROOT / "config/places.yaml"
 
+# ---------------------------------------------------------------------------
+# Named graphs
+# ---------------------------------------------------------------------------
+# Two graphs at different resolutions, because no single one can do both jobs.
+#
+#   hyderabad  every street in the metro. Routes to an address, one city only.
+#   india      motorway/trunk/primary nationwide. Routes between cities, but
+#              has no residential streets, so it cannot reach a house.
+#
+# They are not interchangeable and neither is a superset of the other. The
+# caller picks; nothing here guesses.
+GRAPHS = {
+    "hyderabad": {
+        "path": DEFAULT_GRAPH,
+        "label": "Hyderabad metro",
+        "scope": "All drivable streets inside the ORR",
+        "bbox": (78.15, 17.15, 78.75, 17.70),
+        # Furthest a request may sit from a node before the route is refused.
+        # Every street is present, so anything more than a short walk away is
+        # outside the city, not a gap in the map.
+        "snap_limit_m": 2_000.0,
+        "build": 'python preprocessing/osm_processor.py --city "Hyderabad, Telangana, India" --metro',
+    },
+    "india": {
+        "path": Path(os.environ.get("QRO_INDIA_GRAPH_PATH")
+                     or ROOT / "data/processed/india-highways/india_highways.pkl"),
+        "label": "India highways",
+        "scope": "National arterial network — motorway, trunk and primary only",
+        "bbox": (68.0, 6.5, 97.5, 35.7),
+        # Far looser, and deliberately so: this network has no residential
+        # streets, so a genuine address can legitimately be tens of kilometres
+        # from the nearest arterial road. Still bounded, so a request in the
+        # ocean is refused rather than snapped to a coastal highway.
+        "snap_limit_m": 50_000.0,
+        "build": "python scripts/build_india_highways.py",
+    },
+}
+DEFAULT_GRAPH_NAME = "hyderabad"
+
+
+def graph_names() -> list[str]:
+    """Every configured graph, whether or not its file is present."""
+    return list(GRAPHS)
+
+
+def available_graphs() -> dict[str, dict]:
+    """Configured graphs, each marked with whether its file exists on disk."""
+    return {
+        name: {**{k: v for k, v in cfg.items() if k != "path"},
+               "path": str(cfg["path"]),
+               "available": cfg["path"].exists()}
+        for name, cfg in GRAPHS.items()
+    }
+
+
+def graph_path(name: str) -> Path:
+    """Resolve a graph name to its file, failing loudly on both bad name and missing file."""
+    if name not in GRAPHS:
+        raise KeyError(
+            f"Unknown graph '{name}'. Known: {', '.join(sorted(GRAPHS))}"
+        )
+    cfg = GRAPHS[name]
+    if not cfg["path"].exists():
+        raise FileNotFoundError(
+            f"Graph '{name}' not built — nothing at {cfg['path']}.\n"
+            f"Build it with:\n  {cfg['build']}"
+        )
+    return cfg["path"]
+
 # Edge fields that must be floats for the cost model to work. GraphML stringifies
 # everything on save, so we coerce defensively regardless of the source format.
 NUMERIC_EDGE_FIELDS = (

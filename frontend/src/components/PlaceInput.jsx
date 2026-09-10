@@ -22,6 +22,10 @@ export default function PlaceInput({
   placeholder = 'Type a place…',
   icon = <MapPin size={14} />,
   id: idProp,
+  // Scopes the search to the road network the route will run on. A result
+  // outside it is not routable, so offering it would produce a route that
+  // silently begins somewhere else.
+  graph = null,
 }) {
   const autoId = useId()
   const id = idProp || autoId
@@ -49,14 +53,14 @@ export default function PlaceInput({
     const seq = ++seqRef.current
     setBusy(true)
     try {
-      const found = await searchPlaces(text)
+      const found = await searchPlaces(text, 8, graph)
       if (seq === seqRef.current) setResults(found)
     } catch {
       if (seq === seqRef.current) setResults([])
     } finally {
       if (seq === seqRef.current) setBusy(false)
     }
-  }, [])
+  }, [graph])
 
   // Debounced so a burst of keystrokes makes one request, not eight.
   useEffect(() => {

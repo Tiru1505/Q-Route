@@ -94,29 +94,47 @@ async function request(path, options = {}) {
  * to hit when the API runs on localhost, where it is reachable for whoever is
  * running it and for nobody else.
  *
- * So the first unreachable response flips this flag and every later call goes
- * straight to the bundled demo data, which the UI already labels on screen.
- * A 404 or 500 is NOT treated this way — those mean the backend answered and
- * something is genuinely wrong, which should surface rather than be papered
- * over. Only status 0, a failure to connect at all, triggers the fallback.
+ * So an unreachable response switches to the bundled demo data, which the UI
+ * already labels on screen. A 404 or 500 is NOT treated this way — those mean
+ * the backend answered and something is genuinely wrong, which should surface
+ * rather than be papered over. Only status 0, a failure to connect at all,
+ * triggers the fallback.
+ *
+ * THE FALLBACK EXPIRES, AND THAT MATTERS
+ * This used to be a one-way latch: the first failure set a flag that was never
+ * cleared, so a tab that happened to be open while the backend restarted
+ * served demo data for the rest of its life. Nothing on screen explained why
+ * a freshly-started backend was still being ignored, and the only cure was a
+ * reload nobody knew to perform. Restarting a dev server is routine, so the
+ * flag now expires and the next call tries the real backend again.
  */
-let backendUnreachable = false
+const FALLBACK_COOLDOWN_MS = 10_000
 
-/** True once we have given up on the backend and switched to demo data. */
+let fallbackUntil = 0
+
+/** True while we are serving demo data because the backend could not be reached. */
 export function isUsingFallback() {
-  return backendUnreachable
+  return Date.now() < fallbackUntil
 }
 
 async function liveOrMock(live, mock) {
-  if (USE_MOCK || backendUnreachable) return mock()
+  if (USE_MOCK) return mock()
+  if (isUsingFallback()) return mock()
   try {
-    return await live()
+    const result = await live()
+    if (fallbackUntil) {
+      fallbackUntil = 0
+      console.info(`[api] ${BASE} is reachable again — back on live data.`)
+    }
+    return result
   } catch (err) {
     if (err instanceof ApiError && err.status === 0) {
-      if (!backendUnreachable) {
-        backendUnreachable = true
+      const first = !isUsingFallback()
+      fallbackUntil = Date.now() + FALLBACK_COOLDOWN_MS
+      if (first) {
         console.warn(
-          `[api] ${BASE} is unreachable — serving bundled demo data instead. ` +
+          `[api] ${BASE} is unreachable — serving bundled demo data for the ` +
+          `next ${FALLBACK_COOLDOWN_MS / 1000}s, then retrying. ` +
           'Start the backend, or set VITE_API_BASE to a reachable URL.'
         )
       }
@@ -138,12 +156,16 @@ async function liveOrMock(live, mock) {
  *
  * @returns {Promise<Array<{id, name, address, lat, lon, source}>>}
  */
-export async function searchPlaces(query = '', limit = 8) {
+export async function searchPlaces(query = '', limit = 8, graph = null) {
   const q = query.trim()
 
   if (!USE_MOCK) {
     try {
-      const res = await request(`/places/search?q=${encodeURIComponent(q)}&limit=${limit}`)
+      // The search box is scoped to the network the route will run on: a
+      // result outside it is not routable, and offering it would produce a
+      // route that silently starts somewhere else.
+      const scope = graph ? `&graph=${encodeURIComponent(graph)}` : ''
+      const res = await request(`/places/search?q=${encodeURIComponent(q)}&limit=${limit}${scope}`)
       return Array.isArray(res?.results) ? res.results : []
     } catch {
       // A dead geocoder should not empty the box — fall through to the
@@ -172,9 +194,9 @@ export async function searchPlaces(query = '', limit = 8) {
  * Run the optimizer.
  * @returns {{ routes: Array, recommended: Object, meta: Object }}
  */
-export async function getRouteOptimization({ start, end, algorithm = 'qpso', mode = 'balanced' } = {}) {
+export async function getRouteOptimization({ start, end, algorithm = 'qpso', mode = 'balanced', graph = null } = {}) {
   return liveOrMock(
-    () => optimizeLive({ start, end, algorithm, mode }),
+    () => optimizeLive({ start, end, algorithm, mode, graph }),
     async () => {
       await delay(400)
       const routes = clone(ROUTES)
@@ -185,6 +207,17 @@ export async function getRouteOptimization({ start, end, algorithm = 'qpso', mod
       }
     },
   )
+}
+
+/**
+ * The road networks this backend can route on.
+ *
+ * No mock fallback: the two networks differ in what they can physically do,
+ * and inventing that list offline would let the UI offer intercity routing
+ * that cannot work.
+ */
+export async function getGraphs() {
+  return request('/graphs')
 }
 
 /** Send open-ended navigation language to the server-side LLM tool runner. */
@@ -198,12 +231,15 @@ export async function assistantChat({ messages, context } = {}) {
   })
 }
 
-async function optimizeLive({ start, end, algorithm, mode }) {
+async function optimizeLive({ start, end, algorithm, mode, graph }) {
   {
     const body = JSON.stringify({
       source: coordsFor(start),
       destination: coordsFor(end),
       algorithm,
+      // Omitted rather than defaulted, so the backend keeps ownership of what
+      // "no preference" means.
+      ...(graph ? { graph } : {}),
       // Sent so the history page can show where the trip actually went.
       // Endpoints are free text now, so the name cannot be looked up from a
       // coordinate after the fact.

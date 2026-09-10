@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.analytics import router as analytics_router
 from app.api.forecast import router as forecast_router
+from app.api.graphs import router as graphs_router
 from app.api.health import router as health_router
 from app.api.routes import router as routes_router
 from app.api.alerts import router as alerts_router
@@ -153,6 +154,7 @@ async def allow_private_network(request: Request, call_next):
 # ---------------------------------------------------------------------------
 
 app.include_router(health_router, prefix="/api")
+app.include_router(graphs_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(routes_router, prefix="/api")
 app.include_router(places_router, prefix="/api")

@@ -3510,3 +3510,13 @@
 @media (max-width: 560px) {
   .vision-stats { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Road-network picker: the choice changes what the other fields can mean, so
+   the consequence is spelled out under it rather than left to be discovered. */
+.route-hint {
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--text-faint);
+  margin: 5px 0 0;
+}
+.route-field label svg { vertical-align: -1px; margin-right: 3px; }
