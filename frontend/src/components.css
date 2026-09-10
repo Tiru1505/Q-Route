@@ -3602,3 +3602,20 @@
   .pipeline { grid-template-columns: repeat(2, 1fr); }
   .agent-actions { flex-direction: column; }
 }
+
+/* Traffic Analysis Lab — where the footage was taken */
+.lab-location {
+  display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 8px;
+}
+.lab-location .route-field label { display: block; margin-bottom: 4px; }
+.lab-location .route-select { width: 100%; }
+.lab-origin {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text-dim);
+  margin-top: 10px; padding: 6px 9px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--panel-hover);
+}
+.lab-origin strong { color: var(--text); }
+.lab-origin em { margin-left: auto; font-style: normal; color: var(--text-faint); }
+@media (max-width: 640px) { .lab-location { grid-template-columns: 1fr; } }

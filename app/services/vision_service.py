@@ -28,6 +28,7 @@ from __future__ import annotations
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from collections import deque
 from pathlib import Path
 
@@ -137,7 +138,8 @@ class VisionService:
     # ------------------------------------------------------------- analyse
     def analyse(self, path: str, is_video: bool, segment_m: float = DEFAULT_SEGMENT_M,
                 session: str | None = None, sample_fps: float = 12.5,
-                max_frames: int = 150) -> dict:
+                max_frames: int = 150, city: str | None = None,
+                road_id: str | None = None) -> dict:
         try:
             analyser = _load()
         except FileNotFoundError as exc:
@@ -151,9 +153,23 @@ class VisionService:
             det = analyser.analyse_image(path)
         elapsed = (time.perf_counter() - t0) * 1000
 
+        # A count with no place attached is a detection, not an observation.
+        # Resolved from the graph, so the coordinates are a real point on a real
+        # road rather than whatever the caller asserted.
+        from app.services.location_service import resolve as resolve_road
+
+        road = resolve_road(city, road_id)
+
         out = {
             "kind": "video" if is_video else "image",
             "measures": "flow" if is_video else "occupancy",
+            "observedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "city": city,
+            "roadId": road_id,
+            "roadName": road["name"] if road else None,
+            "lat": road["lat"] if road else None,
+            "lon": road["lon"] if road else None,
+            "located": road is not None,
             "counts": det.counts,
             "lstmCounts": det.lstm_counts,
             "nonVehicles": det.non_vehicles,
@@ -188,7 +204,8 @@ class VisionService:
                 ) if det.duration_s < 30 else None,
             })
             if session:
-                out["window"] = self._observe(session, det.per_15_min)
+                out["window"] = self._observe(session, det.per_15_min,
+                                              city=city, road_id=road_id)
         else:
             out["congestion"] = _congestion(det.pcu, segment_m)
             out["forecastNote"] = (
@@ -200,7 +217,8 @@ class VisionService:
         return out
 
     # -------------------------------------------------------------- window
-    def _observe(self, session: str, per_15_min: dict) -> dict:
+    def _observe(self, session: str, per_15_min: dict,
+                 city: str | None = None, road_id: str | None = None) -> dict:
         """Append a flow observation and forecast once the window is full."""
         try:
             model, _ = self._forecaster()
@@ -212,7 +230,8 @@ class VisionService:
             if session not in _windows and len(_windows) >= MAX_SESSIONS:
                 _windows.pop(next(iter(_windows)))          # oldest out
             win = _windows.setdefault(session, deque(maxlen=need))
-            win.append({"counts": dict(per_15_min), "at": time.time()})
+            win.append({"counts": dict(per_15_min), "at": time.time(),
+                        "roadId": road_id, "city": city})
             have = len(win)
             snapshot = list(win)
 

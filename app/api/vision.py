@@ -51,6 +51,8 @@ async def analyse(
                              description="Frames sampled per second; below ~10 the "
                                          "tracker loses ids and crossings go uncounted"),
     max_frames: int = Form(default=150, description="Cap on frames processed (video)"),
+    city: str | None = Form(default=None, description="City id from /vision/cities"),
+    road_id: str | None = Form(default=None, description="Road id from /vision/roads"),
 ) -> dict:
     content_type = (file.content_type or "").lower()
     if content_type in VIDEO_TYPES:
@@ -83,6 +85,7 @@ async def analyse(
         return _service.analyse(
             tmp.name, is_video=is_video, segment_m=segment_m, session=session,
             sample_fps=sample_fps, max_frames=min(max_frames, 300),
+            city=city, road_id=road_id,
         )
     except VisionUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -93,6 +96,46 @@ async def analyse(
             os.unlink(tmp.name)
         except OSError:
             pass
+
+
+@router.get(
+    "/cities",
+    summary="Cities an observation can be attached to",
+    description=(
+        "Every configured city, with the network that covers it and what that "
+        "network actually contains. A city whose graph has not been built is "
+        "reported as unavailable rather than quietly omitted."
+    ),
+)
+def cities() -> dict:
+    from app.services.location_service import cities as _cities
+
+    return {"cities": _cities()}
+
+
+@router.get(
+    "/roads",
+    summary="Named roads in a city",
+    description=(
+        "Real named ways from the city's road graph, each with coordinates and "
+        "a stable id, longest roads first. Filter with `q` as the user types.\n\n"
+        "These are not a curated list — they are read from the graph the router "
+        "uses, so an observation attached to one can be written back onto the "
+        "same edges."
+    ),
+    responses={422: {"description": "Unknown city"}},
+)
+def roads(
+    city: str = Query(..., description="City id from /vision/cities"),
+    q: str = Query(default="", description="Filter by name"),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> dict:
+    from app.services.location_service import roads as _roads
+
+    try:
+        return _roads(city, q=q, limit=limit)
+    except KeyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(

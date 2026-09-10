@@ -432,13 +432,17 @@ export async function clearAlerts() {
  * from a real one on screen, which is exactly the thing this feature must never
  * do — so with no backend it fails loudly instead.
  */
-export async function analyseRoadMedia(file, { session, segmentM, sampleFps, maxFrames } = {}) {
+export async function analyseRoadMedia(file, { session, segmentM, sampleFps, maxFrames, city, roadId } = {}) {
   const body = new FormData()
   body.append('file', file)
   if (session) body.append('session', session)
   if (segmentM != null) body.append('segment_m', String(segmentM))
   if (sampleFps != null) body.append('sample_fps', String(sampleFps))
   if (maxFrames != null) body.append('max_frames', String(maxFrames))
+  // Where the footage was taken. Without these the result is a detection with
+  // nowhere to live; with them it becomes an observation on a real road.
+  if (city) body.append('city', city)
+  if (roadId) body.append('road_id', roadId)
 
   const res = await fetch(`${BASE}/vision/analyse`, { method: 'POST', body })
   if (!res.ok) {
@@ -454,6 +458,18 @@ export async function analyseRoadMedia(file, { session, segmentM, sampleFps, max
 
 export async function getVisionStatus() {
   return request('/vision/status')
+}
+
+/** Cities an observation can be attached to, with what each network covers. */
+export async function getCities() {
+  return request('/vision/cities')
+}
+
+/** Named roads read from the city's graph — not a curated list. */
+export async function getRoads(city, q = '', limit = 50) {
+  const p = new URLSearchParams({ city, limit: String(limit) })
+  if (q) p.set('q', q)
+  return request(`/vision/roads?${p}`)
 }
 
 export async function resetVisionSession(session) {

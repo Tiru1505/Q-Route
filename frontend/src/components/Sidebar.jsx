@@ -14,7 +14,7 @@ export const NAV_ITEMS = [
   { to: '/optimizer', label: 'Route Optimizer', icon: RouteIcon },
   { to: '/traffic', label: 'Live Traffic', icon: Activity },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/vision', label: 'Road Vision', icon: ScanEye },
+  { to: '/vision', label: 'Traffic Analysis Lab', icon: ScanEye },
   { to: '/command', label: 'Command Centre', icon: ShieldCheck },
   { to: '/benchmark', label: 'Benchmark', icon: FlaskConical },
   { to: '/alerts', label: 'Alerts', icon: Bell, showCount: true },

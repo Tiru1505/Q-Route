@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   AlertTriangle, Brain, CircleAlert, Film, Image as ImageIcon, Loader2,
-  RotateCcw, ScanEye, Upload,
+  MapPin, RotateCcw, ScanEye, Upload,
 } from 'lucide-react'
-import { analyseRoadMedia, getVisionStatus, resetVisionSession } from '../services/api'
+import {
+  analyseRoadMedia, getCities, getRoads, getVisionStatus, resetVisionSession,
+} from '../services/api'
 
 /**
  * Road Vision — the trained detector, run on media the visitor supplies.
@@ -42,9 +44,40 @@ export default function RoadVision() {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
 
+  /* Where the footage was taken. A count with no road attached cannot become
+   * an observation, cannot accumulate into a series, and cannot be written
+   * back onto the graph — so the analyse button waits for both. */
+  const [cities, setCities] = useState([])
+  const [city, setCity] = useState('')
+  const [roadQuery, setRoadQuery] = useState('')
+  const [roads, setRoads] = useState(null)
+  const [roadId, setRoadId] = useState('')
+
   useEffect(() => {
     getVisionStatus().then(setStatus).catch(() => setStatus({ available: false }))
+    getCities()
+      .then((d) => {
+        setCities(d.cities || [])
+        const first = (d.cities || []).find((c) => c.available)
+        if (first) setCity(first.id)
+      })
+      .catch(() => setCities([]))
   }, [])
+
+  // Road list follows the city, and re-queries as the user types. Debounced
+  // because the index is thousands of roads and every keystroke would
+  // otherwise ask for all of them again.
+  useEffect(() => {
+    if (!city) { setRoads(null); return undefined }
+    let cancelled = false
+    setRoadId('')
+    const t = setTimeout(() => {
+      getRoads(city, roadQuery, 60)
+        .then((d) => !cancelled && setRoads(d))
+        .catch(() => !cancelled && setRoads(null))
+    }, roadQuery ? 280 : 0)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [city, roadQuery])
 
   const send = useCallback(async (file) => {
     if (!file) return
@@ -55,14 +88,14 @@ export default function RoadVision() {
     setError(null)
     setBusy(true)
     try {
-      const d = await analyseRoadMedia(file, { session, segmentM })
+      const d = await analyseRoadMedia(file, { session, segmentM, city, roadId })
       setResult({ ...d, fileName: file.name })
     } catch (e) {
       setError(e.message)
     } finally {
       setBusy(false)
     }
-  }, [session, segmentM])
+  }, [session, segmentM, city, roadId])
 
   const onDrop = (e) => {
     e.preventDefault()
@@ -82,10 +115,10 @@ export default function RoadVision() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1 className="page-title">Road Vision</h1>
+          <h1 className="page-title">Traffic Analysis Lab</h1>
           <p className="page-sub">
-            Upload a road photo or clip. The trained detector counts the vehicles,
-            and the traffic model turns that into congestion.
+            Pick where the footage was taken, upload it, and the trained detector
+            counts the vehicles the traffic model turns into congestion.
           </p>
         </div>
       </div>
@@ -101,6 +134,63 @@ export default function RoadVision() {
 
       <div className="grid grid-2">
         {/* ------------------------------------------------ upload ----- */}
+        <div className="card">
+          <div className="card-title"><MapPin size={13} /> Location</div>
+          <div className="lab-location">
+            <div className="field route-field" style={{ display: 'block' }}>
+              <label htmlFor="lab-city">City</label>
+              <select
+                id="lab-city" className="select route-select"
+                value={city} onChange={(e) => setCity(e.target.value)}
+              >
+                <option value="">Select a city…</option>
+                {cities.map((c) => (
+                  <option key={c.id} value={c.id} disabled={!c.available}>
+                    {c.label}{c.available ? '' : ' — no graph built'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field route-field" style={{ display: 'block' }}>
+              <label htmlFor="lab-road">Road</label>
+              <input
+                id="lab-road" className="select route-select" type="text"
+                placeholder={city ? 'Type to filter roads…' : 'Pick a city first'}
+                value={roadQuery} disabled={!city}
+                onChange={(e) => setRoadQuery(e.target.value)}
+              />
+              <select
+                className="select route-select" style={{ marginTop: 6 }}
+                value={roadId} disabled={!roads?.roads?.length}
+                onChange={(e) => setRoadId(e.target.value)}
+                size={1}
+              >
+                <option value="">
+                  {roads?.roads?.length
+                    ? `Select a road… (${roads.total.toLocaleString()} indexed)`
+                    : 'No roads loaded'}
+                </option>
+                {(roads?.roads || []).map((r) => (
+                  <option key={r.road_id} value={r.road_id}>
+                    {r.name} · {r.segments} seg
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {roads?.coverage && (
+            <p className="vision-hint">{roads.coverage}.</p>
+          )}
+          {!roadId && (
+            <p className="vision-hint">
+              A count with no road attached is a detection, not an observation — it
+              cannot accumulate into a series or reach the graph. Pick one before
+              analysing.
+            </p>
+          )}
+        </div>
+
         <div className="card">
           <div className="card-title"><Upload size={13} /> Upload</div>
 
@@ -183,6 +273,16 @@ export default function RoadVision() {
                   src={`data:image/jpeg;base64,${result.annotated}`}
                   alt="Detected vehicles"
                 />
+              )}
+              {result.located && (
+                <div className="lab-origin">
+                  <MapPin size={11} />
+                  <span>
+                    <strong>{result.roadName}</strong> · {result.city}
+                    {' · '}{result.lat}, {result.lon}
+                  </span>
+                  <em>{new Date(result.observedAt).toLocaleTimeString()}</em>
+                </div>
               )}
               <div className="vision-stats">
                 <div><span>{result.totalVehicles}</span>vehicles</div>
