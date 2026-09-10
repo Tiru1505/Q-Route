@@ -132,6 +132,59 @@ def _tally(class_names, calibration: float) -> tuple[dict, dict, float, dict]:
     return counts, others, pcu, lstm
 
 
+def distribution(counts: dict[str, int]) -> dict:
+    """
+    The mix of vehicles, by number and by the road space they take.
+
+    WHY BOTH SHARES
+    ---------------
+    A class's share of the COUNT is not its share of the IMPACT. Ten bikes and
+    two buses are twelve vehicles, 83% of them two-wheelers — but the buses
+    contribute 6.0 of the 11.0 PCU on that road, so more than half the
+    congestion comes from the sixth of the traffic that is buses.
+
+    The cost model already works in PCU. This makes the same arithmetic visible
+    instead of leaving a reader to assume the tall bar in a count chart is the
+    one causing the jam.
+
+    Computed here, beside the factors themselves, so no caller has to restate
+    VEHICLE_PCU. A copy of this table in a chart that drifted from this one
+    would be a chart quietly describing a different road.
+    """
+    total_n = sum(counts.values())
+    total_pcu = sum(n * VEHICLE_PCU[k] for k, n in counts.items() if k in VEHICLE_PCU)
+
+    classes = []
+    for name, n in sorted(counts.items(), key=lambda kv: -kv[1]):
+        if name not in VEHICLE_PCU:
+            continue
+        factor = VEHICLE_PCU[name]
+        pcu = n * factor
+        classes.append({
+            "name": name,
+            "count": n,
+            "pcuFactor": factor,
+            "pcu": round(pcu, 2),
+            "countShare": round(n / total_n, 4) if total_n else 0.0,
+            "pcuShare": round(pcu / total_pcu, 4) if total_pcu else 0.0,
+            "lstmClass": LSTM_CLASS.get(name),
+        })
+
+    return {
+        "classes": classes,
+        "totalVehicles": total_n,
+        "totalPcu": round(total_pcu, 2),
+        # Above 1.0 the average vehicle is heavier than a car — the mix itself
+        # is adding congestion, independently of how many vehicles there are.
+        "pcuPerVehicle": round(total_pcu / total_n, 3) if total_n else 0.0,
+        "note": (
+            "Count share is how many. PCU share is how much road they take. "
+            "A bus is 3.0 PCU and a bike 0.5, so the two differ whenever the "
+            "mix is not all cars."
+        ),
+    }
+
+
 class RoadVisionAnalyser:
     """Loads the trained detector once and answers analysis requests."""
 

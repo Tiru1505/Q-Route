@@ -611,3 +611,64 @@ def test_assistant_briefing_speaks_first():
     body = r.json()
     assert body["intent"] == "forecast"
     assert body["text"]
+
+
+def test_vehicle_distribution_separates_count_from_road_space():
+    """
+    The mix must report head count and road impact as different things.
+
+    This is the claim the chart makes, and it is only worth making if the two
+    genuinely diverge: ten bikes and two buses are 83% two-wheelers by number
+    and a minority of the congestion. If these ever came out equal the chart
+    would be drawing the same bar twice.
+    """
+    from vision.detector import VEHICLE_PCU, distribution
+
+    d = distribution({"Bike": 10, "Bus": 2})
+    by_name = {c["name"]: c for c in d["classes"]}
+
+    assert by_name["Bike"]["countShare"] > by_name["Bus"]["countShare"]
+    assert by_name["Bus"]["pcuShare"] > by_name["Bike"]["pcuShare"], (
+        "two buses must take more road space than ten bikes"
+    )
+
+    # Shares are shares: they account for everything, exactly once.
+    assert abs(sum(c["countShare"] for c in d["classes"]) - 1.0) < 1e-6
+    assert abs(sum(c["pcuShare"] for c in d["classes"]) - 1.0) < 1e-6
+
+    # The factors are the cost model's own, not a second copy.
+    for c in d["classes"]:
+        assert c["pcuFactor"] == VEHICLE_PCU[c["name"]]
+        assert abs(c["pcu"] - c["count"] * c["pcuFactor"]) < 1e-6
+
+    assert d["totalPcu"] == 11.0
+    assert d["pcuPerVehicle"] == round(11.0 / 12, 3)
+
+
+def test_vehicle_distribution_handles_an_empty_frame():
+    """A frame with no vehicles must divide by nothing and say nothing."""
+    from vision.detector import distribution
+
+    d = distribution({})
+    assert d["classes"] == []
+    assert d["totalVehicles"] == 0
+    assert d["totalPcu"] == 0
+    assert d["pcuPerVehicle"] == 0.0
+
+
+def test_every_detected_class_reaches_a_forecaster_class():
+    """
+    Nothing the detector counts may fall out of the pipeline unnoticed.
+
+    A vehicle class with no LSTM mapping would be counted, shown in the chart,
+    and then silently dropped before the forecast — the counts on screen would
+    not be the counts being predicted from.
+    """
+    from vision.detector import LSTM_CLASS, LSTM_COUNTS, VEHICLE_PCU, distribution
+
+    for name in VEHICLE_PCU:
+        assert name in LSTM_CLASS, f"{name} is counted but never reaches the forecaster"
+        assert LSTM_CLASS[name] in LSTM_COUNTS
+
+    d = distribution({name: 1 for name in VEHICLE_PCU})
+    assert all(c["lstmClass"] in LSTM_COUNTS for c in d["classes"])

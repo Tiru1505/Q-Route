@@ -7,6 +7,7 @@ import {
 import {
   analyseRoadMedia, getCities, getRoads, getVisionStatus, resetVisionSession,
 } from '../services/api'
+import VehicleDistribution from '../components/VehicleDistribution'
 
 /**
  * Road Vision — the trained detector, run on media the visitor supplies.
@@ -299,6 +300,12 @@ export default function RoadVision() {
                   <span className="vision-chip muted">no vehicles detected</span>
                 )}
               </div>
+
+              <VehicleDistribution
+                distribution={result.distribution}
+                lstmCounts={result.lstmCounts}
+                measures={result.measures}
+              />
 
               {result.congestion && (
                 <div className="vision-congestion">

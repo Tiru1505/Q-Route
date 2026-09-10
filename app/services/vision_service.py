@@ -109,6 +109,19 @@ def _congestion(pcu: float, segment_m: float) -> dict:
     }
 
 
+def _distribution(counts: dict) -> dict:
+    """
+    The vehicle mix, by count and by PCU.
+
+    Imported inside the call for the same reason the analyser is: pulling in
+    the detector module drags ultralytics and torch with it, and a process that
+    never analyses anything should not pay that at import time.
+    """
+    from vision.detector import distribution
+
+    return distribution(counts)
+
+
 class VisionService:
     def available(self) -> bool:
         try:
@@ -171,6 +184,10 @@ class VisionService:
             "lon": road["lon"] if road else None,
             "located": road is not None,
             "counts": det.counts,
+            # The same counts split by number and by road space. Computed in
+            # the detector module beside the PCU factors themselves, so the
+            # chart cannot drift from the table the cost model uses.
+            "distribution": _distribution(det.counts),
             "lstmCounts": det.lstm_counts,
             "nonVehicles": det.non_vehicles,
             "totalVehicles": det.total_vehicles(),

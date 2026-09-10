@@ -3713,3 +3713,53 @@
 @media (max-width: 560px) {
   .toast-stack { right: 10px; left: 10px; bottom: 10px; width: auto; }
 }
+
+/* ---------------------------------------------------- vehicle distribution
+   Count share against PCU share. The two colours are defined as role vars so
+   a theme change moves them together and neither collides with the congestion
+   levels, which already own amber and red for a different meaning. */
+.vd {
+  --vd-count: #38bdf8;
+  --vd-pcu: #f59e0b;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.vd-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.vd-head h4 { margin: 0; font-size: 12px; letter-spacing: 0.02em; color: var(--text); }
+.vd-measures { font-size: 9.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.vd-chart { margin: 8px -4px 0; }
+.vd-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 2px; font-size: 10px; color: var(--text-dim); }
+.vd-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.vd-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.vd-stats { display: flex; gap: 8px; margin-top: 10px; }
+.vd-stat {
+  flex: 1; display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 8px; border-radius: 7px; background: var(--panel-hover);
+}
+.vd-stat span { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.vd-stat b { font-size: 13px; color: var(--text); }
+.vd-callout {
+  display: flex; gap: 6px; align-items: flex-start;
+  margin: 10px 0 0; padding: 8px 9px;
+  border-radius: 7px; border: 1px solid var(--border);
+  background: var(--panel-hover);
+  font-size: 10.5px; line-height: 1.5; color: var(--text-dim);
+}
+.vd-callout b { color: var(--text); }
+.vd-callout svg { flex: none; margin-top: 2px; color: var(--vd-pcu); }
+.vd-lstm { margin-top: 10px; }
+.vd-lstm-head { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 5px; }
+.vd-lstm-row { display: flex; flex-wrap: wrap; gap: 5px; }
+.vd-lstm-chip {
+  padding: 3px 7px; border-radius: 999px; font-size: 10px;
+  border: 1px solid var(--border); color: var(--text-dim);
+}
+.vd-lstm-chip b { color: var(--text); margin-left: 3px; }
+.vd-note { margin: 9px 0 0; font-size: 9.5px; line-height: 1.5; color: var(--text-dim); opacity: 0.85; }
+.vd-empty {
+  margin-top: 12px; padding: 12px; border-radius: 10px;
+  border: 1px dashed var(--border); color: var(--text-dim); font-size: 11px;
+}
