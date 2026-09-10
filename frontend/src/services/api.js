@@ -112,14 +112,29 @@ const FALLBACK_COOLDOWN_MS = 10_000
 
 let fallbackUntil = 0
 
-/** True while we are serving demo data because the backend could not be reached. */
+/**
+ * Whether a call failed to reach the backend recently.
+ *
+ * Reporting only — the UI uses it to say it is showing demo data. It does NOT
+ * gate requests; every call tries the backend for itself.
+ */
 export function isUsingFallback() {
   return Date.now() < fallbackUntil
 }
 
 async function liveOrMock(live, mock) {
   if (USE_MOCK) return mock()
-  if (isUsingFallback()) return mock()
+
+  // Every call attempts the backend, always. There used to be a short-circuit
+  // here that returned demo data while a cooldown was in force, and it made a
+  // single hiccup contagious: one failed request — a restart, a slow endpoint —
+  // marked the whole API dead for ten seconds, and any page mounting inside
+  // that window rendered "Demo data" from a backend that was answering 200 the
+  // whole time. Pages fetch once on mount, so it never corrected itself.
+  //
+  // Attempting costs nothing when the backend is genuinely down: a refused
+  // connection returns immediately. The fallback still catches this call's own
+  // failure below; it just no longer speaks for calls it knows nothing about.
   try {
     const result = await live()
     if (fallbackUntil) {
