@@ -22,9 +22,10 @@ are real and the tracking is real; only the camera motion is manufactured. That
 is enough to exercise line-crossing, which is the part of the video path that
 plain image inference does not cover.
 
-A caveat this test cannot remove: the detector's recall is ~0.36, so every count
-here is an undercount, and the flow figures are extrapolated from a few seconds
-of footage. The test asks whether the chain RESPONDS, not whether the numbers
+A caveat this test cannot remove: the detector's vehicle counts are close to
+unbiased in aggregate but about 1.15 vehicles off on a typical image
+(results/yolo/calibration.json), and the flow figures are extrapolated from a
+few seconds of footage. The test asks whether the chain RESPONDS, not whether the numbers
 are correct in absolute terms.
 """
 

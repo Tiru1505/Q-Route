@@ -122,6 +122,78 @@ def _distribution(counts: dict) -> dict:
     return distribution(counts)
 
 
+def _count_accuracy(analyser) -> dict:
+    """
+    How far the served detector's counts are from the truth, as measured.
+
+    Read from results/yolo/calibration.json rather than restated, so the
+    figure shown to a visitor is the one the measurement produced. The note
+    that used to live here said "recall is about 0.36, so raw counts
+    undercount" — the recall is real, but it is averaged over all twelve
+    classes at a different threshold, and measured on vehicles at the served
+    settings the detector finds 91% of the count.
+
+    A measurement taken under different settings describes a different
+    detector, so a mismatch is reported rather than the stale figures.
+    """
+    import json
+
+    path = Path(__file__).resolve().parents[2] / "results" / "yolo" / "calibration.json"
+    if not path.exists():
+        return {
+            "measured": False,
+            "summary": ("Count accuracy has not been measured. Run "
+                        "scripts/calibrate_yolo.py to compare this detector's "
+                        "counts against labelled images."),
+        }
+
+    m = json.loads(path.read_text())
+    det = m.get("detector", {})
+    served = {"weights": analyser.weights_path.name,
+              "conf": analyser.conf, "imgsz": analyser.imgsz}
+    if any(det.get(k) != v for k, v in served.items()):
+        return {
+            "measured": True,
+            "stale": True,
+            "measuredWith": det,
+            "servedWith": served,
+            "summary": ("Count accuracy was measured with different detector "
+                        "settings than are being served, so it does not apply. "
+                        "Re-run scripts/calibrate_yolo.py."),
+        }
+
+    per = m["perClass"]
+    truth = sum(c["groundTruth"] for c in per.values())
+    found = sum(c["detected"] for c in per.values())
+    raw = m["heldOutError"]["raw"]
+    blind = sorted(n for n, c in per.items() if c["groundTruth"] and not c["detected"])
+    share = found / truth if truth else 0.0
+
+    summary = (
+        f"Measured on {m['images']} labelled images at these settings, the "
+        f"detector finds {share:.0%} of vehicles by count, and is about "
+        f"{raw['vehicles_mae']:.2f} vehicles off on a typical image. A "
+        "correction factor did not improve held-out accuracy, so none is "
+        "applied. These are occupancy figures from still images; video flow "
+        "has no ground truth to be measured against."
+    )
+    if blind:
+        summary += f" Never detected in validation: {', '.join(blind)}."
+
+    return {
+        "measured": True,
+        "stale": False,
+        "images": m["images"],
+        "countShare": round(share, 3),
+        "vehiclesMae": raw["vehicles_mae"],
+        "vehiclesBias": raw["vehicles_bias"],
+        "blindClasses": blind,
+        "bestOnHeldOut": m.get("bestOnHeldOut"),
+        "appliesTo": m.get("appliesTo", "occupancy"),
+        "summary": summary,
+    }
+
+
 class VisionService:
     def available(self) -> bool:
         try:
@@ -135,6 +207,7 @@ class VisionService:
             a = _load()
         except Exception as exc:
             return {"available": False, "reason": str(exc)}
+        accuracy = _count_accuracy(a)
         return {
             "available": True,
             "weights": a.weights_path.name,
@@ -142,10 +215,8 @@ class VisionService:
             "confidence": a.conf,
             "imageSize": a.imgsz,
             "calibration": a.calibration,
-            "note": (
-                "Detector recall is about 0.36 on its own validation set, so raw "
-                "counts undercount. Calibrate per camera before trusting them."
-            ),
+            "countAccuracy": accuracy,
+            "note": accuracy["summary"],
         }
 
     # ------------------------------------------------------------- analyse

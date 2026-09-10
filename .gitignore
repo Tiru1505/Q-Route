@@ -70,6 +70,10 @@ data/vision/
 # Git cannot re-include a file whose parent directory is excluded, so the YOLO
 # run is excluded level by level and the pieces worth keeping are named.
 results/yolo/*
+# The count-accuracy measurement. A few KB, loaded by the API to tell a visitor
+# how far the counts are from the truth — and the validation images it was
+# measured on are not in the repository, so a clone could not regenerate it.
+!results/yolo/calibration.json
 !results/yolo/dats_v8n/
 results/yolo/dats_v8n/*
 !results/yolo/dats_v8n/results.csv

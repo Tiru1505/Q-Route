@@ -1,0 +1,95 @@
+{
+  "measuredAt": "2026-09-11T01:55:37",
+  "detector": {
+    "weights": "best.pt",
+    "conf": 0.25,
+    "imgsz": 416
+  },
+  "images": 376,
+  "split": "2-fold, alternating contiguous blocks of 20 sorted filenames",
+  "minDetectionsPerClass": 30,
+  "pooledFactor": 1.097,
+  "perClass": {
+    "Bike": {
+      "groundTruth": 431,
+      "detected": 404,
+      "factor": 1.067,
+      "source": "class"
+    },
+    "Cycle": {
+      "groundTruth": 11,
+      "detected": 0,
+      "factor": 1.097,
+      "source": "pooled"
+    },
+    "Car": {
+      "groundTruth": 348,
+      "detected": 330,
+      "factor": 1.055,
+      "source": "class"
+    },
+    "Rikshaw": {
+      "groundTruth": 160,
+      "detected": 135,
+      "factor": 1.185,
+      "source": "class"
+    },
+    "Tempo": {
+      "groundTruth": 83,
+      "detected": 62,
+      "factor": 1.339,
+      "source": "class"
+    },
+    "Bus": {
+      "groundTruth": 31,
+      "detected": 30,
+      "factor": 1.033,
+      "source": "class"
+    },
+    "Truck": {
+      "groundTruth": 63,
+      "detected": 68,
+      "factor": 0.926,
+      "source": "class"
+    },
+    "Cart": {
+      "groundTruth": 2,
+      "detected": 0,
+      "factor": 1.097,
+      "source": "pooled"
+    }
+  },
+  "heldOutError": {
+    "raw": {
+      "vehicles_mae": 1.15,
+      "vehicles_bias": -0.28,
+      "pcu_mae": 1.59,
+      "pcu_bias": -0.32
+    },
+    "divide_by_recall": {
+      "vehicles_mae": 5.24,
+      "vehicles_bias": 4.88,
+      "pcu_mae": 6.0,
+      "pcu_bias": 5.36
+    },
+    "pooled_fitted": {
+      "vehicles_mae": 1.19,
+      "vehicles_bias": -0.23,
+      "pcu_mae": 1.64,
+      "pcu_bias": -0.26
+    },
+    "per_class_fitted": {
+      "vehicles_mae": 1.19,
+      "vehicles_bias": -0.21,
+      "pcu_mae": 1.65,
+      "pcu_bias": -0.23
+    }
+  },
+  "bestOnHeldOut": "raw",
+  "appliesTo": "occupancy",
+  "caveats": [
+    "Measured on still images: this calibrates occupancy counts only. Video flow is counted by line-crossing with a tracker; per-frame misses do not translate to missed crossings, and no ground-truth crossing counts exist to measure it. The forecaster's input is flow and remains uncalibrated.",
+    "The validation set selected best.pt, so it is not an untouched test set. Cross-fitting protects the factors from being scored on their own fitting data; it cannot remove that selection effect.",
+    "Factors hold for this dataset's cameras and scenes. A new camera angle, height or resolution changes the miss rate."
+  ]
+}

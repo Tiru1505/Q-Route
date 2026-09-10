@@ -27,11 +27,32 @@ the model.
 
 WHAT THE DETECTOR ACTUALLY SEES
 -------------------------------
-The weights were trained on DATS_2022 at 416px on CPU, and reach mAP50 ~0.41
-with recall ~0.36 — it MISSES roughly two vehicles in three. Counts from this
-detector are therefore undercounts, and `calibration` exists so a measured
-correction factor can be applied per camera rather than pretending the raw
-number is the truth.
+The weights were trained on DATS_2022 at 416px on CPU and reach mAP50 ~0.41.
+Their reported recall is 0.36, which reads as "misses two vehicles in three"
+and is not what that number means for counting:
+
+  - it is averaged over all twelve classes, including zebra crossings and sign
+    boards, which are far harder than vehicles;
+  - it is taken at the confidence that maximises F1, not the 0.25 served here;
+  - it ignores false detections, which offset misses in a count.
+
+Measured directly — vehicle counts at the served settings against 376
+hand-labelled validation images (scripts/calibrate_yolo.py) — the detector
+finds 91% of the vehicle COUNT. It is close to unbiased in aggregate and noisy
+per image: about 1.15 vehicles off on a typical image of three.
+
+A correction factor was fitted and scored on held-out images, and it made the
+counts slightly WORSE (mean error 1.19 against 1.15 raw). A multiplier fixes
+bias; the remaining error is scatter, which no multiplier can remove. So none
+is applied. Dividing by the reported recall instead would have overcounted by
+roughly two and a half times.
+
+Two classes are effectively invisible: no bicycle or cart was detected in the
+validation set at all, so no factor could recover them.
+
+All of this is OCCUPANCY, measured on stills. Video flow is counted by tracking
+across a line and has no ground-truth crossings to be measured against, so
+the forecaster's input is uncalibrated.
 """
 
 from __future__ import annotations
@@ -201,8 +222,11 @@ class RoadVisionAnalyser:
         self.model = YOLO(str(path))
         self.conf = conf
         self.imgsz = imgsz
-        # Recall is ~0.36, so raw counts are undercounts. A per-camera factor
-        # measured by hand against a real count belongs here — not a guess.
+        # 1.0 on purpose. A fitted factor made held-out counts worse, not
+        # better (results/yolo/calibration.json). A factor measured by hand
+        # against a real count on a specific camera could still belong here —
+        # but note _tally applies it to video flow too, which that
+        # measurement would not have covered.
         self.calibration = calibration
         self.weights_path = path
 
