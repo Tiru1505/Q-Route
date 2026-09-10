@@ -177,6 +177,15 @@ def _run_tick(graph: str | None, force_forecast: bool = False) -> Tick:
             _state.forecasts += 1
 
     alerted = result.get("alert") is not None
+
+    # Tell the driver. Only when the policy actually raised something, or a
+    # closure makes the current plan undriveable — a notification for every
+    # tick would be noise, and noise is how a real alert gets ignored.
+    if alerted or result.get("blocked"):
+        from app.services import notify_service
+
+        notify_service.publish_threadsafe(result, source="monitor")
+
     note = ("inputs changed — forecast refreshed" if forecast
             else "inputs unchanged — route re-evaluated, forecast reused")
 

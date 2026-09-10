@@ -3633,3 +3633,69 @@
 .lab-origin strong { color: var(--text); }
 .lab-origin em { margin-left: auto; font-style: normal; color: var(--text-faint); }
 @media (max-width: 640px) { .lab-location { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   NOTIFICATION TOASTS — pushed from the backend
+   ============================================================ */
+
+.toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(360px, calc(100vw - 36px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  background: var(--panel-solid);
+  border: 1px solid var(--border-strong);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  padding: 11px 13px;
+  box-shadow: var(--shadow-lg);
+}
+.toast-severe   { border-left-color: var(--severe); }
+.toast-moderate { border-left-color: var(--heavy); }
+.toast-info     { border-left-color: var(--low); }
+
+.toast-head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--text);
+}
+.toast-severe .toast-head svg   { color: var(--severe); }
+.toast-moderate .toast-head svg { color: var(--heavy); }
+.toast-info .toast-head svg     { color: var(--low); }
+.toast-x {
+  margin-left: auto; background: none; border: 0; cursor: pointer;
+  color: var(--text-faint); padding: 2px; line-height: 0;
+}
+.toast-x:hover { color: var(--text); }
+
+.toast-text {
+  font-size: 12px; line-height: 1.55; color: var(--text-dim);
+  margin: 7px 0 0;
+}
+.toast-figures {
+  display: flex; align-items: baseline; gap: 7px;
+  font-size: 11px; color: var(--text-faint);
+  margin-top: 8px; font-variant-numeric: tabular-nums;
+}
+.toast-figures b { color: var(--low); margin-left: auto; }
+
+.toast-actions { display: flex; gap: 7px; margin-top: 10px; }
+.toast-actions .btn-primary, .toast-actions .btn-ghost { flex: 1; justify-content: center; }
+
+.toast-foot {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 9.5px; color: var(--text-faint);
+  margin-top: 9px; padding-top: 7px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 560px) {
+  .toast-stack { right: 10px; left: 10px; bottom: 10px; width: auto; }
+}

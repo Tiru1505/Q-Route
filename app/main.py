@@ -12,6 +12,7 @@ from app.api.forecast import router as forecast_router
 from app.api.graphs import router as graphs_router
 from app.api.health import router as health_router
 from app.api.monitor import router as monitor_router
+from app.api.notifications import router as notifications_router
 from app.api.routes import router as routes_router
 from app.api.agent import router as agent_router
 from app.api.alerts import router as alerts_router
@@ -42,6 +43,14 @@ async def lifespan(_app: FastAPI):
 
     from app.database.mongodb import startup_db, shutdown_db
     startup_db()
+
+    # The monitor evaluates in a worker thread; broadcasting from there needs
+    # the loop that owns the WebSockets, and asking for the running loop from
+    # inside a thread finds nothing.
+    import asyncio
+
+    from app.services import notify_service
+    notify_service.bind_loop(asyncio.get_running_loop())
 
     # Warm the optimisation engine. Loading the 286,603-node Hyderabad graph
     # takes ~25 s; doing it here means the FIRST request is fast instead of
@@ -170,6 +179,7 @@ async def allow_private_network(request: Request, call_next):
 app.include_router(health_router, prefix="/api")
 app.include_router(graphs_router, prefix="/api")
 app.include_router(monitor_router, prefix="/api")
+app.include_router(notifications_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(routes_router, prefix="/api")
 app.include_router(places_router, prefix="/api")

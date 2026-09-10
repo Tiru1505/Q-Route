@@ -14,6 +14,12 @@ export default defineConfig({
         // 8010, not 8000: another project on this machine already binds 8000.
         target: process.env.VITE_API_TARGET || 'http://127.0.0.1:8010',
         changeOrigin: true,
+        // Without this the notification socket never reaches the backend: Vite
+        // proxies the HTTP request but refuses the Upgrade, so the browser
+        // fails the handshake silently and the page waits for pushes that can
+        // never arrive. Everything else keeps working, which is what makes it
+        // hard to spot.
+        ws: true,
       },
     },
   },
