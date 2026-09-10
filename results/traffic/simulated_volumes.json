@@ -1,0 +1,107 @@
+{
+  "measuredAt": "2026-09-11T02:24:14",
+  "graph": {
+    "nodes": 286603,
+    "edges": 741203
+  },
+  "scenario": "normal",
+  "seed": 42,
+  "window": "07:00-19:00, twelve hourly states",
+  "diurnalMeanOverWindow": 0.83,
+  "flowModel": "Greenshields q = k*v via CongestionModel.flow_pcu_h",
+  "perRoadPcu12h": {
+    "motorway": {
+      "n": 134,
+      "median": 67121,
+      "p5": 34908,
+      "p95": 81033,
+      "capacityPcuH": 8000,
+      "shareOfCapacityOver12h": 0.699
+    },
+    "motorway_link": {
+      "n": 193,
+      "median": 40308,
+      "p5": 20090,
+      "p95": 45211,
+      "capacityPcuH": 4000,
+      "shareOfCapacityOver12h": 0.84
+    },
+    "primary": {
+      "n": 5324,
+      "median": 34766,
+      "p5": 31677,
+      "p95": 52212,
+      "capacityPcuH": 3000,
+      "shareOfCapacityOver12h": 0.966
+    },
+    "primary_link": {
+      "n": 515,
+      "median": 34693,
+      "p5": 31436,
+      "p95": 35224,
+      "capacityPcuH": 3000,
+      "shareOfCapacityOver12h": 0.964
+    },
+    "secondary": {
+      "n": 15112,
+      "median": 27226,
+      "p5": 23701,
+      "p95": 28181,
+      "capacityPcuH": 2400,
+      "shareOfCapacityOver12h": 0.945
+    },
+    "secondary_link": {
+      "n": 648,
+      "median": 27273,
+      "p5": 23772,
+      "p95": 28181,
+      "capacityPcuH": 2400,
+      "shareOfCapacityOver12h": 0.947
+    },
+    "trunk": {
+      "n": 3404,
+      "median": 38763,
+      "p5": 32219,
+      "p95": 60358,
+      "capacityPcuH": 3600,
+      "shareOfCapacityOver12h": 0.897
+    },
+    "trunk_link": {
+      "n": 511,
+      "median": 39928,
+      "p5": 34186,
+      "p95": 42244,
+      "capacityPcuH": 3600,
+      "shareOfCapacityOver12h": 0.924
+    }
+  },
+  "perJunctionInflowPcu12h": {
+    "3-arm": {
+      "n": 14898,
+      "median": 53957,
+      "p5": 32337,
+      "p95": 79177,
+      "hmdaRange": [
+        2470,
+        76193
+      ],
+      "shareInsideHmdaRange": 0.927,
+      "shareBelowHmdaMin": 0.0,
+      "shareAboveHmdaMax": 0.073
+    },
+    "4-arm": {
+      "n": 2167,
+      "median": 59366,
+      "p5": 39460,
+      "p95": 91163,
+      "hmdaRange": [
+        5810,
+        74705
+      ],
+      "shareInsideHmdaRange": 0.846,
+      "shareBelowHmdaMin": 0.0,
+      "shareAboveHmdaMax": 0.154
+    }
+  },
+  "note": "Per-road figures are one direction of one segment. HMDA figures are junction totals across all arms, so only the per-junction inflow is comparable with them. Background traffic only: no hotspots, incidents or closures."
+}

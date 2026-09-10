@@ -194,9 +194,20 @@ delay studies, road inventory, across Secunderabad, Mehdipatnam, Kukatpally,
 Vanasthalipuram and Malkajgiri. Published junction volumes: three-arm
 2,470–76,193 PCU/12h, four-arm 5,810–74,705 PCU/12h.
 
-Dated and PDF-bound, but it lets the report say *"synthetic peak-hour volumes
-are calibrated to HMDA CTS observed PCU ranges"* rather than *"we picked 90%."*
-That sentence changes how the synthetic layer is received.
+Dated and PDF-bound. An earlier version of this file suggested the report say
+*"synthetic peak-hour volumes are calibrated to HMDA CTS observed PCU ranges"*.
+Do not: nothing fits the simulator to these figures, and measured against them
+(`scripts/measure_simulated_volumes.py`) it runs high. What the report can say:
+
+> Simulated junction volumes — median 53,957 PCU/12h at three-arm and 59,366
+> at four-arm junctions — fall inside the range the HMDA CTS observed at 93%
+> and 85% of junctions respectively. They sit toward the busy end, exceed the
+> observed maximum at 7% and 15%, and include none as quiet as the quietest
+> junction observed.
+
+That is a plausibility check on magnitude, not a calibration. The CTS also
+published mid-block counts, which would be the right comparison for per-road
+volumes; only the junction ranges above are to hand.
 
 - https://www.hmda.gov.in/cts/
 - UMTA Hyderabad operations document (MoHUA) — contains CTS survey summaries

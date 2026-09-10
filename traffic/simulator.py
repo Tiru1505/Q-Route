@@ -27,31 +27,49 @@ and gives the router nothing meaningful to solve:
               Hyderabad junctions and diffuse outward through the graph with
               distance decay — so jams form connected queues, not confetti.
 
-CALIBRATION — STALE, DO NOT QUOTE
----------------------------------
-These 12-hour totals were measured under the PREVIOUS hand-fitted diurnal
-curve, which has since been replaced by one derived from real Indian junction
-counts (see MEASURED_DIURNAL below):
+DAILY VOLUMES — MEASURED, AND WHAT THEY DO NOT SHOW
+---------------------------------------------------
+Regenerate with: python scripts/measure_simulated_volumes.py
+(results/traffic/simulated_volumes.json). The "normal" scenario, 07:00-19:00,
+twelve hourly states through MEASURED_DIURNAL, flow by Greenshields.
 
-    primary     median 16,589 PCU/12h   (p5 15,420  p95 16,972)
-    secondary   median 16,628 PCU/12h
-    trunk       median 16,512 PCU/12h
-    motorway    median 14,380 PCU/12h
+Per road, one direction, PCU per 12 hours:
 
-The new curve carries 28.7% more mean intensity across 07:00-19:00 (0.824
-against 0.640), because the old formula treated the whole morning build-up as
-nearly empty. The totals above are therefore understated by roughly 29%, and
-Greenshields flow is not linear in congestion so the true shift is not exactly
-that. They must be re-measured before being quoted anywhere.
+    class       median    p5 - p95          share of capacity
+    motorway    67,121    34,908 - 81,033        70%
+    trunk       38,763    32,219 - 60,358        90%
+    primary     34,766    31,677 - 52,212        97%
+    secondary   27,226    23,701 - 28,181        94%
 
-They are also not currently reproducible: the note below claimed
-scripts/run_traffic.py regenerates them and it does not — nothing in the
-repository computes PCU/12h. Whoever re-measures should add that script rather
-than restore a number no one can check.
+Read the last column before quoting the others. Arterials sit between 25% and
+70% congestion all day in this scenario, which is the flat top of the
+Greenshields curve: flow there is 75-100% of capacity whatever the congestion.
+So these totals are mostly capacity x 12 hours. They restate the lane-count
+assumption; they are not evidence about the traffic model. It also means the
+daily curve barely moves them — raising congestion near the top of the curve
+hardly changes flow, and past 50% it lowers it.
 
-The comparison they were made against still stands: the HMDA Comprehensive
-Transportation Study observed 2,470-76,193 PCU/12h at three-arm junctions and
-5,810-74,705 at four-arm junctions. A ~29% increase stays inside that range.
+What routing uses is congestion, and through it speed, which IS linear in
+congestion and does follow the daily curve. The volumes are a side quantity.
+
+Against Hyderabad: the HMDA Comprehensive Transportation Study observed
+2,470-76,193 PCU/12h at three-arm junctions and 5,810-74,705 at four-arm
+junctions. Those are junction totals, so they are compared here with junction
+totals — every approach summed — not with the per-road figures above, which
+fit under a junction ceiling almost by definition:
+
+    3-arm   median 53,957   inside HMDA range 93%   above its maximum  7%
+    4-arm   median 59,366   inside HMDA range 85%   above its maximum 15%
+
+No simulated junction is as quiet as the quietest HMDA observed. The simulator
+runs the busy half of the range and past its top: plausible in magnitude,
+biased high, and missing quiet junctions entirely. Arm counts are read from
+graph topology and are approximate.
+
+These replace figures (primary ~16,600 PCU/12h, etc.) that were measured under
+an older daily curve by a method nothing in the repository recorded. They are
+not comparable with the numbers above, and the difference cannot be
+attributed without that method — which is why a script now produces them.
 
 REPRODUCIBILITY
 ---------------
