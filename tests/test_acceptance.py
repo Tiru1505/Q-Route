@@ -318,10 +318,13 @@ def test_13_uploaded_counts_reach_the_forecaster():
                for x in listing["roads"]), listing
 
     after = adapter.predict(Coordinate(lat=lat, lon=lon), 15)
-    assert after["data_source"] == "lstm+uploaded-observations", (
+    # The source is named after what produced the counts — "upload" here, but
+    # "camera" for a live feed — so match the shape rather than one literal.
+    assert after["data_source"].endswith("-observations"), (
         f"real counts were on record and the forecaster still used "
         f"{after['data_source']}"
     )
+    assert "upload" in after["data_source"], after["data_source"]
     assert after["observed_road"]["roadId"] == road_id
     assert "measured traffic" in after["assumption"]
     clear(road_id)

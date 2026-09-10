@@ -17,6 +17,7 @@ from app.api.agent import router as agent_router
 from app.api.alerts import router as alerts_router
 from app.api.assistant import router as assistant_router
 from app.api.benchmark import router as benchmark_router
+from app.api.camera import router as camera_router
 from app.api.optimization import router as optimization_router
 from app.api.places import router as places_router
 from app.api.prediction import router as prediction_router
@@ -177,6 +178,7 @@ app.include_router(traffic_router, prefix="/api")
 app.include_router(prediction_router, prefix="/api")
 app.include_router(forecast_router, prefix="/api")
 app.include_router(vision_router, prefix="/api")
+app.include_router(camera_router, prefix="/api")
 app.include_router(benchmark_router, prefix="/api")
 app.include_router(alerts_router, prefix="/api")
 app.include_router(agent_router, prefix="/api")

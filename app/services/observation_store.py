@@ -120,13 +120,18 @@ def nearest_with_series(lat: float, lon: float, need: int,
                 best, best_d = entry, d
     if best is None:
         return None
+    window = list(best["observations"])[-need:]
     return {
         "road_id": best["road_id"],
         "name": best["name"],
         "city": best["city"],
         "distance_m": round(best_d, 1),
-        "observations": list(best["observations"])[-need:],
+        "observations": window,
         "depth": len(best["observations"]),
+        # Where the counts came from. A camera feed and a hand upload are both
+        # real measurement, but saying "uploaded" of a camera is wrong and the
+        # difference is exactly what a judge will ask about.
+        "sources": sorted({o.get("source", "upload") for o in window}),
     }
 
 

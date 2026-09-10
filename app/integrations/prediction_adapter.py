@@ -268,7 +268,10 @@ class LstmPredictionAdapter(BasePredictionAdapter):
         real = self._observed_series(location)
         if real is not None:
             counts, clock, found = real
-            basis, near = "uploaded-observations", found
+            # Named after what actually produced the counts.
+            srcs = found.get("sources") or ["upload"]
+            basis = f"{'+'.join(srcs)}-observations"
+            near = found
         else:
             counts, clock = self._history(observed)
             basis, near = "anchored-history", None
@@ -304,7 +307,8 @@ class LstmPredictionAdapter(BasePredictionAdapter):
             "predicted_vehicles_15min": round(float(vehicles), 1),
             "situation": step.situation,
             "assumption": (
-                f"Driven by {near['depth']} real counts uploaded for "
+                f"Driven by {near['depth']} real counts from "
+                f"{' and '.join(near.get('sources') or ['upload'])} on "
                 f"{near['name']}, {near['distance_m']:.0f} m away. This is "
                 "measured traffic, not a reconstruction."
                 if near else
