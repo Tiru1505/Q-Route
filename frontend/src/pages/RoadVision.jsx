@@ -8,6 +8,7 @@ import {
   analyseRoadMedia, getCities, getRoads, getVisionStatus, resetVisionSession,
 } from '../services/api'
 import VehicleDistribution from '../components/VehicleDistribution'
+import { useApp } from '../store/AppContext'
 
 /**
  * Road Vision — the trained detector, run on media the visitor supplies.
@@ -36,6 +37,7 @@ const MAX_MB = 40
 const sessionId = () => `sess-${Math.random().toString(36).slice(2, 10)}`
 
 export default function RoadVision() {
+  const { setLastDetection } = useApp()
   const [status, setStatus] = useState(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
@@ -91,6 +93,9 @@ export default function RoadVision() {
     try {
       const d = await analyseRoadMedia(file, { session, segmentM, city, roadId })
       setResult({ ...d, fileName: file.name })
+      // Share it, so the pipeline on the Command Centre reports this run
+      // rather than reporting that nothing has been uploaded.
+      setLastDetection(d)
     } catch (e) {
       setError(e.message)
     } finally {

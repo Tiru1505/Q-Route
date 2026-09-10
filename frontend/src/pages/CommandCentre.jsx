@@ -39,7 +39,7 @@ function StatusRow({ label, state, detail }) {
 }
 
 export default function CommandCentre() {
-  const { start, end, graph, routes, selectedRoute } = useApp()
+  const { start, end, graph, routes, selectedRoute, lastDetection } = useApp()
 
   const [sys, setSys] = useState(null)
   const [agentInfo, setAgentInfo] = useState(null)
@@ -112,7 +112,9 @@ export default function CommandCentre() {
     agent: decision,
     route: selectedRoute,
     benchmark: null,
-    detection: null,
+    // The Lab's most recent run. Null until something has actually been
+    // analysed, which is exactly what the waiting stages are there to say.
+    detection: lastDetection,
   })
 
   return (

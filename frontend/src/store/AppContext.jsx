@@ -153,6 +153,11 @@ export function AppProvider({ children }) {
   // one, and cleared with every new run so a stale curve never sits beside a
   // fresh route.
   const [lastRun, setLastRun] = useState(null)
+  // The most recent detector run, wherever it happened. The Command Centre's
+  // pipeline showed INPUT, YOLO and COUNTS permanently waiting because the
+  // Lab's result never left the Lab's own component state — the stages were
+  // right, they were simply never told.
+  const [lastDetection, setLastDetection] = useState(null)
 
   /* --- live traffic + alerts ------------------------------------------- */
   const [segments, setSegments] = useState(TRAFFIC_SEGMENTS)
@@ -427,6 +432,7 @@ export function AppProvider({ children }) {
       applyAssistantActions,
     routesVersion,
     lastRun,
+    lastDetection, setLastDetection,
     segments, incidents, alerts, dismissAlert,
     refreshAlerts, raiseAlert, wipeAlerts,
     predictiveAlert, injectCongestion,

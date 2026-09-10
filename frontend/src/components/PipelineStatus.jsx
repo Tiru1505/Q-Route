@@ -81,7 +81,15 @@ export function buildStages({ detection, forecast, agent, route, benchmark } = {
       value: fc?.applied
         ? `${Math.round(fc.predictedMean * 100)}% at +${fc.horizonMin}m`
         : (forecast ? 'forecast ready' : 'no history'),
-      note: fc?.applied ? `${fc.samples} points sampled` : 'needs a run of counts',
+      note: fc?.applied
+        ? `${fc.samples} points sampled`
+        // A photo is not a short clip. It measures what is PRESENT, and the
+        // forecaster was trained on what PASSES, so no number of photos ever
+        // fills its window. "Needs a run of counts" invited exactly that
+        // mistake — upload four stills and wait for a forecast that cannot come.
+        : measures === 'occupancy'
+          ? 'a photo cannot feed it — upload a clip'
+          : 'needs a run of counts',
     },
     {
       id: 'agent',
