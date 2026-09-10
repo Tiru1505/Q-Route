@@ -11,6 +11,8 @@ from pathlib import Path
 
 import yaml
 
+from graph.errors import UnknownGraphError  # noqa: F401  re-exported
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # QRO_GRAPH_PATH lets a deployed instance point at a graph that is not in the
@@ -106,9 +108,7 @@ def available_graphs() -> dict[str, dict]:
 def graph_path(name: str) -> Path:
     """Resolve a graph name to its file, failing loudly on both bad name and missing file."""
     if name not in GRAPHS:
-        raise KeyError(
-            f"Unknown graph '{name}'. Known: {', '.join(sorted(GRAPHS))}"
-        )
+        raise UnknownGraphError(name, GRAPHS)
     cfg = GRAPHS[name]
     if not cfg["path"].exists():
         raise FileNotFoundError(

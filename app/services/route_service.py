@@ -4,6 +4,7 @@ from time import perf_counter
 from uuid import uuid4
 
 from app.core.errors import GraphUnavailableError, NoRouteFoundError, OptimizationError
+from graph.errors import UnknownGraphError
 from app.core.logging import get_logger
 from app.integrations.graph_adapter import GraphRoute, MockGraphAdapter, BaseGraphAdapter, get_graph_adapter
 from app.integrations.qpso_adapter import get_optimization_adapter
@@ -41,6 +42,10 @@ class RouteService:
         try:
             # 1. Graph baseline
             baseline = self.graph.calculate_route(request)
+        except UnknownGraphError:
+            # The caller named a network that does not exist. Wrapping this as
+            # "graph unavailable" made a typo look like an outage.
+            raise
         except Exception as exc:
             _logger.error("Graph adapter failed: %s", exc)
             raise GraphUnavailableError(str(exc)) from exc
@@ -130,6 +135,8 @@ class RouteService:
                     out.append(resp)
                 if len(out) > 1:
                     return out
+            except UnknownGraphError:
+                raise
             except Exception as exc:
                 _logger.warning("Corridor alternatives failed, falling back: %s", exc)
 

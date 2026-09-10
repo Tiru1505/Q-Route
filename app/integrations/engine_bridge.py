@@ -40,6 +40,7 @@ from app.integrations.graph_adapter import BaseGraphAdapter, GraphRoute
 from app.integrations.qpso_adapter import BaseOptimizationAdapter, OptimizationResult
 from app.integrations.traffic_adapter import BaseTrafficAdapter
 from app.models.route_models import Coordinate, RouteRequest
+from graph.errors import UnknownGraphError
 
 _logger = get_logger("integrations.engine_bridge")
 
@@ -90,6 +91,27 @@ def get_engine(graph: str | None = None):
             name, f"{eng.G.number_of_nodes():,}", f"{eng.G.number_of_edges():,}",
         )
         return eng
+
+
+def require_known_graph(name: str | None) -> None:
+    """
+    Reject a road-network name that does not exist, before doing anything with it.
+
+    get_engine() already raises for an unknown name, but only when it is
+    called. Endpoints that accept a graph and use it later — the monitor, which
+    starts a background loop; place search, which scopes by it; the assistant —
+    would otherwise accept the typo, carry on, and fail somewhere less visible.
+    The monitor did exactly that: started, and errored every tick.
+
+    Checked against the same registry graph_path() uses, so there is no second
+    list of names to fall out of step.
+    """
+    if name is None:
+        return
+    from graph.graph_loader import GRAPHS
+
+    if name not in GRAPHS:
+        raise UnknownGraphError(name, GRAPHS)
 
 
 def loaded_engines() -> list[str]:

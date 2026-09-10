@@ -284,6 +284,11 @@ def search_places(
         description="Road network to scope the search to: 'hyderabad' or 'india'.",
     ),
 ) -> dict:
+    from app.integrations.engine_bridge import require_known_graph
+
+    # An unknown name fell back to default scoping and returned places from
+    # every city — a filter the caller asked for, silently ignored.
+    require_known_graph(graph)
     q = q.strip()
     presets = _match_presets(q, limit, graph)
 

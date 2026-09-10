@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from graph.errors import UnknownGraphError
+
 from app.services.agent_service import (
     DEFAULT_HORIZON_MIN,
     AgentUnavailableError,
@@ -91,6 +93,10 @@ def status(graph: str | None = Query(default=None)) -> dict:
     try:
         engine = get_engine(graph)
         trip = engine.trip
+    except UnknownGraphError:
+        # "Not monitoring" is true of a network that is loading; for one that
+        # does not exist it is an answer to the wrong question.
+        raise
     except Exception as exc:
         return {"active": False, "reason": str(exc)}
 

@@ -7,6 +7,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from graph.errors import UnknownGraphError
+
 from app.api.analytics import router as analytics_router
 from app.api.forecast import router as forecast_router
 from app.api.graphs import router as graphs_router
@@ -121,6 +123,23 @@ async def handle_http_error(_: Request, exc: HTTPException) -> JSONResponse:
 @app.exception_handler(SmartRouteError)
 async def handle_domain_error(request: Request, exc: SmartRouteError) -> JSONResponse:
     return domain_error_handler(request, exc)
+
+
+@app.exception_handler(UnknownGraphError)
+async def handle_unknown_graph(_: Request, exc: UnknownGraphError) -> JSONResponse:
+    """
+    A road network that does not exist is a bad request, not a server fault.
+
+    422, matching how this API already answers an unsupported algorithm or an
+    unknown city. The known names travel with it, so the caller can correct
+    the request without reading the docs.
+    """
+    return JSONResponse(
+        status_code=422,
+        content={"success": False, "error": {
+            "code": "unknown_graph", "message": exc.message, "known": exc.known,
+        }},
+    )
 
 
 @app.exception_handler(Exception)

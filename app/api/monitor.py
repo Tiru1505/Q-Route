@@ -28,6 +28,11 @@ async def start(
     tick_seconds: float = Query(default=monitor_service.DEFAULT_TICK_S, ge=1, le=600),
     graph: str | None = Query(default=None),
 ) -> dict:
+    from app.integrations.engine_bridge import require_known_graph
+
+    # Checked before the loop starts. Unchecked, the loop started, reported
+    # running, and then failed every tick in the background.
+    require_known_graph(graph)
     return await monitor_service.start(tick_s=tick_seconds, graph=graph)
 
 

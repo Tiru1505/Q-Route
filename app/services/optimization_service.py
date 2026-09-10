@@ -9,6 +9,7 @@ from app.integrations.graph_adapter import MockGraphAdapter, BaseGraphAdapter, g
 from app.integrations.qpso_adapter import get_optimization_adapter
 from app.models.optimization_models import OptimizationRequest, OptimizationResponse
 from app.models.route_models import RouteResponse, RouteSummary
+from graph.errors import UnknownGraphError
 from app.utils.time_helpers import utc_now_iso
 
 _logger = get_logger("services.optimization")
@@ -38,7 +39,9 @@ class OptimizationService:
                 iterations=request.iterations,
                 particles=request.particles,
             )
-        except InvalidAlgorithmError:
+        except (InvalidAlgorithmError, UnknownGraphError):
+            # Both are the caller naming something that does not exist. As an
+            # "optimization failed" 500 they read as the optimiser breaking.
             raise
         except Exception as exc:
             _logger.error("Optimization failed (%s): %s", algorithm, exc)

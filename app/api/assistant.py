@@ -59,6 +59,9 @@ async def ask(request: AssistantAskRequest) -> dict:
     from app.core.config import get_settings
     from app.services import helper_service
 
+    from app.integrations.engine_bridge import require_known_graph
+
+    require_known_graph(request.graph)
     result = helper_service.answer(request.question, graph=request.graph)
 
     # A model, when there is one, handles only what the intents did not match —
@@ -94,6 +97,8 @@ async def ask(request: AssistantAskRequest) -> dict:
     ),
 )
 def briefing(graph: str | None = Query(default=None)) -> dict:
+    from app.integrations.engine_bridge import require_known_graph
     from app.services import helper_service
 
+    require_known_graph(graph)
     return helper_service.answer("what is the forecast", graph=graph)
