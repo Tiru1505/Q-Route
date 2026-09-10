@@ -327,7 +327,12 @@ class QROEngine:
         """Name the notable places a route passes, for the 'via' line."""
         places = load_places()
         seen = []
-        coords = [(k, v["lat"], v["lon"]) for k, v in places.items()]
+        # Only landmarks belonging to the network in play. Without this a
+        # Hyderabad route could be described as passing a Mumbai locality
+        # purely because places.yaml now spans six cities.
+        graph_name = getattr(self, "graph_name", "hyderabad")
+        coords = [(k, v["lat"], v["lon"]) for k, v in places.items()
+                  if graph_name != "hyderabad" or v.get("city", "hyderabad") == "hyderabad"]
         for n in route.nodes[::max(len(route.nodes) // 40, 1)]:
             y, x = float(self.G.nodes[n]["y"]), float(self.G.nodes[n]["x"])
             for key, lat, lon in coords:
@@ -549,9 +554,16 @@ class QROEngine:
                 problem_label=f"{len(nodes) - 1}-stop round on your route, {self.scenario}",
             )
 
-        keys = ["hitec", "gachibowli", "jubilee", "panjagutta", "ameerpet",
-                "begumpet", "secunderabad", "charminar", "mehdipatnam",
-                "dilsukhnagar", "uppal"][: stops + 1]
+        # Hyderabad landmarks, because the published headline figures were
+        # measured on this instance and it has to stay reproducible. Keys are
+        # city-prefixed since places.yaml covers six cities now and "camp" or
+        # "model town" are not unique across India.
+        keys = ["hyderabad_hitec_city", "hyderabad_gachibowli",
+                "hyderabad_jubilee_hills", "hyderabad_panjagutta",
+                "hyderabad_ameerpet", "hyderabad_begumpet",
+                "hyderabad_secunderabad", "hyderabad_charminar",
+                "hyderabad_mehdipatnam", "hyderabad_dilsukhnagar",
+                "hyderabad_uppal"][: stops + 1]
         # Names are kept, not just node ids: the UI used to hardcode
         # "Hitec City -> Charminar" and "30 Independent Runs" in its header,
         # which silently misreported the run the moment stops or trials

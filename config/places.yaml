@@ -1,27 +1,145 @@
-# Named Hyderabad landmarks used as routing endpoints.
+# Routing landmarks, one block per city.
 #
-# Shared between the Python engine and the React frontend so both refer to the
-# same coordinates. If you add a place here, add it to
-# frontend/src/data/mockData.js LOCATIONS as well.
+# GENERATED — do not hand-edit. Rebuild with:
+#     python scripts/build_places.py
 #
-# Coordinates are [latitude, longitude] and all fall inside the metro graph.
+# Every coordinate is resolved from OpenStreetMap by geocoding the name,
+# not typed from memory, and every entry was verified to fall inside its
+# city's bounding box. Names that did not geocode, or that resolved to a
+# same-named place elsewhere in India, were dropped rather than guessed.
+#
+# Coordinates are [latitude, longitude]. `city` is the key from
+# preprocessing/osm_processor.METRO_BBOX.
 
 places:
-  hitec:         { name: Hitec City,                 lat: 17.4435, lon: 78.3772 }
-  gachibowli:    { name: Gachibowli,                 lat: 17.4401, lon: 78.3489 }
-  madhapur:      { name: Madhapur,                   lat: 17.4483, lon: 78.3915 }
-  kondapur:      { name: Kondapur,                   lat: 17.4640, lon: 78.3640 }
-  jubilee:       { name: Jubilee Hills,              lat: 17.4239, lon: 78.4138 }
-  banjara:       { name: Banjara Hills,              lat: 17.4126, lon: 78.4482 }
-  panjagutta:    { name: Panjagutta,                 lat: 17.4256, lon: 78.4500 }
-  ameerpet:      { name: Ameerpet,                   lat: 17.4374, lon: 78.4487 }
-  begumpet:      { name: Begumpet,                   lat: 17.4443, lon: 78.4649 }
-  secunderabad:  { name: Secunderabad,               lat: 17.4344, lon: 78.5013 }
-  mehdipatnam:   { name: Mehdipatnam,                lat: 17.3950, lon: 78.4360 }
-  charminar:     { name: Charminar,                  lat: 17.3616, lon: 78.4747 }
-  dilsukhnagar:  { name: Dilsukhnagar,               lat: 17.3687, lon: 78.5247 }
-  lbnagar:       { name: LB Nagar,                   lat: 17.3457, lon: 78.5522 }
-  uppal:         { name: Uppal,                      lat: 17.4020, lon: 78.5590 }
-  kukatpally:    { name: Kukatpally,                 lat: 17.4849, lon: 78.4138 }
-  miyapur:       { name: Miyapur,                    lat: 17.4960, lon: 78.3580 }
-  airport:       { name: RGIA Airport (Shamshabad),  lat: 17.2403, lon: 78.4294 }
+  # ── Hyderabad ─────────────────────────────────────
+  hyderabad_hitec_city:    { name: Hitec City, city: hyderabad, lat: 17.449005, lon: 78.383138 }
+  hyderabad_gachibowli:    { name: Gachibowli, city: hyderabad, lat: 17.443622, lon: 78.351964 }
+  hyderabad_madhapur:      { name: Madhapur, city: hyderabad, lat: 17.440892, lon: 78.39163 }
+  hyderabad_kondapur:      { name: Kondapur, city: hyderabad, lat: 17.458791, lon: 78.373056 }
+  hyderabad_jubilee_hills: { name: Jubilee Hills, city: hyderabad, lat: 17.430836, lon: 78.410288 }
+  hyderabad_banjara_hills: { name: Banjara Hills, city: hyderabad, lat: 17.417746, lon: 78.439901 }
+  hyderabad_panjagutta:    { name: Panjagutta, city: hyderabad, lat: 17.425424, lon: 78.451752 }
+  hyderabad_ameerpet:      { name: Ameerpet, city: hyderabad, lat: 17.437501, lon: 78.448251 }
+  hyderabad_begumpet:      { name: Begumpet, city: hyderabad, lat: 17.446195, lon: 78.463016 }
+  hyderabad_secunderabad:  { name: Secunderabad, city: hyderabad, lat: 17.433725, lon: 78.500683 }
+  hyderabad_mehdipatnam:   { name: Mehdipatnam, city: hyderabad, lat: 17.394263, lon: 78.434251 }
+  hyderabad_charminar:     { name: Charminar, city: hyderabad, lat: 17.361602, lon: 78.474642 }
+  hyderabad_dilsukhnagar:  { name: Dilsukhnagar, city: hyderabad, lat: 17.368443, lon: 78.52286 }
+  hyderabad_uppal:         { name: Uppal, city: hyderabad, lat: 17.402509, lon: 78.561256 }
+  hyderabad_kukatpally:    { name: Kukatpally, city: hyderabad, lat: 17.493084, lon: 78.405441 }
+  hyderabad_miyapur:       { name: Miyapur, city: hyderabad, lat: 17.498161, lon: 78.356763 }
+  hyderabad_lb_nagar:      { name: LB Nagar, city: hyderabad, lat: 17.350162, lon: 78.551094 }
+  hyderabad_shamshabad:    { name: Shamshabad, city: hyderabad, lat: 17.257207, lon: 78.345104 }
+  hyderabad_attapur:       { name: Attapur, city: hyderabad, lat: 17.367224, lon: 78.430728 }
+  hyderabad_alwal:         { name: Alwal, city: hyderabad, lat: 17.502229, lon: 78.508858 }
+
+  # ── Bengaluru ─────────────────────────────────────
+  bengaluru_koramangala:        { name: Koramangala, city: bengaluru, lat: 12.935737, lon: 77.624081 }
+  bengaluru_indiranagar:        { name: Indiranagar, city: bengaluru, lat: 12.973291, lon: 77.640467 }
+  bengaluru_whitefield:         { name: Whitefield, city: bengaluru, lat: 12.995743, lon: 77.757949 }
+  bengaluru_electronic_city:    { name: Electronic City, city: bengaluru, lat: 12.84876, lon: 77.648253 }
+  bengaluru_jayanagar:          { name: Jayanagar, city: bengaluru, lat: 12.929273, lon: 77.582423 }
+  bengaluru_malleshwaram:       { name: Malleshwaram, city: bengaluru, lat: 13.002735, lon: 77.570325 }
+  bengaluru_hebbal:             { name: Hebbal, city: bengaluru, lat: 13.038218, lon: 77.5919 }
+  bengaluru_marathahalli:       { name: Marathahalli, city: bengaluru, lat: 12.955257, lon: 77.698416 }
+  bengaluru_btm_layout:         { name: BTM Layout, city: bengaluru, lat: 12.914001, lon: 77.610282 }
+  bengaluru_rajajinagar:        { name: Rajajinagar, city: bengaluru, lat: 13.000523, lon: 77.549617 }
+  bengaluru_banashankari:       { name: Banashankari, city: bengaluru, lat: 12.92782, lon: 77.556621 }
+  bengaluru_yeshwanthpur:       { name: Yeshwanthpur, city: bengaluru, lat: 13.017694, lon: 77.555501 }
+  bengaluru_kr_puram:           { name: KR Puram, city: bengaluru, lat: 13.007516, lon: 77.695935 }
+  bengaluru_bellandur:          { name: Bellandur, city: bengaluru, lat: 12.932049, lon: 77.684292 }
+  bengaluru_hsr_layout:         { name: HSR Layout, city: bengaluru, lat: 12.911623, lon: 77.638862 }
+  bengaluru_basavanagudi:       { name: Basavanagudi, city: bengaluru, lat: 12.941726, lon: 77.575502 }
+  bengaluru_yelahanka:          { name: Yelahanka, city: bengaluru, lat: 13.100698, lon: 77.596345 }
+  bengaluru_majestic_bangalore: { name: Majestic Bangalore, city: bengaluru, lat: 13.023739, lon: 77.548179 }
+  bengaluru_mg_road_bangalore:  { name: MG Road Bangalore, city: bengaluru, lat: 12.974321, lon: 77.615002 }
+  bengaluru_kengeri:            { name: Kengeri, city: bengaluru, lat: 12.917657, lon: 77.483757 }
+
+  # ── Delhi ─────────────────────────────────────────
+  delhi_connaught_place:  { name: Connaught Place, city: delhi, lat: 28.63177, lon: 77.21938 }
+  delhi_karol_bagh:       { name: Karol Bagh, city: delhi, lat: 28.652998, lon: 77.189023 }
+  delhi_dwarka:           { name: Dwarka, city: delhi, lat: 28.615887, lon: 77.022434 }
+  delhi_rohini:           { name: Rohini, city: delhi, lat: 28.706308, lon: 77.108789 }
+  delhi_saket:            { name: Saket, city: delhi, lat: 28.521168, lon: 77.202224 }
+  delhi_hauz_khas:        { name: Hauz Khas, city: delhi, lat: 28.549809, lon: 77.207764 }
+  delhi_lajpat_nagar:     { name: Lajpat Nagar, city: delhi, lat: 28.566092, lon: 77.243285 }
+  delhi_janakpuri:        { name: Janakpuri, city: delhi, lat: 28.621927, lon: 77.087476 }
+  delhi_pitampura:        { name: Pitampura, city: delhi, lat: 28.703268, lon: 77.13225 }
+  delhi_vasant_kunj:      { name: Vasant Kunj, city: delhi, lat: 28.529249, lon: 77.154134 }
+  delhi_chandni_chowk:    { name: Chandni Chowk, city: delhi, lat: 28.655983, lon: 77.232194 }
+  delhi_nehru_place:      { name: Nehru Place, city: delhi, lat: 28.549257, lon: 77.252953 }
+  delhi_mayur_vihar:      { name: Mayur Vihar, city: delhi, lat: 28.609855, lon: 77.292632 }
+  delhi_shahdara:         { name: Shahdara, city: delhi, lat: 28.67343, lon: 77.289886 }
+  delhi_okhla:            { name: Okhla, city: delhi, lat: 28.563662, lon: 77.289055 }
+  delhi_munirka:          { name: Munirka, city: delhi, lat: 28.554886, lon: 77.171084 }
+  delhi_model_town_delhi: { name: Model Town Delhi, city: delhi, lat: 28.707334, lon: 77.188523 }
+  delhi_paschim_vihar:    { name: Paschim Vihar, city: delhi, lat: 28.669578, lon: 77.095956 }
+  delhi_kalkaji:          { name: Kalkaji, city: delhi, lat: 28.546948, lon: 77.258801 }
+  delhi_narela:           { name: Narela, city: delhi, lat: 28.846477, lon: 77.085663 }
+
+  # ── Chennai ───────────────────────────────────────
+  chennai_t_nagar:        { name: T Nagar, city: chennai, lat: 13.037829, lon: 80.231836 }
+  chennai_adyar:          { name: Adyar, city: chennai, lat: 13.00645, lon: 80.257779 }
+  chennai_velachery:      { name: Velachery, city: chennai, lat: 12.980166, lon: 80.222851 }
+  chennai_anna_nagar:     { name: Anna Nagar, city: chennai, lat: 13.088249, lon: 80.20734 }
+  chennai_guindy:         { name: Guindy, city: chennai, lat: 13.008669, lon: 80.212606 }
+  chennai_mylapore:       { name: Mylapore, city: chennai, lat: 13.031647, lon: 80.270017 }
+  chennai_tambaram:       { name: Tambaram, city: chennai, lat: 12.94543, lon: 80.11866 }
+  chennai_porur:          { name: Porur, city: chennai, lat: 13.032013, lon: 80.158304 }
+  chennai_perungudi:      { name: Perungudi, city: chennai, lat: 12.971024, lon: 80.241805 }
+  chennai_egmore:         { name: Egmore, city: chennai, lat: 13.072832, lon: 80.257691 }
+  chennai_nungambakkam:   { name: Nungambakkam, city: chennai, lat: 13.062063, lon: 80.240487 }
+  chennai_ambattur:       { name: Ambattur, city: chennai, lat: 13.105565, lon: 80.163959 }
+  chennai_chromepet:      { name: Chromepet, city: chennai, lat: 12.957501, lon: 80.143507 }
+  chennai_sholinganallur: { name: Sholinganallur, city: chennai, lat: 12.917443, lon: 80.21649 }
+  chennai_thiruvanmiyur:  { name: Thiruvanmiyur, city: chennai, lat: 12.985895, lon: 80.264421 }
+  chennai_vadapalani:     { name: Vadapalani, city: chennai, lat: 13.050384, lon: 80.21177 }
+  chennai_kodambakkam:    { name: Kodambakkam, city: chennai, lat: 13.049207, lon: 80.224283 }
+  chennai_royapettah:     { name: Royapettah, city: chennai, lat: 13.055472, lon: 80.263971 }
+  chennai_avadi:          { name: Avadi, city: chennai, lat: 13.099422, lon: 80.211897 }
+  chennai_pallavaram:     { name: Pallavaram, city: chennai, lat: 12.967574, lon: 80.15205 }
+
+  # ── Mumbai ────────────────────────────────────────
+  mumbai_bandra:       { name: Bandra, city: mumbai, lat: 19.054979, lon: 72.84022 }
+  mumbai_andheri:      { name: Andheri, city: mumbai, lat: 19.119698, lon: 72.84642 }
+  mumbai_colaba:       { name: Colaba, city: mumbai, lat: 18.915091, lon: 72.825969 }
+  mumbai_dadar:        { name: Dadar, city: mumbai, lat: 19.019227, lon: 72.842848 }
+  mumbai_powai:        { name: Powai, city: mumbai, lat: 19.11872, lon: 72.907348 }
+  mumbai_borivali:     { name: Borivali, city: mumbai, lat: 19.229068, lon: 72.857363 }
+  mumbai_goregaon:     { name: Goregaon, city: mumbai, lat: 19.164869, lon: 72.849549 }
+  mumbai_malad:        { name: Malad, city: mumbai, lat: 19.186719, lon: 72.848588 }
+  mumbai_chembur:      { name: Chembur, city: mumbai, lat: 19.054818, lon: 72.897971 }
+  mumbai_ghatkopar:    { name: Ghatkopar, city: mumbai, lat: 19.085693, lon: 72.908367 }
+  mumbai_worli:        { name: Worli, city: mumbai, lat: 19.011739, lon: 72.817871 }
+  mumbai_juhu:         { name: Juhu, city: mumbai, lat: 19.107021, lon: 72.827528 }
+  mumbai_kurla:        { name: Kurla, city: mumbai, lat: 19.06528, lon: 72.87938 }
+  mumbai_vikhroli:     { name: Vikhroli, city: mumbai, lat: 19.11148, lon: 72.928021 }
+  mumbai_mulund:       { name: Mulund, city: mumbai, lat: 19.172137, lon: 72.956697 }
+  mumbai_santacruz:    { name: Santacruz, city: mumbai, lat: 19.079611, lon: 72.847057 }
+  mumbai_wadala:       { name: Wadala, city: mumbai, lat: 19.026919, lon: 72.875934 }
+  mumbai_marine_lines: { name: Marine Lines, city: mumbai, lat: 18.945764, lon: 72.823719 }
+  mumbai_bhandup:      { name: Bhandup, city: mumbai, lat: 19.142757, lon: 72.937654 }
+  mumbai_kandivali:    { name: Kandivali, city: mumbai, lat: 19.204114, lon: 72.851738 }
+
+  # ── Pune ──────────────────────────────────────────
+  pune_koregaon_park:     { name: Koregaon Park, city: pune, lat: 18.536623, lon: 73.893274 }
+  pune_hinjewadi:         { name: Hinjewadi, city: pune, lat: 18.592068, lon: 73.757639 }
+  pune_kothrud:           { name: Kothrud, city: pune, lat: 18.507262, lon: 73.805668 }
+  pune_viman_nagar:       { name: Viman Nagar, city: pune, lat: 18.570388, lon: 73.913334 }
+  pune_baner:             { name: Baner, city: pune, lat: 18.558994, lon: 73.784523 }
+  pune_hadapsar:          { name: Hadapsar, city: pune, lat: 18.500774, lon: 73.937915 }
+  pune_aundh:             { name: Aundh, city: pune, lat: 18.561883, lon: 73.810196 }
+  pune_wakad:             { name: Wakad, city: pune, lat: 18.602249, lon: 73.764445 }
+  pune_kharadi:           { name: Kharadi, city: pune, lat: 18.551276, lon: 73.941658 }
+  pune_shivajinagar_pune: { name: Shivajinagar Pune, city: pune, lat: 18.523643, lon: 73.848188 }
+  pune_camp_pune:         { name: Camp Pune, city: pune, lat: 18.521624, lon: 73.871753 }
+  pune_warje:             { name: Warje, city: pune, lat: 18.482044, lon: 73.80017 }
+  pune_pimpri:            { name: Pimpri, city: pune, lat: 18.623185, lon: 73.801993 }
+  pune_chinchwad:         { name: Chinchwad, city: pune, lat: 18.640355, lon: 73.791713 }
+  pune_katraj:            { name: Katraj, city: pune, lat: 18.453679, lon: 73.85632 }
+  pune_magarpatta:        { name: Magarpatta, city: pune, lat: 18.511154, lon: 73.927382 }
+  pune_bavdhan:           { name: Bavdhan, city: pune, lat: 18.520954, lon: 73.778087 }
+  pune_yerwada:           { name: Yerwada, city: pune, lat: 18.545317, lon: 73.886688 }
+  pune_dhankawadi:        { name: Dhankawadi, city: pune, lat: 18.46542, lon: 73.850152 }
+  pune_nigdi:             { name: Nigdi, city: pune, lat: 18.659813, lon: 73.777282 }

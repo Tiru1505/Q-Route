@@ -70,17 +70,31 @@ _last_call = 0.0
 
 # ---------------------------------------------------------------- presets
 
+# City labels for the address line. Kept beside the presets so an entry can say
+# where it is without another lookup.
+_CITY_LABEL = {
+    "hyderabad": "Hyderabad, Telangana",
+    "bengaluru": "Bengaluru, Karnataka",
+    "delhi": "Delhi",
+    "chennai": "Chennai, Tamil Nadu",
+    "mumbai": "Mumbai, Maharashtra",
+    "pune": "Pune, Maharashtra",
+}
+
+
 @lru_cache(maxsize=1)
-def _presets() -> list[dict]:
-    """config/places.yaml as a flat, search-ready list."""
+def _all_presets() -> list[dict]:
+    """config/places.yaml as a flat, search-ready list, every city."""
     from graph.graph_loader import load_places
 
     out = []
     for key, p in load_places().items():
+        city = p.get("city", "hyderabad")
         out.append({
             "id": key,
             "name": p["name"],
-            "address": "Hyderabad, Telangana",
+            "address": _CITY_LABEL.get(city, "India"),
+            "city": city,
             "lat": float(p["lat"]),
             "lon": float(p["lon"]),
             "source": "preset",
@@ -89,14 +103,29 @@ def _presets() -> list[dict]:
     return sorted(out, key=lambda r: r["name"])
 
 
-def _match_presets(q: str, limit: int) -> list[dict]:
+def _presets(graph: str | None = None) -> list[dict]:
+    """
+    Presets that are routable on the network in play.
+
+    places.yaml spans six cities now. Offering a Mumbai locality while the
+    Hyderabad street graph is loaded would produce a confidently wrong route —
+    the endpoint would snap to whatever is nearest inside the metro box, which
+    is 600 km from the place the user picked.
+    """
+    everything = _all_presets()
+    if (graph or "hyderabad") == "hyderabad":
+        return [p for p in everything if p["city"] == "hyderabad"]
+    return everything
+
+
+def _match_presets(q: str, limit: int, graph: str | None = None) -> list[dict]:
     """Substring match, with prefix matches ranked first."""
     if not q:
-        return _presets()[:limit]
+        return _presets(graph)[:limit]
 
     ql = q.lower()
     starts, contains = [], []
-    for p in _presets():
+    for p in _presets(graph):
         nl = p["name"].lower()
         if nl.startswith(ql):
             starts.append(p)
@@ -256,7 +285,7 @@ def search_places(
     ),
 ) -> dict:
     q = q.strip()
-    presets = _match_presets(q, limit) if (graph or "hyderabad") == "hyderabad" else []
+    presets = _match_presets(q, limit, graph)
 
     # One- and two-letter fragments match half the city. Hitting the network on
     # every keystroke is not worth it; presets answer these well enough.

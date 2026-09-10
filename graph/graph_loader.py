@@ -141,7 +141,7 @@ def place_names():
     return {k: v["name"] for k, v in load_places().items()}
 
 
-def resolve_place(G, key):
+def resolve_place(G, key, limit_m=None):
     """Named place -> nearest graph node. Raises if the place is off-graph."""
     import osmnx as ox
 
@@ -156,10 +156,19 @@ def resolve_place(G, key):
     )
     # A large snap distance means the place lies outside the graph's extent and
     # any route to it would be silently wrong. Fail loudly instead.
-    if snap_m > 1000:
+    #
+    # The threshold follows the graph. 1 km is right for a street-level city
+    # network where every road is present; it is wrong for the national graph,
+    # which carries only arterial roads, so a real landmark there sits several
+    # hundred metres from the nearest mapped way as a matter of course —
+    # measured medians are 139 m in Bengaluru and 500 m in Chennai, with a
+    # worst case near 4 km in Delhi.
+    limit = float(limit_m) if limit_m is not None else 1000.0
+    if snap_m > limit:
         raise ValueError(
-            f"'{p['name']}' is {snap_m:.0f} m from the nearest road node — "
-            "it is probably outside the graph. Rebuild with --metro."
+            f"'{p['name']}' is {snap_m:.0f} m from the nearest road node, past "
+            f"the {limit:.0f} m limit for this network — it is probably outside "
+            "the graph."
         )
     return node, p["name"], snap_m
 
