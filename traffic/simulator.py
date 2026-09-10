@@ -27,30 +27,37 @@ and gives the router nothing meaningful to solve:
               Hyderabad junctions and diffuse outward through the graph with
               distance decay — so jams form connected queues, not confetti.
 
-CALIBRATION (measured, not asserted)
-------------------------------------
-Integrating the diurnal profile over 07:00-19:00 and summing Greenshields flow
-gives these simulated 12-hour totals under the peak_hour scenario:
+CALIBRATION — STALE, DO NOT QUOTE
+---------------------------------
+These 12-hour totals were measured under the PREVIOUS hand-fitted diurnal
+curve, which has since been replaced by one derived from real Indian junction
+counts (see MEASURED_DIURNAL below):
 
     primary     median 16,589 PCU/12h   (p5 15,420  p95 16,972)
     secondary   median 16,628 PCU/12h
     trunk       median 16,512 PCU/12h
     motorway    median 14,380 PCU/12h
 
-The HMDA Comprehensive Transportation Study observed 2,470-76,193 PCU/12h at
-three-arm junctions and 5,810-74,705 at four-arm junctions. Our figures sit
-inside both ranges, toward the lower-middle — appropriate, since HMDA surveyed
-the busiest junctions in the city rather than average arterial links.
+The new curve carries 28.7% more mean intensity across 07:00-19:00 (0.824
+against 0.640), because the old formula treated the whole morning build-up as
+nearly empty. The totals above are therefore understated by roughly 29%, and
+Greenshields flow is not linear in congestion so the true shift is not exactly
+that. They must be re-measured before being quoted anywhere.
 
-Reproduce with scripts/run_traffic.py; do not quote the figures without
-re-running them if you change the scenario intensities.
+They are also not currently reproducible: the note below claimed
+scripts/run_traffic.py regenerates them and it does not — nothing in the
+repository computes PCU/12h. Whoever re-measures should add that script rather
+than restore a number no one can check.
+
+The comparison they were made against still stands: the HMDA Comprehensive
+Transportation Study observed 2,470-76,193 PCU/12h at three-arm junctions and
+5,810-74,705 at four-arm junctions. A ~29% increase stays inside that range.
 
 REPRODUCIBILITY
 ---------------
 Every scenario takes a fixed seed. Same seed, same graph, same traffic —
 byte for byte. That is a requirement for a fair benchmark, not a nicety.
 """
-import math
 from collections import deque
 from dataclasses import dataclass, field
 
@@ -98,17 +105,59 @@ HOTSPOTS = {
 INCIDENT_TYPES = ("accident", "breakdown", "waterlogging", "roadwork", "closure")
 
 
+# Mean PCU per hour across 31 days at an Indian junction, normalised to its
+# own peak. Regenerate with: python scripts/derive_diurnal_profile.py --emit
+#
+# This replaced two Gaussians whose parameters were chosen by hand and asserted
+# to match "the shape Indian metros show". They did not. Measured against this
+# series the old curve was off by 0.302 on average across the day, and wrong in
+# ways that matter: it treated 06:00 as nearly empty (0.11) when the real
+# morning build-up is already at 0.94, put the evening peak at 18:30 when it
+# measures at 17:00, and understated overnight traffic six-fold. A simulator
+# driven by the wrong daily shape jams at the wrong hours, and every route
+# optimised against it inherits that error.
+MEASURED_DIURNAL = (
+    0.367, 0.358, 0.369, 0.403,    # 00:00-03:00
+    0.531, 0.577, 0.942, 0.932,    # 04:00-07:00
+    0.948, 0.811, 0.783, 0.658,    # 08:00-11:00
+    0.663, 0.763, 0.762, 0.699,    # 12:00-15:00
+    0.998, 1.000, 0.943, 0.727,    # 16:00-19:00
+    0.700, 0.732, 0.377, 0.370,    # 20:00-23:00
+)
+
+
+# Mean vehicles per hour at the same junction, from the same 31 days. Kept
+# beside the profile because a normalised curve cannot answer "how many", and
+# an invented constant was previously standing in for this in the analytics
+# response. One junction — a city-wide total this is not, and the API says so.
+MEASURED_HOURLY_VEHICLES = (
+    172, 169, 171, 189,    # 00:00-03:00
+    391, 458, 697, 690,    # 04:00-07:00
+    697, 540, 493, 419,    # 08:00-11:00
+    424, 521, 530, 489,    # 12:00-15:00
+    723, 724, 672, 494,    # 16:00-19:00
+    470, 490, 172, 169,    # 20:00-23:00
+)
+
+
 def diurnal_factor(hour):
     """
-    Traffic intensity 0..1 by hour of day. Two Gaussian peaks over a low
-    overnight floor: morning ~09:15, evening ~18:30 and heavier, which is the
-    shape Indian metros show.
+    Traffic intensity 0..1 by hour of day, measured rather than assumed.
+
+    Interpolates between hourly means so a fractional hour moves smoothly, and
+    wraps at midnight — 23:30 sits between the 23:00 and 00:00 values rather
+    than falling off the end of the table.
+
+    WHAT THIS CARRIES: the SHAPE of an Indian traffic day. Not its magnitude.
+    The series is one junction, so its absolute volumes say nothing about a
+    six-lane arterial versus a residential lane; per-edge volume is scaled by
+    road class elsewhere, and this is only the curve that scales.
     """
-    morning = 0.78 * math.exp(-((hour - 9.25) ** 2) / (2 * 1.35 ** 2))
-    evening = 0.95 * math.exp(-((hour - 18.5) ** 2) / (2 * 1.65 ** 2))
-    midday = 0.34 * math.exp(-((hour - 13.5) ** 2) / (2 * 2.6 ** 2))
-    base = 0.06
-    return min(base + morning + evening + midday, 1.0)
+    h = float(hour) % 24.0
+    lo = int(h)
+    frac = h - lo
+    return (MEASURED_DIURNAL[lo] * (1.0 - frac)
+            + MEASURED_DIURNAL[(lo + 1) % 24] * frac)
 
 
 @dataclass

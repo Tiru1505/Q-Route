@@ -113,9 +113,11 @@ def analytics() -> dict:
 
     The traffic trend is the simulator's own diurnal profile, which is the
     honest thing to show: it is the curve the congestion model is actually
-    driven by, not a decorative sine wave.
+    driven by, not a decorative sine wave. That curve is now measured from 31
+    days of real Indian junction counts rather than fitted by hand — see
+    scripts/derive_diurnal_profile.py.
     """
-    from traffic.simulator import diurnal_factor
+    from traffic.simulator import MEASURED_HOURLY_VEHICLES, diurnal_factor
 
     engine = _engine()
     traffic = engine.traffic(limit=400)
@@ -134,8 +136,16 @@ def analytics() -> dict:
     trend = [
         {
             "hour": f"{h:02d}:00",
-            "congestion": round(diurnal_factor(h) / diurnal_factor(18.5) * peak * 100, 1),
-            "vehicles": int(diurnal_factor(h) * 4000),
+            # diurnal_factor is normalised to its own peak already, so the
+            # curve needs no second division. It used to be divided by the
+            # value at 18:30, which was where the OLD hand-fitted formula
+            # peaked; the measured peak is 17:00 and that divisor now rescales
+            # the whole curve wrongly.
+            "congestion": round(diurnal_factor(h) * peak * 100, 1),
+            # Measured at the junction the profile came from, not the 4,000
+            # that used to sit here — that number was invented and described
+            # nothing.
+            "vehicles": MEASURED_HOURLY_VEHICLES[h],
         }
         for h in range(0, 24, 2)
     ]
