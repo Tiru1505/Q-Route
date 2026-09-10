@@ -5,6 +5,7 @@ import { ArrowRight, History as HistoryIcon, Search } from 'lucide-react'
 import { CardSkeleton } from '../components/LoadingScreen'
 import { getRouteHistory } from '../services/api'
 import { TRAFFIC_COLORS, TRAFFIC_LABELS } from '../data/mockData'
+import { useApp } from '../store/AppContext'
 
 const STATUS_BADGE = {
   completed: 'badge-green',
@@ -13,15 +14,20 @@ const STATUS_BADGE = {
 }
 
 export default function History() {
+  const { user } = useApp()
   const [rows, setRows] = useState(null)
   const [q, setQ] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
     let cancelled = false
-    getRouteHistory().then((d) => !cancelled && setRows(d))
+    // Scoped to the signed-in user. Without this every visitor saw every other
+    // visitor's trips, because the backend filtered on a user_id the frontend
+    // never sent.
+    setRows(null)
+    getRouteHistory(user?.email || null).then((d) => !cancelled && setRows(d))
     return () => { cancelled = true }
-  }, [])
+  }, [user?.email])
 
   const filtered = useMemo(() => {
     if (!rows) return null
@@ -66,8 +72,17 @@ export default function History() {
         ) : filtered.length === 0 ? (
           <div className="empty">
             <HistoryIcon size={28} />
-            <strong style={{ fontSize: 13, color: 'var(--text-dim)' }}>No matching routes</strong>
-            <span style={{ fontSize: 12 }}>Try a different search term.</span>
+            {/* An empty list now means one of two different things, and
+                blaming the search term when the user simply has no trips yet
+                sends them looking for a fault that is not there. */}
+            <strong style={{ fontSize: 13, color: 'var(--text-dim)' }}>
+              {q.trim() ? 'No matching routes' : 'No routes yet'}
+            </strong>
+            <span style={{ fontSize: 12 }}>
+              {q.trim()
+                ? 'Try a different search term.'
+                : `Routes you optimise are saved here${user?.email ? ` for ${user.email}` : ''}.`}
+            </span>
           </div>
         ) : (
           <div className="table-wrap">

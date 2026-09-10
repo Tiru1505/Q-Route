@@ -203,7 +203,11 @@ export function AppProvider({ children }) {
     setRerouteResult(null)
     setPredictiveAlert(null)
     try {
-      const res = await api.getRouteOptimization({ start, end, algorithm, mode, graph })
+      const res = await api.getRouteOptimization({
+        start, end, algorithm, mode, graph,
+        // Tags the saved route so History can show this user's own trips.
+        userId: user?.email || null,
+      })
       if (!res || !Array.isArray(res.routes) || !res.routes.length || !res.recommended) {
         throw new Error('The optimizer returned no usable route. Please try again.')
       }
@@ -217,7 +221,7 @@ export function AppProvider({ children }) {
     } finally {
       setOptimizing(false)
     }
-  }, [start, end, algorithm, mode, graph])
+  }, [start, end, algorithm, mode, graph, user?.email])
 
   const applyAssistantActions = useCallback((actions = []) => {
     actions.forEach((action) => {

@@ -398,6 +398,43 @@ def test_16_same_inputs_are_reproducible():
     assert a["nodes"] == b["nodes"], "same route, same traffic, different path"
 
 
+def test_17_history_is_scoped_to_the_user():
+    """
+    One person's trips must not appear in another's history.
+
+    The backend always supported user_id and the frontend never sent it, so
+    every stored route carried user_id null and every visitor saw every other
+    visitor's journeys. Nothing on screen indicated whose trips were listed.
+    """
+    import uuid
+
+    alice = f"alice-{uuid.uuid4().hex[:8]}@test.local"
+    bob = f"bob-{uuid.uuid4().hex[:8]}@test.local"
+
+    def history(user):
+        r = client.get(f"/api/routes/history?user_id={user}&limit=50")
+        assert r.status_code == 200, r.text
+        return r.json()["results"]
+
+    assert history(alice) == [], "a new user should start with no history"
+    assert history(bob) == []
+
+    for user, count in ((alice, 2), (bob, 1)):
+        for _ in range(count):
+            r = client.post("/api/routes/optimize", json={
+                "source": START, "destination": END,
+                "algorithm": "qpso", "user_id": user,
+            })
+            assert r.status_code == 200, r.text
+
+    mine, theirs = history(alice), history(bob)
+    assert len(mine) == 2, f"alice should see her own 2 trips, saw {len(mine)}"
+    assert len(theirs) == 1, f"bob should see his own 1 trip, saw {len(theirs)}"
+    assert {r["request_id"] for r in mine}.isdisjoint(
+        {r["request_id"] for r in theirs}
+    ), "the two users' histories overlap"
+
+
 # --------------------------------------------------- contract guarantees
 
 def test_simulated_results_are_always_labelled():

@@ -194,9 +194,9 @@ export async function searchPlaces(query = '', limit = 8, graph = null) {
  * Run the optimizer.
  * @returns {{ routes: Array, recommended: Object, meta: Object }}
  */
-export async function getRouteOptimization({ start, end, algorithm = 'qpso', mode = 'balanced', graph = null } = {}) {
+export async function getRouteOptimization({ start, end, algorithm = 'qpso', mode = 'balanced', graph = null, userId = null } = {}) {
   return liveOrMock(
-    () => optimizeLive({ start, end, algorithm, mode, graph }),
+    () => optimizeLive({ start, end, algorithm, mode, graph, userId }),
     async () => {
       await delay(400)
       const routes = clone(ROUTES)
@@ -283,7 +283,7 @@ export async function assistantChat({ messages, context } = {}) {
   })
 }
 
-async function optimizeLive({ start, end, algorithm, mode, graph }) {
+async function optimizeLive({ start, end, algorithm, mode, graph, userId }) {
   {
     const body = JSON.stringify({
       source: coordsFor(start),
@@ -292,6 +292,10 @@ async function optimizeLive({ start, end, algorithm, mode, graph }) {
       // Omitted rather than defaulted, so the backend keeps ownership of what
       // "no preference" means.
       ...(graph ? { graph } : {}),
+      // Who ran it. The backend has always stored and filtered on this; the
+      // frontend never sent it, so all 585 saved routes carried user_id null
+      // and every visitor saw every other visitor's history.
+      ...(userId ? { user_id: userId } : {}),
       // Sent so the history page can show where the trip actually went.
       // Endpoints are free text now, so the name cannot be looked up from a
       // coordinate after the fact.
@@ -606,9 +610,13 @@ export async function getScalability() {
   )
 }
 
-export async function getRouteHistory() {
+export async function getRouteHistory(userId = null) {
+  // Scoped to the caller when known. Note this is a convenience, not a
+  // security boundary: sign-in here is a demo that accepts any credentials and
+  // the API is unauthenticated, so anyone can request any user_id.
+  const qs = userId ? `?user_id=${encodeURIComponent(userId)}` : ''
   return liveOrMock(
-    async () => mapHistoryResponse(await request('/routes/history')),
+    async () => mapHistoryResponse(await request(`/routes/history${qs}`)),
     async () => {
       await delay(250)
       return clone(ROUTE_HISTORY)
