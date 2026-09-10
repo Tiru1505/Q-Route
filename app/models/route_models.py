@@ -1,9 +1,15 @@
 """Pydantic models for route requests and responses."""
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from graph.vehicles import VEHICLES
+
+# Built from the profile table, so the API's list of vehicles is the table's
+# list — adding a profile there adds it here, and OpenAPI shows the choices.
+VehicleType = Enum("VehicleType", {k: k for k in VEHICLES}, type=str)
 
 
 class Coordinate(BaseModel):
@@ -50,6 +56,24 @@ class RouteRequest(BaseModel):
         default=None,
         description="Road network: 'hyderabad' (all streets, one city) or "
                     "'india' (national highways). Defaults to 'hyderabad'.",
+    )
+    # The objective. The UI has offered these four for as long as it has
+    # existed; until this field, the choice never left the browser and every
+    # route was optimised as "balanced" whatever the user picked.
+    mode: Literal["balanced", "fastest", "shortest", "low_congestion"] = Field(
+        default="balanced",
+        description="What to optimise for. Weights are in graph/edge_weights.MODES.",
+    )
+    # Which roads the traveller may use and how fast they can go. See
+    # GET /api/vehicles for each profile's rules and what they rest on.
+    vehicle: VehicleType = Field(
+        # A plain string, not VehicleType.car: defaults skip validation, so an
+        # enum member would survive as-is — and on Python 3.10 str() of it is
+        # "VehicleType.car", which leaks into cache keys and response metadata.
+        default="car",
+        description="Vehicle profile. 'car' changes nothing; the rest avoid "
+                    "some road classes and/or cap speed. The rules are "
+                    "modelling assumptions — see /api/vehicles.",
     )
 
     @model_validator(mode="after")

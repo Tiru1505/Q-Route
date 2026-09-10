@@ -39,9 +39,11 @@ condition Dijkstra requires to be optimal — which is why Dijkstra gives us
 ground truth to measure the metaheuristics against.
 """
 import math
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 
 import networkx as nx
+
+from graph.vehicles import DEFAULT_VEHICLE, VEHICLES, VehicleProfile, vehicle_profile
 
 # Preset objective weights. These are the four modes exposed in the UI.
 MODES = {
@@ -52,6 +54,17 @@ MODES = {
 }
 
 CLOSED_STATUSES = {"closed", "blocked"}
+
+
+class NoPathError(ValueError):
+    """
+    No route connects the two points under these rules.
+
+    Its own type because, once vehicles can be barred from roads, it is an
+    ordinary answer — a bicycle cannot reach a point served only by an
+    expressway — and the API has to report it as "no route", not as a crash
+    or an outage. Subclasses ValueError, which is what calibrate always raised.
+    """
 
 
 @dataclass(frozen=True)
@@ -105,39 +118,95 @@ class CostModel:
     ref_time_s: float
     ref_distance_m: float
     mode: str = "balanced"
+    # Which roads the traveller may use and how fast they can go. The car is
+    # neutral, so every model built before vehicles existed behaves the same.
+    vehicle: VehicleProfile = field(default_factory=lambda: VEHICLES[DEFAULT_VEHICLE])
 
     # ---------------------------------------------------------------- build
     @classmethod
-    def calibrate(cls, G, source, target, mode="balanced", weights=None):
+    def calibrate(cls, G, source, target, mode="balanced", weights=None, vehicle=None):
         """
         Establish the reference scales from the free-flow fastest route between
         the same endpoints. Uses NetworkX directly (not our own Dijkstra) purely
         to avoid a circular import.
+
+        The reference is the fastest route THIS vehicle could take, on the
+        roads it may use at the speed it can reach. Against a car's reference a
+        bicycle's every route would score as three times worse than free flow,
+        and the readable-fitness property below — a free-flow route scores
+        exactly w_t + w_d — would hold only for cars.
         """
         w = (weights or ObjectiveWeights.from_mode(mode)).normalised()
-        try:
-            path = nx.shortest_path(G, source, target, weight="free_flow_time_s")
-        except nx.NetworkXNoPath as exc:
-            raise ValueError(
-                f"No route exists between {source} and {target}."
-            ) from exc
+        profile = vehicle_profile(vehicle)
 
-        t_ref = d_ref = 0.0
-        for u, v in zip(path, path[1:]):
-            data = min(G[u][v].values(), key=lambda d: d.get("free_flow_time_s", math.inf))
-            t_ref += float(data.get("free_flow_time_s", 0.0) or 0.0)
-            d_ref += float(data.get("length_m", 0.0) or 0.0)
+        if profile.neutral:
+            # The car. Kept exactly as it was, so every route and benchmark
+            # computed before vehicles existed is reproduced bit for bit.
+            try:
+                path = nx.shortest_path(G, source, target, weight="free_flow_time_s")
+            except nx.NetworkXNoPath as exc:
+                raise NoPathError(
+                    f"No route exists between {source} and {target}."
+                ) from exc
+
+            t_ref = d_ref = 0.0
+            for u, v in zip(path, path[1:]):
+                data = min(G[u][v].values(), key=lambda d: d.get("free_flow_time_s", math.inf))
+                t_ref += float(data.get("free_flow_time_s", 0.0) or 0.0)
+                d_ref += float(data.get("length_m", 0.0) or 0.0)
+        else:
+            def free_time(d):
+                length = float(d.get("length_m", 0.0) or 0.0)
+                return profile.adjust_time(float(d.get("free_flow_time_s", 0.0) or 0.0), length)
+
+            def weight(_u, _v, keydict):
+                usable = [free_time(d) for d in keydict.values() if profile.permits(d)]
+                return min(usable) if usable else None      # None hides the edge
+
+            try:
+                path = nx.shortest_path(G, source, target, weight=weight)
+            except nx.NetworkXNoPath as exc:
+                raise NoPathError(
+                    f"No route a {profile.label.lower()} may use exists between "
+                    f"{source} and {target}."
+                ) from exc
+
+            t_ref = d_ref = 0.0
+            for u, v in zip(path, path[1:]):
+                data = min((d for d in G[u][v].values() if profile.permits(d)), key=free_time)
+                t_ref += free_time(data)
+                d_ref += float(data.get("length_m", 0.0) or 0.0)
 
         # Floors guard against degenerate instances (source == target).
         return cls(weights=w, ref_time_s=max(t_ref, 1.0),
-                   ref_distance_m=max(d_ref, 1.0), mode=mode)
+                   ref_distance_m=max(d_ref, 1.0), mode=mode, vehicle=profile)
 
     # ----------------------------------------------------------------- use
+    def usable(self, data):
+        """Open, and a road this vehicle is allowed on."""
+        return not is_closed(data) and self.vehicle.permits(data)
+
+    def components(self, data):
+        """
+        The three raw costs of one edge, for THIS vehicle.
+
+        Use this wherever a cost model is in hand, rather than edge_components:
+        the route would otherwise be chosen for the vehicle and then timed as if
+        driven by a car, and the ETA shown would be the car's.
+        """
+        time_s, length_m, congested_m = edge_components(data)
+        return self.vehicle.adjust_time(time_s, length_m), length_m, congested_m
+
     def edge_cost(self, data):
-        """Normalised cost of one edge. Infinite for a closed road."""
+        """Normalised cost of one edge. Infinite for a closed road, or one this vehicle may not use."""
         if is_closed(data):
             return math.inf
+        vehicle = self.vehicle
+        if vehicle.excluded and not vehicle.permits(data):
+            return math.inf
         time_s, length_m, congested_m = edge_components(data)
+        if vehicle.max_speed_kph:
+            time_s = vehicle.adjust_time(time_s, length_m)
         return (
             self.weights.time * (time_s / self.ref_time_s)
             + self.weights.distance * (length_m / self.ref_distance_m)
@@ -178,7 +247,8 @@ class CostModel:
     def describe(self):
         w = self.weights
         return (
-            f"mode={self.mode}  w_time={w.time:.2f} w_dist={w.distance:.2f} "
+            f"mode={self.mode}  vehicle={self.vehicle.id}  "
+            f"w_time={w.time:.2f} w_dist={w.distance:.2f} "
             f"w_cong={w.congestion:.2f}  |  T_ref={self.ref_time_s / 60:.1f} min  "
             f"D_ref={self.ref_distance_m / 1000:.2f} km"
         )

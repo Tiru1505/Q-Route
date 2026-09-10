@@ -8,7 +8,7 @@ no algorithm can quietly report its results differently from another.
 import math
 from dataclasses import dataclass, field
 
-from graph.edge_weights import edge_components, is_closed
+from graph.edge_weights import is_closed
 
 
 def _sq(a, b):
@@ -150,9 +150,11 @@ def evaluate_route(G, nodes, cost_model, algorithm="unknown", **kwargs):
             continue
         data, _cost = cost_model.best_edge(G, u, v)
         if data is None or is_closed(data):
-            violations.append(f"closed road {u} -> {v}")
+            # best_edge skips anything costed at infinity, so this covers a
+            # closed road and one this vehicle may not use alike.
+            violations.append(f"no usable road {u} -> {v}")
             continue
-        t, d, c = edge_components(data)
+        t, d, c = cost_model.components(data)
         time_s += t
         distance_m += d
         congested_m += c

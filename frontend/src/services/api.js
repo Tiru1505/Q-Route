@@ -14,7 +14,7 @@ import {
   ALERTS, BENCHMARK, CONVERGENCE, CONVERGENCE_CHART_DATA, INCIDENTS,
   LOCATIONS, PREDICTION_SERIES, REROUTED_ROUTE, ROUTES, SCALABILITY,
   TRAFFIC_SEGMENTS, ROUTE_HISTORY, TRAFFIC_TREND, TRAFFIC_DISTRIBUTION,
-  ROUTE_PERFORMANCE, ANALYTICS_STATS,
+  ROUTE_PERFORMANCE, ANALYTICS_STATS, MOCK_VEHICLES,
 } from '../data/mockData'
 import {
   mapAlertsResponse, mapAnalyticsResponse, mapBenchmarkResponse,
@@ -209,18 +209,31 @@ export async function searchPlaces(query = '', limit = 8, graph = null) {
  * Run the optimizer.
  * @returns {{ routes: Array, recommended: Object, meta: Object }}
  */
-export async function getRouteOptimization({ start, end, algorithm = 'qpso', mode = 'balanced', graph = null, userId = null } = {}) {
+export async function getRouteOptimization({ start, end, algorithm = 'qpso', mode = 'balanced', vehicle = 'car', graph = null, userId = null } = {}) {
   return liveOrMock(
-    () => optimizeLive({ start, end, algorithm, mode, graph, userId }),
+    () => optimizeLive({ start, end, algorithm, mode, vehicle, graph, userId }),
     async () => {
       await delay(400)
       const routes = clone(ROUTES)
       return {
         routes,
         recommended: routes.find((r) => r.recommended) || routes[0],
-        meta: { algorithm, mode, isDemoData: true, computedAt: new Date().toISOString() },
+        meta: { algorithm, mode, vehicle, isDemoData: true, computedAt: new Date().toISOString() },
       }
     },
+  )
+}
+
+/**
+ * The vehicle profiles the backend routes by, with each one's rules.
+ *
+ * The labels, exclusions and speed caps come from the backend's own table,
+ * so the selector cannot describe a rule the router does not apply.
+ */
+export async function getVehicles() {
+  return liveOrMock(
+    () => request('/vehicles'),
+    async () => ({ ...clone(MOCK_VEHICLES), isDemoData: true }),
   )
 }
 
@@ -317,12 +330,17 @@ export async function assistantChat({ messages, context } = {}) {
   })
 }
 
-async function optimizeLive({ start, end, algorithm, mode, graph, userId }) {
+async function optimizeLive({ start, end, algorithm, mode, vehicle, graph, userId }) {
   {
     const body = JSON.stringify({
       source: coordsFor(start),
       destination: coordsFor(end),
       algorithm,
+      // The objective and the vehicle. `mode` was accepted by this function
+      // and never put in the body, so the objective buttons changed nothing:
+      // every route came back "balanced" whatever was chosen.
+      mode,
+      vehicle,
       // Omitted rather than defaulted, so the backend keeps ownership of what
       // "no preference" means.
       ...(graph ? { graph } : {}),

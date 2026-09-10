@@ -24,6 +24,7 @@ from app.api.camera import router as camera_router
 from app.api.optimization import router as optimization_router
 from app.api.places import router as places_router
 from app.api.prediction import router as prediction_router
+from app.api.vehicles import router as vehicles_router
 from app.api.simulation import router as simulation_router
 from app.api.traffic import router as traffic_router
 from app.api.vision import router as vision_router
@@ -213,3 +214,4 @@ app.include_router(alerts_router, prefix="/api")
 app.include_router(agent_router, prefix="/api")
 app.include_router(simulation_router, prefix="/api")
 app.include_router(assistant_router, prefix="/api")
+app.include_router(vehicles_router, prefix="/api")

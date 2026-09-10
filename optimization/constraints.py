@@ -86,7 +86,6 @@ from dataclasses import dataclass
 
 import networkx as nx
 
-from graph.edge_weights import edge_components, is_closed
 
 
 @dataclass
@@ -154,9 +153,9 @@ def min_exposure_route(G, source, target, cost_model):
     def weight(_u, _v, keydict):
         best = math.inf
         for d in keydict.values():
-            if is_closed(d):
+            if not cost_model.usable(d):
                 continue
-            _t, length, cong = edge_components(d)
+            _t, length, cong = cost_model.components(d)
             # Tiny length term breaks ties between equally uncongested routes,
             # which otherwise all score 0 and produce an absurd detour.
             best = min(best, cong + 1e-6 * length)
@@ -211,9 +210,9 @@ def time_optimal_route(G, source, target, cost_model):
     def weight(_u, _v, keydict):
         best = math.inf
         for d in keydict.values():
-            if is_closed(d):
+            if not cost_model.usable(d):
                 continue
-            best = min(best, edge_components(d)[0])
+            best = min(best, cost_model.components(d)[0])
         return best if math.isfinite(best) else None
 
     try:
@@ -253,9 +252,9 @@ def lagrangian_dijkstra(G, source, target, cost_model, constraints,
         def weight(_u, _v, keydict, _lam=lam):
             best = math.inf
             for d in keydict.values():
-                if is_closed(d):
+                if not cost_model.usable(d):
                     continue
-                t, _length, cong = edge_components(d)
+                t, _length, cong = cost_model.components(d)
                 best = min(best, t + _lam * cong)
             return best if math.isfinite(best) else None
 

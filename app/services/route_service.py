@@ -42,9 +42,10 @@ class RouteService:
         try:
             # 1. Graph baseline
             baseline = self.graph.calculate_route(request)
-        except UnknownGraphError:
-            # The caller named a network that does not exist. Wrapping this as
-            # "graph unavailable" made a typo look like an outage.
+        except (UnknownGraphError, NoRouteFoundError):
+            # A network that does not exist, or no route the chosen vehicle may
+            # use. Both are answers to the request, not faults in the server;
+            # wrapping them as "graph unavailable" reported them as outages.
             raise
         except Exception as exc:
             _logger.error("Graph adapter failed: %s", exc)
@@ -95,6 +96,10 @@ class RouteService:
                 # services default to the real OSM engine now, and labelling
                 # genuine engine output "mock" is worse than saying nothing.
                 "data_source": getattr(self.graph, "data_source", "unknown"),
+                # What the route was computed FOR, so the interface can say so
+                # rather than assume the settings it sent were the ones used.
+                "mode": request.mode,
+                "vehicle": request.vehicle,
                 "optimization_status": "completed" if opt_result else "fallback_baseline",
             },
         )
@@ -135,7 +140,7 @@ class RouteService:
                     out.append(resp)
                 if len(out) > 1:
                     return out
-            except UnknownGraphError:
+            except (UnknownGraphError, NoRouteFoundError):
                 raise
             except Exception as exc:
                 _logger.warning("Corridor alternatives failed, falling back: %s", exc)

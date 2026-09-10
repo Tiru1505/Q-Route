@@ -521,6 +521,30 @@ export const ALGORITHMS = [
   { id: 'dijkstra', name: 'Dijkstra', full: "Dijkstra's Shortest Path", quantum: false },
 ]
 
+/**
+ * Vehicle profiles for the backend-less demo ONLY. The live app reads them from
+ * GET /api/vehicles, i.e. from graph/vehicles.py — the table the router uses.
+ * tests/test_vehicles.py fails if the ids here drift from that table.
+ */
+export const MOCK_VEHICLES = {
+  default: 'car',
+  note: 'Access and speed rules are modelling assumptions, not local law.',
+  vehicles: [
+    { id: 'car', label: 'Car', avoids: [], maxSpeedKph: null, assumption: false,
+      basis: "The baseline. The road graph's speeds are car speeds." },
+    { id: 'two_wheeler', label: 'Two-wheeler', avoids: ['motorway', 'motorway_link'], maxSpeedKph: null, assumption: true,
+      basis: 'Access-controlled expressways commonly prohibit two-wheelers.' },
+    { id: 'auto_rickshaw', label: 'Auto-rickshaw', avoids: ['motorway', 'motorway_link'], maxSpeedKph: 50, assumption: true,
+      basis: 'Commonly barred from expressways; 50 km/h is an assumed top speed.' },
+    { id: 'bus', label: 'Bus', avoids: [], maxSpeedKph: 60, assumption: true,
+      basis: '60 km/h is an assumed top speed for a city bus.' },
+    { id: 'truck', label: 'Truck', avoids: [], maxSpeedKph: 60, assumption: true,
+      basis: '60 km/h is an assumed top speed. Heavy-vehicle restrictions are not modelled.' },
+    { id: 'bicycle', label: 'Bicycle', avoids: ['motorway', 'motorway_link'], maxSpeedKph: 15, assumption: true,
+      basis: 'Not permitted on expressways. 15 km/h is an assumed riding speed.' },
+  ],
+}
+
 export const OPTIMIZATION_MODES = [
   { id: 'balanced', name: 'Balanced', weights: { time: 0.4, distance: 0.3, congestion: 0.3 } },
   { id: 'fastest', name: 'Fastest', weights: { time: 0.7, distance: 0.2, congestion: 0.1 } },

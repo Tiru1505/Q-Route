@@ -3,7 +3,7 @@
 from time import perf_counter
 from uuid import uuid4
 
-from app.core.errors import InvalidAlgorithmError, OptimizationError
+from app.core.errors import InvalidAlgorithmError, NoRouteFoundError, OptimizationError
 from app.core.logging import get_logger
 from app.integrations.graph_adapter import MockGraphAdapter, BaseGraphAdapter, get_graph_adapter
 from app.integrations.qpso_adapter import get_optimization_adapter
@@ -39,7 +39,7 @@ class OptimizationService:
                 iterations=request.iterations,
                 particles=request.particles,
             )
-        except (InvalidAlgorithmError, UnknownGraphError):
+        except (InvalidAlgorithmError, UnknownGraphError, NoRouteFoundError):
             # Both are the caller naming something that does not exist. As an
             # "optimization failed" 500 they read as the optimiser breaking.
             raise

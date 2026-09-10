@@ -133,6 +133,16 @@ export function AppProvider({ children }) {
   const [end, setEnd] = useState(DEFAULT_END)
   const [algorithm, setAlgorithm] = useState('qpso')
   const [mode, setMode] = useState('balanced')
+  // The traveller's vehicle. Remembered across visits — people rarely change
+  // vehicles between trips — and read defensively, because storage can be
+  // blocked or throw in private windows and previews.
+  const [vehicle, setVehicleState] = useState(() => {
+    try { return localStorage.getItem('qroute.vehicle') || 'car' } catch { return 'car' }
+  })
+  const setVehicle = useCallback((v) => {
+    setVehicleState(v)
+    try { localStorage.setItem('qroute.vehicle', v) } catch { /* not persisted; still applied */ }
+  }, [])
   /* Which road network to route on. 'hyderabad' has every street but stops at
    * the ORR; 'india' reaches the whole country along arterial roads only, so
    * it cannot deliver to an address. Switching it clears the endpoints,
@@ -215,7 +225,7 @@ export function AppProvider({ children }) {
     setLastRun(null)
     try {
       const res = await api.getRouteOptimization({
-        start, end, algorithm, mode, graph,
+        start, end, algorithm, mode, vehicle, graph,
         // Tags the saved route so History can show this user's own trips.
         userId: user?.email || null,
       })
@@ -233,7 +243,7 @@ export function AppProvider({ children }) {
     } finally {
       setOptimizing(false)
     }
-  }, [start, end, algorithm, mode, graph, user?.email])
+  }, [start, end, algorithm, mode, vehicle, graph, user?.email])
 
   const applyAssistantActions = useCallback((actions = []) => {
     actions.forEach((action) => {
@@ -321,7 +331,7 @@ export function AppProvider({ children }) {
     setRoutes([])
 
     setDemoStep('optimizing')
-    const res = await api.getRouteOptimization({ start, end, algorithm: 'qpso', mode })
+    const res = await api.getRouteOptimization({ start, end, algorithm: 'qpso', mode, vehicle })
     setRoutes(res.routes)
     setSelectedRouteId(res.recommended.id)
 
@@ -353,7 +363,7 @@ export function AppProvider({ children }) {
         setDemoStep('done')
       }
     })
-  }, [clearTimers, injectCongestion, start, mode])
+  }, [clearTimers, injectCongestion, start, mode, vehicle])
 
   const stopDemo = useCallback(() => {
     clearTimers()
@@ -425,7 +435,7 @@ export function AppProvider({ children }) {
     collapsed, setCollapsed,
     settings, setSettings,
     start, setStart, end, setEnd,
-    algorithm, setAlgorithm, mode, setMode,
+    algorithm, setAlgorithm, mode, setMode, vehicle, setVehicle,
     graph, setGraph,
     routes, selectedRoute, selectedRouteId, setSelectedRouteId,
     optimizing, optimize, error,

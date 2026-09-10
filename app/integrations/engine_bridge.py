@@ -40,6 +40,7 @@ from app.integrations.graph_adapter import BaseGraphAdapter, GraphRoute
 from app.integrations.qpso_adapter import BaseOptimizationAdapter, OptimizationResult
 from app.integrations.traffic_adapter import BaseTrafficAdapter
 from app.models.route_models import Coordinate, RouteRequest
+from app.core.errors import NoRouteFoundError
 from graph.errors import UnknownGraphError
 
 _logger = get_logger("integrations.engine_bridge")
@@ -189,24 +190,45 @@ def _snap_checked(engine, coord: Coordinate, what: str):
     return node
 
 
-def _cost_model_for(engine, source, target, mode="balanced"):
+def _cost_model_for(engine, source, target, mode="balanced", vehicle="car"):
     """
     Cached cost model.
 
     Calibration runs a full shortest-path search to establish the reference
-    scales, so it is worth caching per (endpoints, traffic scenario, mode).
-    The scenario is part of the key because changing traffic changes the
-    reference route.
+    scales, so it is worth caching per (endpoints, traffic scenario, mode,
+    vehicle). The scenario is part of the key because changing traffic changes
+    the reference route; the vehicle because a bicycle's reference route is not
+    a car's.
     """
-    from graph.edge_weights import CostModel
+    from graph.edge_weights import CostModel, NoPathError
 
     # The graph is part of the key: node ids are not unique across graphs, so
     # without it a model calibrated on one network could be served for another.
     key = (getattr(engine, "graph_name", "hyderabad"),
-           source, target, engine.scenario, mode)
+           source, target, engine.scenario, mode, vehicle)
     if key not in _cost_models:
-        _cost_models[key] = CostModel.calibrate(engine.G, source, target, mode=mode)
+        try:
+            _cost_models[key] = CostModel.calibrate(
+                engine.G, source, target, mode=mode, vehicle=vehicle)
+        except NoPathError as exc:
+            # With vehicles this is an ordinary answer, not a fault: a bicycle
+            # cannot reach a point served only by an expressway.
+            raise NoRouteFoundError(str(exc)) from exc
     return _cost_models[key]
+
+
+def _cost_model_for_request(engine, source, target, request):
+    """
+    The cost model for what the request actually asked for.
+
+    Every caller used to call _cost_model_for(engine, source, target) and so
+    silently took the defaults — which is how the UI's objective selector came
+    to do nothing: the choice reached the browser's request builder and
+    stopped there.
+    """
+    return _cost_model_for(engine, source, target,
+                           mode=getattr(request, "mode", "balanced") or "balanced",
+                           vehicle=getattr(request, "vehicle", "car") or "car")
 
 
 def invalidate_caches():
@@ -241,10 +263,13 @@ class OsmGraphAdapter(BaseGraphAdapter):
         source = _snap_checked(engine, request.source, "start point")
         target = _snap_checked(engine, request.destination, "destination")
 
-        cost_model = _cost_model_for(engine, source, target)
+        cost_model = _cost_model_for_request(engine, source, target, request)
         route = dijkstra_route(engine.G, source, target, cost_model)
         if not route.valid:
-            raise ValueError("No route exists between those points.")
+            raise NoRouteFoundError(
+                "No route exists between those points"
+                + ("" if cost_model.vehicle.neutral
+                   else f" that a {cost_model.vehicle.label.lower()} may use") + ".")
 
         # Remember it so /reroute has something to reason about.
         from routing.rerouting import ActiveTrip
@@ -271,7 +296,7 @@ class OsmGraphAdapter(BaseGraphAdapter):
         engine = get_engine(request.graph)
         source = _snap_checked(engine, request.source, "start point")
         target = _snap_checked(engine, request.destination, "destination")
-        cost_model = _cost_model_for(engine, source, target)
+        cost_model = _cost_model_for_request(engine, source, target, request)
 
         best = dijkstra_route(engine.G, source, target, cost_model)
         if not best.valid:
@@ -381,7 +406,7 @@ class _EngineOptimizationAdapter(BaseOptimizationAdapter):
         engine = get_engine(request.graph)
         source = _snap_checked(engine, request.source, "start point")
         target = _snap_checked(engine, request.destination, "destination")
-        return engine, source, target, _cost_model_for(engine, source, target)
+        return engine, source, target, _cost_model_for_request(engine, source, target, request)
 
 
 class RealDijkstraAdapter(_EngineOptimizationAdapter):
@@ -430,7 +455,12 @@ class RealQpsoAdapter(_EngineOptimizationAdapter):
             # Building the decoder dominates QPSO's cost (tens of seconds);
             # the search itself takes ~2 s. Cache it per problem instance so
             # only the first request for a given pair pays.
-            key = (source, target, engine.scenario)
+            # Everything the decoder bakes in belongs in the key. It holds the
+            # cost model, so mode and vehicle must be here — or a truck's search
+            # reuses a car's decoder. The graph must be too: OSM node ids are
+            # shared between networks, so the same pair can exist in both.
+            key = (getattr(engine, "graph_name", "hyderabad"), source, target,
+                   engine.scenario, cost_model.mode, cost_model.vehicle.id)
             if key not in _decoders:
                 # A LIGHTER decoder than the benchmark uses. The research
                 # configuration (5 waypoints x 60 major-junction candidates)

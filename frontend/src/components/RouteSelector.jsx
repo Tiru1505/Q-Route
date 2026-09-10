@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import PlaceInput from './PlaceInput'
+import VehicleSelector from './VehicleSelector'
 import { ALGORITHMS, OPTIMIZATION_MODES } from '../data/mockData'
 import { getGraphs } from '../services/api'
 import { useApp } from '../store/AppContext'
@@ -130,6 +131,10 @@ export default function RouteSelector({ onOptimize, busy }) {
         icon={<Flag size={14} />}
         graph={graph}
       />
+
+      {/* VEHICLE — a property of the trip, so it sits with the endpoints,
+          before the preferences below it */}
+      <VehicleSelector />
 
       {/* ALGORITHM */}
       <div className="field route-field">

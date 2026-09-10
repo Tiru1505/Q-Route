@@ -58,7 +58,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from graph.edge_weights import edge_components, is_closed
+from graph.edge_weights import is_closed
 from optimization.problem import EvalResult, Problem
 from routing.route import Route
 
@@ -153,7 +153,7 @@ class StopMatrix:
             data, step = self.cost_model.best_edge(self.G, u, v)
             if data is None or is_closed(data):
                 return None
-            ti, di, ci = edge_components(data)
+            ti, di, ci = self.cost_model.components(data)
             t += ti
             d += di
             c += ci
