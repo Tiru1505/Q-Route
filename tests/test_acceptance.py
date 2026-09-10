@@ -351,6 +351,53 @@ def test_14_partial_series_is_not_padded():
     clear(road_id)
 
 
+def test_15_benchmark_follows_the_traffic():
+    """
+    Congestion sets the edge weights, so it sets the optimum.
+
+    This guards a cache key, and a stale cache is invisible: the numbers look
+    stable and reproducible while silently describing traffic that is no longer
+    in force. Measured before the fix, the benchmark returned an identical
+    optimum of 2.18136 under normal, peak-hour AND heavy congestion.
+    """
+    qs = ("origin_lat=17.4435&origin_lon=78.3772"
+          "&dest_lat=17.3616&dest_lon=78.4747&trials=5")
+
+    optima = {}
+    for scenario in ("normal", "peak_hour", "heavy_congestion"):
+        set_scenario(scenario)
+        r = client.get(f"/api/benchmark/results?{qs}")
+        assert r.status_code == 200, r.text
+        optima[scenario] = r.json()["exact_optimum"]
+
+    assert len(set(optima.values())) == len(optima), (
+        f"different traffic produced the same optimum — the cache is stale: {optima}"
+    )
+    assert optima["heavy_congestion"] > optima["normal"], (
+        f"heavy congestion should cost more than normal: {optima}"
+    )
+
+
+def test_16_same_inputs_are_reproducible():
+    """
+    Identical conditions must give an identical answer.
+
+    The opposite failure to the one above: results that wander between runs
+    cannot be compared, and a benchmark whose numbers move on their own proves
+    nothing about any algorithm.
+    """
+    set_scenario("normal")
+    body = {"source": START, "destination": END, "algorithm": "qpso"}
+
+    first = client.post("/api/routes/optimize", json=body).json()
+    second = client.post("/api/routes/optimize", json=body).json()
+
+    a = first.get("route", first)
+    b = second.get("route", second)
+    assert a["distance_km"] == b["distance_km"], "same route, same traffic, different distance"
+    assert a["nodes"] == b["nodes"], "same route, same traffic, different path"
+
+
 # --------------------------------------------------- contract guarantees
 
 def test_simulated_results_are_always_labelled():

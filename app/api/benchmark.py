@@ -27,6 +27,25 @@ def run_benchmark(request: BenchmarkRequest) -> BenchmarkResult:
     return _service.run(request)
 
 
+def _scenario_of(graph: str | None) -> str:
+    """
+    The traffic scenario in force, for cache keys.
+
+    Congestion is part of the problem the algorithms are solving: it sets the
+    edge weights, which sets the optimum. A key without it serves the first
+    scenario's numbers for every later one — measured, the benchmark returned
+    an identical optimum of 2.18136 under normal, peak-hour AND heavy
+    congestion, which is exactly the kind of result that looks stable and is
+    simply stale.
+    """
+    try:
+        from app.integrations.engine_bridge import get_engine
+
+        return str(get_engine(graph).scenario)
+    except Exception:
+        return "unknown"
+
+
 @router.get(
     "/results",
     summary="Get benchmark results history",
@@ -131,7 +150,7 @@ def benchmark_results(
 
     # The endpoints are part of the key, or the first route's results would be
     # served for every later one — the cache is what made this look fixed.
-    key = f"benchmark:{graph or 'default'}:{stops}:{trials}"
+    key = f"benchmark:{graph or 'default'}:{_scenario_of(graph)}:{stops}:{trials}"
     if have_route:
         key += f":{origin_lat:.4f},{origin_lon:.4f}->{dest_lat:.4f},{dest_lon:.4f}"
     return _cached(key, build)
@@ -194,7 +213,7 @@ def convergence_all(
         return engine.convergence(stops=stops, trials=trials,
                                   source=src, target=dst)
 
-    key = f"convergence:{graph or 'default'}:{stops}:{trials}"
+    key = f"convergence:{graph or 'default'}:{_scenario_of(graph)}:{stops}:{trials}"
     if have_route:
         key += f":{origin_lat:.4f},{origin_lon:.4f}->{dest_lat:.4f},{dest_lon:.4f}"
     return _cached(key, build)
