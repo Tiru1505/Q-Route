@@ -60,6 +60,31 @@ GRAPHS = {
         "build": "python scripts/build_india_highways.py",
     },
 }
+# The other metros, built from the same country extract by
+# scripts/build_city_graphs.py. Registered whether or not the file exists —
+# graph_path() reports a missing one with the command that builds it, which is
+# more useful than the name simply being absent.
+_CITY_STREETS = {
+    "bengaluru": "Bengaluru",
+    "delhi": "Delhi",
+    "chennai": "Chennai",
+    "mumbai": "Mumbai",
+    "pune": "Pune",
+}
+for _slug, _label in _CITY_STREETS.items():
+    from preprocessing.osm_processor import METRO_BBOX as _BOX  # noqa: E402
+
+    GRAPHS[_slug] = {
+        "path": ROOT / f"data/processed/{_slug}/{_slug}_drive.pkl",
+        "label": f"{_label} streets",
+        "scope": "All drivable streets in the metro area",
+        "bbox": _BOX[_slug],
+        # Same reasoning as Hyderabad: every street is present, so anything
+        # much beyond a short walk is outside the city rather than a map gap.
+        "snap_limit_m": 2_000.0,
+        "build": f"python scripts/build_city_graphs.py --city {_slug}",
+    }
+
 DEFAULT_GRAPH_NAME = "hyderabad"
 
 

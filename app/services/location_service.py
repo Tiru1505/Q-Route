@@ -52,9 +52,34 @@ CITY_LABELS = {
     "pune": "Pune",
 }
 
-# Which network answers for a city. Only Hyderabad has a street-level graph;
-# everywhere else falls back to the national arterial network.
-CITY_GRAPH = {c: ("hyderabad" if c == "hyderabad" else "india") for c in CITY_LABELS}
+def graph_for(city: str) -> str:
+    """
+    Which network answers for a city.
+
+    Its own street graph when that has been built, the national arterial
+    network otherwise. Resolved per call rather than frozen at import, so a
+    city becomes street-level the moment its graph lands — without this the
+    process would keep answering from the highway graph until restarted.
+    """
+    from graph.graph_loader import GRAPHS
+
+    own = GRAPHS.get(city)
+    if own and own["path"].exists():
+        return city
+    return "india"
+
+
+class _CityGraphView(dict):
+    """Reads like the old constant, but asks graph_for on every lookup."""
+
+    def __getitem__(self, city):
+        return graph_for(city)
+
+    def get(self, city, default=None):
+        return graph_for(city) if city in CITY_LABELS else default
+
+
+CITY_GRAPH = _CityGraphView({c: c for c in CITY_LABELS})
 
 MAX_ROADS_PER_CITY = 400
 
@@ -83,7 +108,7 @@ def cities() -> list[dict]:
             "graph": graph,
             "bbox": list(METRO_BBOX[key]),
             "available": bool(built and built.exists()),
-            "coverage": ("Every drivable street" if graph == "hyderabad"
+            "coverage": ("Every drivable street" if graph != "india"
                          else "Motorway, trunk and primary roads only"),
         })
     return out
@@ -163,7 +188,7 @@ def roads(city: str, q: str = "", limit: int = 50) -> dict:
         "truncated": len(found) > limit,
         "roads": found[:limit],
         "coverage": ("Every drivable street in the metro graph"
-                     if CITY_GRAPH[city] == "hyderabad"
+                     if CITY_GRAPH[city] != "india"
                      else "Arterial roads only — this city is served by the "
                           "national highway network, which has no residential streets"),
     }

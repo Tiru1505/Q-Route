@@ -67,21 +67,71 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 2. Build the road graph (required, once)
+This now pulls **torch, ultralytics, opencv and lap** as well — the vehicle
+detector and the traffic forecaster both load real trained weights, so they are
+no longer optional extras.
 
-The graph is **not** in the repository — the GraphML is 575 MB, far past
-GitHub's limit. Build it:
+### 2. Check what the clone is missing
 
 ```bash
-python preprocessing/osm_processor.py --city "Hyderabad, Telangana, India" --metro
+python scripts/setup_check.py
 ```
 
-Takes a few minutes and downloads from OpenStreetMap. The `--metro` flag
-matters: `graph_from_place("Hyderabad")` returns only the municipal boundary,
-which silently excludes the airport, Medchal and Patancheru and produces routes
-shorter than the straight-line distance between their endpoints.
+Several things this system needs are too large for the repository: the road
+graphs run to hundreds of megabytes and the country extract is 1.71 GB. A fresh
+clone is therefore incomplete, and the failure is not obvious — the API boots,
+the UI loads, and only one particular request reports that a graph is absent.
 
-### 3. MongoDB
+The check imports every package, stats every file and opens every model, then
+prints one table. Nothing is assumed.
+
+To install and build whatever is missing:
+
+```bash
+python scripts/setup_check.py --fix
+```
+
+Add `--download-extract` to also fetch the 1.71 GB country extract. That is
+behind its own flag on purpose — it is a large transfer that only matters if
+you intend to build the national or city-level graphs, and a setup script
+should not start one on your behalf.
+
+### 3. Road graphs
+
+Seven networks are configured. **None are in the repository** — the smallest is
+147 MB and GitHub refuses anything past 100 MB.
+
+| Network | Covers | Build |
+|---|---|---|
+| `hyderabad` | every street inside the ORR | `python preprocessing/osm_processor.py --city "Hyderabad, Telangana, India" --metro` |
+| `india` | national motorway/trunk/primary | `python scripts/build_india_highways.py` |
+| `bengaluru`, `delhi`, `chennai`, `mumbai`, `pune` | every street in the metro | `python scripts/build_city_graphs.py` |
+
+The `--metro` flag matters for Hyderabad: `graph_from_place("Hyderabad")`
+returns only the municipal boundary, which silently excludes the airport,
+Medchal and Patancheru and produces routes shorter than the straight-line
+distance between their endpoints.
+
+The national and city graphs are cut from one Geofabrik extract rather than
+fetched from Overpass, which times out from most machines. The city builder
+reads the extract twice and fills **every** city during the same sweep, so five
+cities cost barely more than one.
+
+A network that has not been built reports `available: false` from
+`/api/graphs`, and the UI disables it rather than offering a route it cannot
+compute.
+
+### 4. Trained models
+
+Both ship with the repository and need no training to run:
+
+- **YOLO** — `results/yolo/dats_v8n/weights/best.pt`, 6.2 MB, 12 vehicle classes
+- **LSTM** — `results/lstm_india/india_traffic_lstm.pt`, 30 KB
+
+Retrain with `python scripts/train_yolo.py` and
+`python scripts/train_lstm_india.py`.
+
+### 5. MongoDB
 
 Optional — the API degrades gracefully without it, losing only history.
 
@@ -89,26 +139,45 @@ Optional — the API degrades gracefully without it, losing only history.
 docker compose up mongodb -d
 ```
 
-### 4. Run the API
+### 6. Run the API
 
 ```bash
 uvicorn app.main:app --reload --port 8010
 ```
 
 Port 8010 rather than 8000 because another service commonly holds 8000; the
-Vite proxy targets 8010 by default (override with `VITE_API_TARGET`). The first
-request pays a ~30 s graph load, which `app/main.py` warms at startup.
+Vite proxy targets 8010 by default (override with `VITE_API_TARGET`).
+
+**First-run timings, so a cold start is not mistaken for a hang:** the
+Hyderabad graph takes ~30 s to load and `app/main.py` warms it at startup. The
+India graph adds ~24 s the first time something routes on it. The first image
+upload pays ~30 s while YOLO loads its weights. Every one of these is once per
+process.
 
 Swagger UI: `http://localhost:8010/docs`
 
-### 5. Run the web app
+### 7. Run the web app
 
 ```bash
 cd frontend && npm install && npm run dev
 ```
 
 Opens at `http://localhost:5173`. Set `VITE_USE_MOCK=true` in `frontend/.env`
-to run the whole UI on mock data with no backend at all.
+to run the whole UI on bundled demo data with no backend at all.
+
+### API keys
+
+**None are required.** The entire system runs without a single key.
+
+| Key | Needed for | Without it |
+|---|---|---|
+| `AI_API_KEY` | the natural-language assistant only | `/api/assistant/chat` returns 503; everything else works |
+| `MONGODB_URI` | route history | defaults to `mongodb://localhost:27017` |
+| `ALLOWED_ORIGINS` | deploying the frontend elsewhere | localhost origins are allowed by default |
+
+There is **no authentication**. The login screen is a demo: it accepts any
+email and password and stores the session in the browser. Every API endpoint is
+unauthenticated. That is fine on localhost and is not fine on a public host.
 
 ---
 
@@ -239,9 +308,17 @@ pytest tests/ -q
 | `ALLOWED_ORIGINS` | Comma-separated CORS origins | `http://localhost:5173` |
 | `APP_ENV` | `development` or `production` | `development` |
 | `LOG_LEVEL` | Python log level | `INFO` |
-| `TOMTOM_API_KEY` | For live traffic collection (`scripts/collect_tomtom_hyderabad.py`) | *(unset)* |
+| `AI_API_KEY` | Natural-language assistant only | *(unset — endpoint returns 503)* |
+| `AI_MODEL` | Model for that assistant | `gpt-4o-mini` |
+| `AI_BASE_URL` | Any OpenAI-compatible gateway | `https://api.openai.com/v1` |
+| `QRO_GRAPH_PATH` | Point at a Hyderabad graph outside the repo | *(unset)* |
+| `QRO_INDIA_GRAPH_PATH` | Point at a national graph outside the repo | *(unset)* |
+| `TOMTOM_API_KEY` | Only `scripts/collect_tomtom_hyderabad.py`, which has never been run | *(unset)* |
 | `VITE_USE_MOCK` | `true` runs the frontend with no backend | `false` |
 | `VITE_API_TARGET` | Where the Vite proxy sends `/api` | `http://127.0.0.1:8010` |
+
+`FCM_SERVER_KEY` appears in `app/core/config.py` and is read by nothing. Push
+notifications are not implemented; the setting is a leftover.
 
 Never commit `.env`.
 

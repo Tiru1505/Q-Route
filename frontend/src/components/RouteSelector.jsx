@@ -8,8 +8,10 @@ import {
   RotateCcw,
   Zap,
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import PlaceInput from './PlaceInput'
 import { ALGORITHMS, OPTIMIZATION_MODES } from '../data/mockData'
+import { getGraphs } from '../services/api'
 import { useApp } from '../store/AppContext'
 
 /** Two places are the same trip endpoint if they land on the same spot. */
@@ -43,8 +45,20 @@ export default function RouteSelector({ onOptimize, busy }) {
   }
 
   const activeAlgo = ALGORITHMS.find((a) => a.id === algorithm)
+
+  /* Networks come from the backend rather than a hardcoded pair. Cities gain
+   * street graphs as they are built, and a list typed into JSX would keep
+   * offering two options while the API knew about seven. */
+  const [networks, setNetworks] = useState(null)
+  useEffect(() => {
+    getGraphs()
+      .then((d) => setNetworks(d.graphs || null))
+      .catch(() => setNetworks(null))
+  }, [])
+
+  const active = networks?.[graph]
   const national = graph === 'india'
-  const where = national ? 'India' : 'Hyderabad'
+  const where = active?.label?.replace(/ (streets|metro|highways)$/i, '') || 'India'
 
   const incomplete = !start || !end
   const identical = samePlace(start, end)
@@ -68,13 +82,18 @@ export default function RouteSelector({ onOptimize, busy }) {
           value={graph}
           onChange={(e) => setGraph(e.target.value)}
         >
-          <option value="hyderabad">Hyderabad — every street</option>
-          <option value="india">India — highways only</option>
+          {networks
+            ? Object.entries(networks).map(([id, info]) => (
+                <option key={id} value={id} disabled={!info.available}>
+                  {info.label}{info.available ? '' : ' — not built'}
+                </option>
+              ))
+            : <option value={graph}>Loading networks…</option>}
         </select>
         <p className="route-hint">
-          {national
-            ? 'Motorway, trunk and primary roads nationwide. Routes between cities; cannot reach a residential address.'
-            : 'Every drivable street inside the ORR. Routes to an address; stops at the city limit.'}
+          {active?.scope
+            ? `${active.scope}.${national ? ' Routes between cities; cannot reach a residential address.' : ''}`
+            : 'Checking which networks are available…'}
         </p>
       </div>
 
