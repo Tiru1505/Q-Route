@@ -4,17 +4,39 @@
 > Transportation Systems Using Metaheuristic Optimization. Built on the real
 > Hyderabad road network.
 
-Three parts, one repository:
+Four parts, one repository:
 
 | Part | What it is | Where |
 |---|---|---|
 | **Optimisation engine** | QPSO, PSO, GA, Dijkstra + Lagrangian, traffic simulation, rerouting, alerts | `optimization/`, `graph/`, `traffic/`, `routing/`, `alerts/`, `engine.py` |
-| **API** | FastAPI service over the engine, with MongoDB persistence | `app/` |
-| **Web app** | React + Vite + Leaflet dashboard | `frontend/` |
+| **AI layer** | YOLOv8 vehicle counting, LSTM congestion forecast, the traffic agent that decides when to reroute | `results/`, `app/services/` |
+| **API** | FastAPI service over the engine, with accounts, roles and MongoDB persistence | `app/` |
+| **Web app** | React + Vite + Leaflet — a driver's app for users and a control-room console for admins | `frontend/` |
 
 The road graph is real: **286,603 nodes, 741,203 edges**, extracted from
 OpenStreetMap across the Hyderabad metro area (ORR and a margin), with Indian
 urban free-flow speeds rather than OSMnx's Western defaults.
+
+---
+
+## The pipeline
+
+```
+camera / photo ──► YOLOv8 counts vehicles ──► congestion on the road graph
+                                                   (simulated where unobserved)
+                                                              │
+                                                              ▼
+                                                   LSTM forecasts congestion
+                                                              │
+      user drives a route ◄── map + moving car                ▼
+              │                                   traffic agent: is a better
+              ▼                                   road worth switching to?
+    monitor watches the road ahead ──────────────────────────┤
+                                                              ▼
+       robot notifies the driver ◄── alert ◄── QPSO / Dijkstra re-solve
+              │
+       Switch route / Keep current ──► the trip is saved to History
+```
 
 ---
 
@@ -51,6 +73,63 @@ flat — `--scalability` sweeps that.
 
 ---
 
+## Two roles: user and admin
+
+Everyone signs in, and the **server** decides the role. A role edited in the
+browser fails the session's signature check.
+
+| | **User** — the driver | **Admin** — the control room |
+|---|---|---|
+| Lands on | `/user/dashboard` | `/admin/dashboard` |
+| Pages | Dashboard · History · Settings | Dashboard · Live Traffic · Analytics · Traffic Analysis Lab · Benchmark · Alerts · History · Settings |
+| Sees | The optimised route and its result: ETA, distance, traffic now and predicted, time saved | Everything, including the QPSO convergence card, algorithm choice and benchmarks |
+| Can | Plan, navigate, switch or keep a route, look back at trips | Also trigger traffic scenarios and spikes, run Demo Mode, analyse road footage, run benchmarks |
+
+A user who types an admin address gets an "Admins only" page, and the API
+refuses the request with 403 in any case: hiding a page is not the protection,
+the server check is (`app/core/security.py`).
+
+**There is no public admin sign-up** — anyone who could register as an admin
+could make themselves one. An account becomes admin in one of two ways:
+
+```bash
+# an existing account (e.g. one that signed in with Google) -> admin
+.venv/Scripts/python.exe scripts/create_admin.py you@gmail.com --promote
+```
+
+```bash
+# a new admin with an email + password (typed at the prompt, never shown)
+.venv/Scripts/python.exe scripts/create_admin.py ops@example.com --name "Control Room"
+```
+
+Or list Google accounts in `ADMIN_EMAILS` in `.env`. That list is only read for
+Google sign-in, because only Google has verified the address.
+
+### What a user does
+
+1. **Plan** — start, destination, vehicle, route preference → *Find best route*.
+   QPSO runs on the server as always; the user sees the result, not its controls.
+2. **Navigate** — *Start navigation* makes that exact route (node for node) the
+   trip the server monitors, and a car drives it on the map, turning with the
+   road. The drive is **simulated and sped up** (≈19× for a 49-minute trip),
+   and the screen says so.
+3. **Decide** — when the traffic agent finds a better road, the car waits and a
+   card shows *current 53 min → alternative 33 min, you save 20 min*, with
+   **Switch route** / **Keep current route**. The robot says the same thing.
+4. **Switch** — the map redraws the new road, the car carries on from where it
+   is, and the robot checks the new route by itself.
+5. **Arrive** — the trip is saved to **History** with the server's own figures:
+   original ETA, optimised ETA, time saved.
+
+### Demonstrating it
+
+Sign-ins are per browser tab. Open the **user** in one tab and the **admin** in
+another. The user starts navigation; the admin presses *Simulate Congestion
+Spike*; the monitor notices the jam on its own and the user's robot alerts them.
+The admin dashboard's **Demo Mode** still runs the whole scenario in one tab.
+
+---
+
 ## Quick start
 
 ### 1. Python environment
@@ -67,9 +146,8 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-This now pulls **torch, ultralytics, opencv and lap** as well — the vehicle
-detector and the traffic forecaster both load real trained weights, so they are
-no longer optional extras.
+This pulls **torch, ultralytics, opencv and lap** as well — the vehicle
+detector and the traffic forecaster both load real trained weights.
 
 ### 2. Check what the clone is missing
 
@@ -83,9 +161,7 @@ clone is therefore incomplete, and the failure is not obvious — the API boots,
 the UI loads, and only one particular request reports that a graph is absent.
 
 The check imports every package, stats every file and opens every model, then
-prints one table. Nothing is assumed.
-
-To install and build whatever is missing:
+prints one table. Nothing is assumed. To install and build whatever is missing:
 
 ```bash
 python scripts/setup_check.py --fix
@@ -93,8 +169,7 @@ python scripts/setup_check.py --fix
 
 Add `--download-extract` to also fetch the 1.71 GB country extract. That is
 behind its own flag on purpose — it is a large transfer that only matters if
-you intend to build the national or city-level graphs, and a setup script
-should not start one on your behalf.
+you intend to build the national or city-level graphs.
 
 ### 3. Road graphs
 
@@ -112,11 +187,6 @@ returns only the municipal boundary, which silently excludes the airport,
 Medchal and Patancheru and produces routes shorter than the straight-line
 distance between their endpoints.
 
-The national and city graphs are cut from one Geofabrik extract rather than
-fetched from Overpass, which times out from most machines. The city builder
-reads the extract twice and fills **every** city during the same sweep, so five
-cities cost barely more than one.
-
 A network that has not been built reports `available: false` from
 `/api/graphs`, and the UI disables it rather than offering a route it cannot
 compute.
@@ -125,21 +195,35 @@ compute.
 
 Both ship with the repository and need no training to run:
 
-- **YOLO** — `results/yolo/dats_v8n/weights/best.pt`, 6.2 MB, 12 vehicle classes
-- **LSTM** — `results/lstm_india/india_traffic_lstm.pt`, 30 KB
+- **YOLOv8n** — `results/yolo/dats_v8n/weights/best.pt`, 6.2 MB, 12 vehicle classes
+- **LSTM** — `results/lstm_india/india_traffic_lstm.pt`, 30 KB (32 hidden units, 4-step lookback)
 
 Retrain with `python scripts/train_yolo.py` and
 `python scripts/train_lstm_india.py`.
 
 ### 5. MongoDB
 
-Optional — the API degrades gracefully without it, losing only history.
+**Required for sign-in** — accounts and trips live there. Route optimisation
+itself still works without it.
 
 ```bash
 docker compose up mongodb -d
 ```
 
-### 6. Run the API
+### 6. Configure `.env`
+
+Copy `.env.example` to `.env`, then set at least:
+
+```bash
+SESSION_SECRET=paste-a-long-random-string-here
+```
+
+Generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+Without it a random key is used per run, which works but signs everyone out
+whenever the server restarts. Google sign-in and admin emails are optional —
+see [Environment variables](#environment-variables).
+
+### 7. Run the API
 
 ```bash
 uvicorn app.main:app --reload --port 8010
@@ -150,48 +234,35 @@ Vite proxy targets 8010 by default (override with `VITE_API_TARGET`).
 
 **First-run timings, so a cold start is not mistaken for a hang:** the
 Hyderabad graph takes ~30 s to load and `app/main.py` warms it at startup. The
-India graph adds ~24 s the first time something routes on it. The first image
-upload pays ~30 s while YOLO loads its weights. Every one of these is once per
-process.
+first QPSO route takes ~10 s, later ones ~2 s. The India graph adds ~24 s the
+first time something routes on it. The first image upload pays ~30 s while YOLO
+loads its weights. Every one of these is once per process.
 
 Swagger UI: `http://localhost:8010/docs`
 
-### 7. Run the web app
+### 8. Run the web app
 
 ```bash
 cd frontend && npm install && npm run dev
 ```
 
-Opens at `http://localhost:5173`. Set `VITE_USE_MOCK=true` in `frontend/.env`
-to run the whole UI on bundled demo data with no backend at all.
+Opens at `http://localhost:5173`. Register a user on the login page, and make
+yourself an admin with `scripts/create_admin.py` (above).
+
+Set `VITE_USE_MOCK=true` in `frontend/.env` to run the UI on bundled demo data
+with no backend at all. Offline mode signs you in locally as a **user** only —
+there is no offline admin.
 
 ### API keys
 
-**None are required.** The entire system runs without a single key.
+**None are required** for the core system: routing, QPSO, traffic, the
+forecast, alerts and the robot all run without a single key.
 
 | Key | Needed for | Without it |
 |---|---|---|
-| `AI_API_KEY` | the natural-language assistant only | `/api/assistant/chat` returns 503; everything else works |
-| `MONGODB_URI` | route history | defaults to `mongodb://localhost:27017` |
-| `ALLOWED_ORIGINS` | deploying the frontend elsewhere | localhost origins are allowed by default |
-
-There is **no authentication**. The login screen is a demo: it accepts any
-email and password and stores the session in the browser. Every API endpoint is
-unauthenticated. That is fine on localhost and is not fine on a public host.
-
----
-
-## Using it
-
-Type any place into **Start location** and **Destination** — they are free-text
-search boxes, not a fixed list. Suggestions merge the curated Hyderabad
-landmarks with live OpenStreetMap results, and anything more than 1.5 km from
-the nearest road node in our extract is dropped, because routing from a point
-that is not on the graph would silently start somewhere else.
-
-Pages: Dashboard, Route Optimizer, Live Traffic, Analytics, Benchmark, Alerts,
-History, Settings. **Demo Mode** plays a scripted scenario — optimise, then a
-congestion spike, then a predictive alert, then an automatic reroute.
+| `GOOGLE_CLIENT_ID` | "Continue with Google" | Email + password sign-in only; the Google button says it is not configured |
+| `AI_API_KEY` | Free-form `/assistant/chat`, and rewording notifications | The robot still answers from measured system state (`/assistant/ask`) and notifications use plain wording |
+| `TOMTOM_API_KEY` | `scripts/collect_tomtom_hyderabad.py` only | Traffic stays simulated |
 
 ---
 
@@ -199,17 +270,21 @@ congestion spike, then a predictive alert, then an automatic reroute.
 
 ```
 React + Vite + Leaflet  (frontend/)
-          │  HTTP / JSON, proxied /api -> :8010
+   /login · /user/* (driver) · /admin/* (control room)
+          │  HTTP / JSON + Bearer session, proxied /api -> :8010
+          │  WebSocket /api/notifications/ws  (alerts pushed to the robot)
           ▼
       FastAPI  (app/)              Swagger at /docs
           │
-    Service layer      route · optimization · traffic · prediction
-          │            benchmark · alert
+    Access layer       app/core/security.py — signed sessions, current_user,
+          │            require_admin; passwords hashed with PBKDF2-SHA256
+    Service layer      route · trips · auth · agent · monitor · notify ·
+          │            forecast (LSTM) · vision (YOLO) · benchmark · alert
           ▼
     Adapter layer      abstract base + mock + REAL implementation
           │            app/integrations/engine_bridge.py
           ▼
-    QROEngine  (engine.py)         one object, loaded once
+    QROEngine  (engine.py)         one object, loaded once, one lock
           │
     ┌─────┴─────┬──────────┬──────────┬─────────┐
   graph/    optimization/  traffic/  routing/  alerts/
@@ -229,49 +304,52 @@ and per-endpoint cost-model calibration. Together they take a cold
 
 ## API
 
-Base path `/api`.
+Base path `/api`. **Access:** *open* — anyone; *signed in* — any session;
+*own* — only the caller's own data; *admin* — admin session only.
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/health`, `/status` | Liveness; `/status` reports which adapter backs each module |
-| GET | `/places/search?q=` | Free-text place search, restricted to the metro box and the graph |
-| POST | `/routes/optimize` | Optimise between two coordinates |
-| POST | `/routes/alternatives` | Genuinely different corridors, via edge-penalty re-solve |
-| POST | `/routes/reroute` | Re-evaluate the active trip from the driver's current position |
-| GET | `/routes/history` | Past optimisations |
-| GET | `/traffic/current` | Live congestion sample |
-| POST | `/traffic/update` | Ingest observed congestion onto the graph |
-| GET | `/traffic/predict` | Congestion forecast |
-| GET | `/analytics`, `/analytics/scalability` | Dashboard aggregates |
-| GET | `/benchmark/results` | Live algorithm comparison (`?source=stored` for saved runs) |
-| GET | `/benchmark/convergence/all` | Convergence curves for QPSO, PSO, GA |
-| GET | `/alerts/` | Active alerts |
-
-### Natural-language route assistant
-
-The dashboard assistant accepts open-ended requests and uses server-side LLM
-tool calling to resolve places, calculate routes, inspect the current route and
-traffic, and find alternatives. It never receives database access or a client
-API key; every state change is returned as a controlled action from
-`POST /api/assistant/chat`.
-
-Configure the provider in the backend environment, using `.env.example` as a
-starting point:
-
-```bash
-AI_API_KEY=your-server-side-key
-AI_MODEL=gpt-4o-mini
-AI_BASE_URL=https://api.openai.com/v1
-```
-
-Without `AI_API_KEY`, the endpoint returns a clear configuration error and the
-frontend does not fall back to scripted answers.
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| GET | `/health`, `/status` | open | Liveness; `/status` reports which adapter backs each module |
+| GET | `/auth/config` | open | Which sign-in methods are available |
+| POST | `/auth/register`, `/auth/login`, `/auth/google` | open | Sign in → `{user, token}`; registration always makes a user |
+| GET / PATCH | `/auth/me` | signed in | Your account, name and preferences |
+| POST | `/auth/password` | signed in | Change your password |
+| GET | `/places/search?q=` | open | Free-text place search, restricted to the metro box and the graph |
+| POST | `/routes/optimize`, `/routes/alternatives` | open | Optimise between two coordinates; genuinely different corridors |
+| GET | `/routes/history` | own (admin: any) | Past optimisations |
+| POST | `/trips` | signed in | Start navigation on the chosen route |
+| POST | `/trips/{id}/progress` | own | Where the car is (forward only) |
+| GET | `/trips/{id}/outlook` | own | Congestion now vs predicted on the road ahead |
+| POST | `/trips/{id}/finish` | own | Arrived, or ended early |
+| GET | `/trips` | own | Trip history |
+| POST | `/agent/analyze`, `/agent/accept`, `/agent/decline` | signed in | The reroute decision; accepting records the switch on the trip |
+| POST | `/assistant/ask` · GET `/assistant/briefing` | open | The robot, answering from measured system state |
+| WS | `/notifications/ws` | open | Alerts and route checks pushed to every open tab |
+| GET | `/traffic/current`, `/traffic/predict`, `/forecast/*` | open | Congestion sample, LSTM forecast |
+| POST | `/simulation/event`, `/simulation/congest-route`, `/simulation/advance`, `/simulation/reset` | admin | Traffic scenarios and spikes (all labelled SIMULATED) |
+| POST | `/monitor/start`, `/monitor/stop` | admin | The traffic monitor (a user's trip starts it automatically) |
+| POST | `/vision/analyse`, `/vision/reset` | admin | YOLO on an uploaded road photo or clip |
+| POST | `/benchmark/run`, `/alerts/trigger`, `/alerts/clear`, `/traffic/update`, `/routes/reroute` | admin | Other control-room actions |
+| GET | `/analytics`, `/benchmark/results`, `/benchmark/convergence/all` | open | Dashboard aggregates and algorithm comparisons |
 
 Example:
 
 ```bash
 curl -X POST http://localhost:8010/api/routes/optimize -H "Content-Type: application/json" -d '{"source":{"lat":17.4435,"lon":78.3772},"destination":{"lat":17.3616,"lon":78.4747},"algorithm":"qpso","source_name":"Hitec City","destination_name":"Charminar"}'
 ```
+
+### The robot assistant
+
+The robot answers questions — *"Will there be congestion ahead?"*, *"Should I
+reroute?"* — from the system's own state: the agent's decision, the forecast,
+the active trip. That is why it needs no AI key: routing those questions
+through a language model would replace a measured number with a recalled one.
+Every reply shows where it came from.
+
+When the monitor raises an alert, the robot opens by itself and delivers it in
+its own chat with **Switch** / **Keep** buttons. After a switch it checks the
+new road and reports back. An optional `AI_API_KEY` only rewords these
+messages; the figures stay measured, and the card says which wording was used.
 
 ---
 
@@ -286,6 +364,7 @@ curl -X POST http://localhost:8010/api/routes/optimize -H "Content-Type: applica
 | `scripts/run_traffic.py` | Traffic scenarios on the network |
 | `scripts/run_rerouting.py` | Mid-trip reroute on a congestion spike |
 | `scripts/run_demo.py` | End-to-end scripted scenario |
+| `scripts/create_admin.py` | Create an admin, or promote an existing account |
 
 ---
 
@@ -295,7 +374,19 @@ curl -X POST http://localhost:8010/api/routes/optimize -H "Content-Type: applica
 pytest tests/ -q
 ```
 
-64 tests covering models, adapters, services and every endpoint.
+**164 tests**, including:
+
+- `test_rbac.py` — registration always makes a user, passwords are hashed, a
+  user's session is refused by every control endpoint, an edited session fails
+  its signature, admins come only from the script or Google + `ADMIN_EMAILS`
+- `test_trips.py` — a full journey on the real graph: plan, start, drive, admin
+  spike, switch, arrive, history — and one user cannot touch another's trip
+- `test_auto_alert.py` — the monitor alerts on its own, the robot checks the
+  new route, asking the robot never silences the real alert
+
+The full suite takes ~20 minutes because it loads the real 286,603-node graph.
+Account and trip tests use in-memory collections, so they never write test
+users into your database.
 
 ---
 
@@ -303,24 +394,23 @@ pytest tests/ -q
 
 | Variable | Description | Default |
 |---|---|---|
+| `SESSION_SECRET` | Signs sign-in sessions. Keep it secret; changing it signs everyone out | *(random per run)* |
+| `SESSION_HOURS` | How long a session lasts | `12` |
+| `GOOGLE_CLIENT_ID` | OAuth client ID (Web application). Public, not a secret | *(unset — Google sign-in off)* |
+| `ADMIN_EMAILS` | Comma-separated Google accounts that are admins | *(unset)* |
 | `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017` |
 | `MONGODB_DATABASE` | Database name | `smartroute` |
 | `ALLOWED_ORIGINS` | Comma-separated CORS origins | `http://localhost:5173` |
 | `APP_ENV` | `development` or `production` | `development` |
 | `LOG_LEVEL` | Python log level | `INFO` |
-| `AI_API_KEY` | Natural-language assistant only | *(unset — endpoint returns 503)* |
+| `AI_API_KEY` | Free-form assistant and message rewording only | *(unset)* |
 | `AI_MODEL` | Model for that assistant | `gpt-4o-mini` |
 | `AI_BASE_URL` | Any OpenAI-compatible gateway | `https://api.openai.com/v1` |
 | `QRO_GRAPH_PATH` | Point at a Hyderabad graph outside the repo | *(unset)* |
 | `QRO_INDIA_GRAPH_PATH` | Point at a national graph outside the repo | *(unset)* |
-| `TOMTOM_API_KEY` | Only `scripts/collect_tomtom_hyderabad.py`, which has never been run | *(unset)* |
+| `TOMTOM_API_KEY` | Only `scripts/collect_tomtom_hyderabad.py` | *(unset)* |
 | `VITE_USE_MOCK` | `true` runs the frontend with no backend | `false` |
 | `VITE_API_TARGET` | Where the Vite proxy sends `/api` | `http://127.0.0.1:8010` |
-
-There is no Firebase / FCM push. An earlier `FCM_SERVER_KEY` setting and a
-`POST /alerts/subscribe` endpoint were removed: the endpoint stored a token and
-answered `"subscribed"`, but nothing ever delivered to it. Driver notifications
-are pushed over the WebSocket at `/api/notifications/ws` to any open tab.
 
 Never commit `.env`.
 
@@ -337,26 +427,38 @@ Things a reader — or a judge — should know, rather than discover:
 - **Constrained routing was a negative result.** Lagrangian relaxation beat
   QPSO at every congestion budget we tried. It is kept in the repo, documented,
   and not claimed as a win.
-- **Prediction is a placeholder, and the UI says so.** No LSTM/GRU is wired
-  in; `/status` reports `prediction: "mock"` while everything else reports
-  `osm`. The Analytics chart is titled "Congestion Projection", not a forecast,
-  and carries a caption stating that the curve is current congestion extended
-  at a fixed rate. The wording comes from the backend, so it cannot drift away
-  from the implementation.
 - **Traffic is simulated**, from a Greenshields fundamental diagram with
-  capacities derived from road class, not invented numbers. `POST
-  /traffic/update` is the hook for a live feed — ingested observations are
-  written onto the graph and the next optimisation routes around them.
-- **Authentication is not real.** The login screen stores a name and email in
-  `localStorage`; no password is stored or transmitted. Replace `signIn()` in
-  `frontend/src/store/AppContext.jsx` before deploying anywhere public.
+  capacities derived from road class, and every simulated response is labelled
+  `SIMULATED`. `POST /traffic/update` is the hook for a live feed. A TomTom
+  Traffic Flow key has been verified against live Hyderabad roads, but the app
+  does not read TomTom data yet.
+- **The forecast is a real LSTM, fed a reconstructed history.** The trained
+  model is served in the app (`/status` reports
+  `prediction: "lstm+anchored-history"`). It reads the last hour of 15-minute
+  vehicle counts, and no road here keeps such a history yet, so that hour is
+  rebuilt from the congestion on the graph *now*, shaped by the measured daily
+  profile of Indian traffic. Fed the simulator, it forecasts the simulator; fed
+  real observations, the same code forecasts real traffic. Every response says
+  so in its `assumption` field. The Analytics page's older linear projection is
+  kept beside it and titled as a linear extrapolation, not a forecast.
+- **YOLO finds 91 % of vehicles by count** (off by 1.15 vehicles per image);
+  recall across all classes is 0.36, and bicycles and carts were never detected
+  in validation. No correction factor is applied — one did not improve
+  held-out accuracy. The Lab shows these figures next to every result.
+- **The navigation drive is simulated.** The car moves along real route
+  geometry at demo speed; the traffic, forecast and reroute decisions it meets
+  are the system's own.
+- **One trip at a time.** The engine monitors a single active trip for the
+  whole server. Two people navigating at once would replace each other's trip —
+  the displaced one is told so rather than silently mixed up. A multi-trip
+  engine is the main change a real fleet deployment would need.
+- **Sessions are verified on every request**, but there is no rate limiting or
+  account lockout yet; add both before any public deployment.
 - **Place search uses Nominatim**, throttled to one request per second per its
   usage policy and cached. Add a contact address to `CONTACT` in
   `app/api/places.py` before any public deployment.
-- **Every chart plots something measured.** Route Performance previously
-  plotted congestion multiplied by 30 and 60 under "Distance (km)" and "Time
-  (min)" labels; it now reads real optimisation results, and shows an empty
-  state before any route has been run rather than inventing bars.
+- **Every chart plots something measured.** An empty state is shown before any
+  route has been run, rather than invented bars.
 - **Google Maps data is deliberately not used.** Its terms forbid storing or
   training on it, and doing so would risk disqualification.
 
@@ -367,23 +469,25 @@ Things a reader — or a judge — should know, rather than discover:
 ```
 ├── engine.py                 # QROEngine — the single object the API calls
 ├── app/                      # FastAPI service
-│   ├── api/                  # Endpoints
-│   ├── services/             # Orchestration
+│   ├── api/                  # Endpoints (auth, trips, routes, agent, simulation, …)
+│   ├── core/security.py      # Passwords, signed sessions, current_user / require_admin
+│   ├── services/             # Orchestration (auth, trips, agent, monitor, notify, …)
 │   ├── integrations/         # Adapters, incl. engine_bridge.py (the real one)
 │   ├── models/               # Pydantic schemas
-│   └── database/             # MongoDB
+│   └── database/             # MongoDB (users, trips, route history, …)
 ├── optimization/             # qpso · pso · ga · dijkstra · encoding · multistop
-├── graph/                    # graph_loader · edge_weights (the cost model)
+├── graph/                    # graph_loader · edge_weights (the cost model) · vehicles
 ├── traffic/                  # congestion_model · simulator
 ├── routing/                  # route · rerouting · validator
 ├── alerts/                   # alert_engine
 ├── benchmarking/             # benchmark harness · convergence plots
 ├── preprocessing/            # osm_processor — builds the graph
-├── scripts/                  # Runnable experiments
+├── scripts/                  # Runnable experiments, create_admin.py
 ├── config/                   # places.yaml · datasets.yaml
 ├── frontend/                 # React + Vite + Leaflet
+│   └── src/pages/user/       # The driver's Dashboard, Trip History, Settings
 ├── tests/                    # pytest
-└── results/                  # Reports and plots
+└── results/                  # Trained models, reports and plots
 ```
 
 Further reading: [`DEPLOY.md`](DEPLOY.md) on hosting this (read the memory constraint
