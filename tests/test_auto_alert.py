@@ -143,3 +143,68 @@ def test_a_spike_during_a_forecast_is_not_lost(monkeypatch):
               for k in engine.G[u][v]]
     assert max(spiked) >= 0.9, (
         "the spike was overwritten by the forecast's restore — the lock is not held")
+
+
+# --------------------------------------------- the assistant only ever asks
+
+def test_previewing_the_policy_changes_nothing():
+    """preview() answers what consider() would do, and remembers none of it."""
+    from alerts.alert_engine import AlertEngine
+    from routing.rerouting import RerouteDecision
+
+    worth_it = RerouteDecision(should_reroute=True, time_saved_min=20.0, saved_pct=40.0)
+    engine = AlertEngine()
+
+    for _ in range(3):
+        alert, reason = engine.preview(worth_it)
+        assert alert is not None and reason is None
+    assert engine.history == [] and engine.last_alert_at is None and engine.suppressed == []
+
+    # The recording path still records — and then previews see its cooldown.
+    assert engine.consider(worth_it) is not None
+    assert len(engine.history) == 1 and engine.last_alert_at is not None
+    alert, reason = engine.preview(worth_it)
+    assert alert is None and "cooldown" in reason
+    assert len(engine.history) == 1, "a preview added to the history"
+
+
+def test_asking_the_robot_does_not_silence_the_real_alert(monkeypatch):
+    """
+    The bug: the robot's "should I switch?" went through the committing path.
+    It counted as the trip's alert and started the five-minute cooldown with
+    nothing shown — so the monitor's real alert moments later was suppressed.
+
+    The robot looks 15 minutes ahead, and a forecast of the jam easing makes it
+    answer "keep" — which never spent an alert, even before the fix, so the
+    test would prove nothing. The forecast is neutralised here so the robot's
+    honest answer is "I would switch": the case that used to consume the alert.
+    """
+    from app.services.agent_service import AgentReading, TrafficAgent
+
+    monkeypatch.setattr(TrafficAgent, "forecast_ahead",
+                        lambda self, eng, horizon_min: AgentReading(horizon_min=horizon_min))
+    with TestClient(app) as c:
+        c.post("/api/simulation/event?scenario=normal")
+        _new_trip(c)
+        c.post("/api/simulation/advance?progress=0.3")
+        c.post("/api/simulation/congest-route?level=0.92")
+
+        # The driver opens the robot, and asks, after the jam.
+        brief = c.get("/api/assistant/briefing").json()
+        ask = c.post("/api/assistant/ask", json={"question": "should I reroute?"}).json()
+        assert "switch" in brief["text"].lower() or "saves" in brief["text"].lower(), brief["text"]
+        assert ask["decision"]["decision"] == "reroute", ask["text"]
+
+        status = c.get("/api/agent/status").json()
+        assert status["alertsRaised"] == 0, "the robot's answer was counted as an alert"
+
+        # What the monitor does next must still raise the alert.
+        real = c.post("/api/agent/analyze?predictive=false").json()
+        assert real["decision"] == "reroute", real.get("suppressedBecause")
+        assert real["alertCommitted"] is True and real["alert"] is not None
+        assert c.get("/api/agent/status").json()["alertsRaised"] == 1
+
+        # And the robot's check of the new road, after switching, adds nothing.
+        assert c.post("/api/agent/accept").json()["ok"] is True
+        time.sleep(1)
+        assert c.get("/api/agent/status").json()["alertsRaised"] == 1

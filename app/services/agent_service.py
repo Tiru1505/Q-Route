@@ -176,13 +176,17 @@ class TrafficAgent:
 
     # ----------------------------------------------------------- deciding
     def analyse(self, horizon_min: int = DEFAULT_HORIZON_MIN,
-                apply_forecast: bool = True, force: bool = False) -> dict:
+                apply_forecast: bool = True, force: bool = False, commit: bool = True) -> dict:
         """
         The full loop: forecast ahead, re-solve, decide, explain.
 
         `apply_forecast=False` reduces this to the reactive behaviour that
         existed before — useful for showing the difference, and for the case
         where no forecaster is available.
+
+        `commit=False` answers the question without acting on it: the alert
+        policy is asked what it would do, and remembers nothing. The monitor
+        commits; the assistant never does.
         """
         from app.integrations.engine_bridge import get_engine
 
@@ -218,7 +222,7 @@ class TrafficAgent:
                     reading.source = "unavailable"
 
             try:
-                decision = engine.check_reroute(force=force)
+                decision = engine.check_reroute(force=force, commit=commit)
             finally:
                 # Restore, whatever happened above.
                 for (u, v, k), congestion in snapshot.items():
@@ -264,6 +268,10 @@ class TrafficAgent:
             "reason": self._explain(decision, reading, predictive),
             "severity": severity,
             "alert": alert,
+            # False when the assistant asked (commit=False): `alert` is then
+            # what the policy WOULD raise — nothing was counted, no cooldown
+            # started, and there is nothing for a Switch to accept.
+            "alertCommitted": decision.get("alertCommitted", True),
             "suppressedBecause": decision.get("suppressedBecause"),
             "currentEta": decision.get("currentEtaMin"),
             "alternativeEta": decision.get("newEtaMin"),

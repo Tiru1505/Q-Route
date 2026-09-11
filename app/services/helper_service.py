@@ -59,15 +59,19 @@ def _forecast_answer(graph: str | None) -> dict:
             "the road ahead and tell you if it is worth changing.")}
 
     try:
-        d = TrafficAgent(graph=graph).analyse(apply_forecast=True)
+        d = TrafficAgent(graph=graph).analyse(apply_forecast=True, commit=False)
     except AgentUnavailableError as exc:
         return {"text": str(exc)}
 
     fc = d.get("forecast") or {}
     if not fc.get("applied"):
+        # It used to stop here — promising an answer "based on conditions as
+        # they are" and then giving none. The re-solve against current traffic
+        # still happened, so its verdict is said.
         return {"text": (
             "I could not forecast the road ahead just now, so this is based on "
-            "conditions as they are rather than what is coming.")}
+            "conditions as they are rather than what is coming. " + _verdict(d)),
+            "decision": _compact(d)}
 
     direction = "rising" if fc.get("worsening") else "not rising"
     text = (
@@ -131,7 +135,7 @@ def _reroute_answer(graph: str | None) -> dict:
     from app.services.agent_service import AgentUnavailableError, TrafficAgent
 
     try:
-        d = TrafficAgent(graph=graph).analyse(apply_forecast=True)
+        d = TrafficAgent(graph=graph).analyse(apply_forecast=True, commit=False)
     except AgentUnavailableError as exc:
         return {"text": str(exc)}
     return {"text": d.get("reason") or "I have no recommendation right now.",
@@ -328,7 +332,7 @@ def check_new_route(graph: str | None = None) -> dict | None:
         engine = get_engine(graph)
         if engine.trip is None:
             return None
-        d = TrafficAgent(graph=graph).analyse(apply_forecast=True)
+        d = TrafficAgent(graph=graph).analyse(apply_forecast=True, commit=False)
         remaining = engine.trip.remaining_on_current_route(engine.G, engine.cost_model)
     except AgentUnavailableError:
         return None

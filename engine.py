@@ -440,13 +440,26 @@ class QROEngine:
         }
 
     @_serialised
-    def check_reroute(self, force=False):
-        """Is a better route available from where the driver is NOW?"""
+    def check_reroute(self, force=False, commit=True):
+        """
+        Is a better route available from where the driver is NOW?
+
+        `commit=False` asks the alert policy what it WOULD say, without letting
+        it remember: no alert counted, no cooldown started. The assistant uses
+        that to answer questions. Answering through the committing path spent
+        the trip's alert silently, and the monitor's real alert was then
+        suppressed "within cooldown".
+        """
         if self.trip is None:
             raise ValueError("No active trip.")
         engine = RerouteEngine(self.G, self.cost_model)
         decision = engine.evaluate(self.trip, force=force)
-        alert = self.alerts.consider(decision)
+        if commit:
+            alert = self.alerts.consider(decision)
+            suppressed = (None if alert else
+                          (self.alerts.suppressed[-1][0] if self.alerts.suppressed else None))
+        else:
+            alert, suppressed = self.alerts.preview(decision)
 
         payload = {
             "shouldReroute": decision.should_reroute,
@@ -459,9 +472,10 @@ class QROEngine:
             "computeMs": _round(decision.computed_ms, 1),
             "algorithm": decision.algorithm,
             "alert": alert.to_dict() if alert else None,
-            "suppressedBecause": (None if alert else
-                                  (self.alerts.suppressed[-1][0]
-                                   if self.alerts.suppressed else None)),
+            "suppressedBecause": suppressed,
+            # False for a preview: the alert above is what the policy WOULD
+            # raise, and it is not in the history a Switch would accept.
+            "alertCommitted": commit,
         }
         if decision.new_route is not None:
             payload["newRoute"] = self._serialise_route(

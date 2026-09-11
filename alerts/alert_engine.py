@@ -131,10 +131,6 @@ class AlertEngine:
         self.suppressed = []
 
     # ------------------------------------------------------------ helpers
-    def _suppress(self, reason, decision):
-        self.suppressed.append((reason, decision.time_saved_min))
-        return None
-
     def _required_saving(self):
         """Threshold, raised by hysteresis after each reroute already taken."""
         base = self.policy.min_saving_min
@@ -143,19 +139,22 @@ class AlertEngine:
         return base
 
     # -------------------------------------------------------------- main
-    def consider(self, decision, incident=None):
+    def _decide(self, decision, incident, now):
         """
-        Turn a RerouteDecision into an Alert, or into silence.
+        The policy's verdict on a RerouteDecision: (alert, None) or (None, reason).
 
-        Returns an Alert or None. Every suppression is recorded with its reason,
-        so the demo can show WHY the system stayed quiet — which is as much the
-        point as the alerts it does raise.
+        Pure: it READS the trip's memory — last alert, declines, count — and
+        changes none of it. Recording is consider()'s job. The split exists
+        because not every caller is raising an alert: the assistant asks the
+        same question to answer "should I switch?", and when that question
+        went through consider() it spent the trip's alert and started the
+        five-minute cooldown with nothing shown to the driver — so the real
+        alert, moments later, was suppressed.
         """
-        now = self.clock()
 
         # --- closures and incidents: inform immediately -------------------
         if decision.blocked:
-            return self._emit(Alert(
+            return Alert(
                 kind="closure",
                 severity="severe",
                 title="Road closed ahead",
@@ -167,10 +166,10 @@ class AlertEngine:
                 time_saved_min=max(decision.time_saved_min, 0.0),
                 saved_pct=max(decision.saved_pct, 0.0),
                 decision=decision,
-            ), now)
+            ), None
 
         if incident is not None:
-            return self._emit(Alert(
+            return Alert(
                 kind="incident",
                 severity="severe",
                 title=f"{incident.get('type', 'Incident').title()} reported",
@@ -182,23 +181,20 @@ class AlertEngine:
                 time_saved_min=max(decision.time_saved_min, 0.0),
                 saved_pct=max(decision.saved_pct, 0.0),
                 decision=decision,
-            ), now)
+            ), None
 
         if not decision.should_reroute:
-            return self._suppress(decision.reason or "no better route", decision)
+            return None, (decision.reason or "no better route")
 
         # --- gate 1: absolute saving --------------------------------------
         required = self._required_saving()
         if decision.time_saved_min < required:
-            return self._suppress(
-                f"saves {decision.time_saved_min:.1f} min, below the "
-                f"{required:.1f} min threshold", decision)
+            return None, (f"saves {decision.time_saved_min:.1f} min, below the "
+                f"{required:.1f} min threshold")
 
         # --- gate 2: relative saving --------------------------------------
         if decision.saved_pct < self.policy.min_saving_pct:
-            return self._suppress(
-                f"saves only {decision.saved_pct:.1f}% of the remaining journey",
-                decision)
+            return None, (f"saves only {decision.saved_pct:.1f}% of the remaining journey")
 
         # --- gate 3: cooldown, with an escalation override ------------------
         # A plain cooldown is wrong when the situation deteriorates sharply:
@@ -213,24 +209,22 @@ class AlertEngine:
                          and decision.time_saved_min
                          >= last_saving * self.policy.escalation_factor)
             if elapsed < self.policy.cooldown_s and not escalated:
-                return self._suppress(
-                    f"within cooldown ({elapsed:.0f}s of "
-                    f"{self.policy.cooldown_s:.0f}s)", decision)
+                return None, (f"within cooldown ({elapsed:.0f}s of "
+                    f"{self.policy.cooldown_s:.0f}s)")
 
         # --- gate 4: already declined this ---------------------------------
         if self.declined_saving_min is not None:
             needed = self.declined_saving_min * self.policy.repeat_growth_factor
             if decision.time_saved_min < needed:
-                return self._suppress(
-                    f"driver declined a {self.declined_saving_min:.1f} min saving; "
-                    f"needs {needed:.1f} min to ask again", decision)
+                return None, (f"driver declined a {self.declined_saving_min:.1f} min saving; "
+                    f"needs {needed:.1f} min to ask again")
 
         if len(self.history) >= self.policy.max_alerts_per_trip:
-            return self._suppress("alert limit for this trip reached", decision)
+            return None, ("alert limit for this trip reached")
 
         # --- passed every gate --------------------------------------------
         reorder = " by resequencing your remaining stops" if decision.stop_order_changed else ""
-        return self._emit(Alert(
+        return Alert(
             kind="reroute",
             severity="moderate" if decision.saved_pct < 25 else "severe",
             title="Faster route available",
@@ -243,7 +237,33 @@ class AlertEngine:
             time_saved_min=decision.time_saved_min,
             saved_pct=decision.saved_pct,
             decision=decision,
-        ), now)
+        ), None
+
+    def consider(self, decision, incident=None):
+        """
+        Decide, and remember the decision. The path that raises real alerts.
+
+        Returns an Alert or None. Every suppression is recorded with its reason,
+        so the demo can show WHY the system stayed quiet — which is as much the
+        point as the alerts it does raise.
+        """
+        now = self.clock()
+        alert, reason = self._decide(decision, incident, now)
+        if alert is not None:
+            return self._emit(alert, now)
+        self.suppressed.append((reason, decision.time_saved_min))
+        return None
+
+    def preview(self, decision, incident=None):
+        """
+        What consider() WOULD do, without doing it.
+
+        Returns (alert, reason) and leaves the trip's memory untouched: no
+        cooldown started, no alert counted, nothing added to the history a
+        driver's Switch would accept. For answering questions, never for
+        telling the driver to act.
+        """
+        return self._decide(decision, incident, self.clock())
 
     def _emit(self, alert, now):
         self.history.append(alert)
