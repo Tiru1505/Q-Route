@@ -1,12 +1,29 @@
 """Route optimization API endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.models.route_models import RerouteRequest, RouteRequest, RouteResponse
 from app.services.route_service import RouteService
 
+from app.core.security import SessionUser, current_user, optional_user, require_admin
+
 router = APIRouter(prefix="/routes", tags=["routes"])
+
+# Control-room actions: they change traffic, the monitor or shared state for
+# everyone, so they need an admin session (see app/core/security.py).
+_admin = [Depends(require_admin)]
 _service = RouteService()
+
+
+def _owned(request: RouteRequest, user: SessionUser | None) -> RouteRequest:
+    """
+    Tag the stored route with the SIGNED-IN user. The body's user_id used to be
+    trusted, so anyone could file routes under anyone; with a session, the
+    session decides. Unsigned calls keep the old behaviour.
+    """
+    if user is None:
+        return request
+    return request.model_copy(update={"user_id": user.id})
 
 
 @router.post(
@@ -47,8 +64,9 @@ _service = RouteService()
         503: {"description": "Graph or traffic service unavailable"},
     },
 )
-def optimize_route(request: RouteRequest) -> RouteResponse:
-    return _service.optimize(request)
+def optimize_route(request: RouteRequest,
+                   user: SessionUser | None = Depends(optional_user)) -> RouteResponse:
+    return _service.optimize(_owned(request, user))
 
 
 @router.post(
@@ -57,12 +75,14 @@ def optimize_route(request: RouteRequest) -> RouteResponse:
     summary="Get alternative routes",
     description="Generate alternative routes using different algorithms.",
 )
-def alternative_routes(request: RouteRequest) -> list[RouteResponse]:
-    return _service.get_alternatives(request)
+def alternative_routes(request: RouteRequest,
+                       user: SessionUser | None = Depends(optional_user)) -> list[RouteResponse]:
+    return _service.get_alternatives(_owned(request, user))
 
 
 @router.post(
     "/reroute",
+    dependencies=_admin,
     summary="Re-evaluate the active trip",
     description=(
         "Decide whether a better route exists from where the driver is now. "
@@ -101,13 +121,17 @@ def reroute(request: RerouteRequest) -> dict:
 @router.get(
     "/history",
     summary="Route optimization history",
-    description="Retrieve past route optimization results. Optionally filter by user_id.",
+    description="Your past route optimisations. Admins may pass user_id to see another user's.",
 )
 def route_history(
-    user_id: str | None = Query(default=None, description="Filter by user ID"),
+    user_id: str | None = Query(default=None, description="Admins only: whose history"),
     limit: int = Query(default=50, ge=1, le=200, description="Max results to return"),
+    user: SessionUser = Depends(current_user),
 ) -> dict:
-    results = _service.get_history(user_id=user_id, limit=limit)
+    # This trusted a user_id from the URL, so anyone could read anyone's
+    # routes. A user now always gets their own; an admin may name someone.
+    owner = user_id if (user.is_admin and user_id) else user.id
+    results = _service.get_history(user_id=owner, limit=limit)
     return {"results": results}
 
 

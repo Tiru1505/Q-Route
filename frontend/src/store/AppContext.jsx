@@ -5,6 +5,7 @@
  * script. Anything a single page owns stays in that page's own useState.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   DEFAULT_END, DEFAULT_START, REROUTED_ROUTE, ROUTES, TRAFFIC_SEGMENTS,
 } from '../data/mockData'
@@ -45,21 +46,29 @@ const write = (key, value) => {
 }
 
 export function AppProvider({ children }) {
+  const navigate = useNavigate()
   /* --- auth ------------------------------------------------------------
-   * DEMO AUTHENTICATION ONLY.
+   * The SERVER decides who you are. Registration, password sign-in and Google
+   * all come back as `{user, token}`: the account, with its `role`, and a
+   * signed session the API checks on every request. Nothing here can make
+   * anyone an admin — a role edited in the browser fails the signature check.
    *
-   * By default, user starts as null so that every visitor sees the Login page first.
-   * Active sessions persist in sessionStorage so refreshing within the same tab works.
+   * The session lives in sessionStorage, so each tab has its own sign-in: a
+   * user in one tab and the admin in another, which is how the demo is run.
+   *
+   * Offline mode (VITE_USE_MOCK — no backend at all) keeps a local sign-in so
+   * the bundled demo still opens: as a USER only, and marked unverified. There
+   * is no offline admin.
    */
   const [user, setUser] = useState(() => {
     try {
       // Clear legacy auto-login user from localStorage if present
       localStorage.removeItem('qro.user')
-      const sess = sessionStorage.getItem('qro.session_user')
-      const stored = sess ? JSON.parse(sess) : null
-      // Guest sign-in has been removed. A guest session saved before that
-      // would otherwise keep working for the rest of the tab's life.
-      if (stored?.guest) {
+      const stored = JSON.parse(sessionStorage.getItem('qro.session_user') || 'null')
+      // Sessions from before the server issued them have no token and no role
+      // (and guest sessions are gone). They would work until the first request
+      // and then fail, so they end here instead.
+      if (!stored || !stored.role || (!stored.token && !stored.offline)) {
         sessionStorage.removeItem('qro.session_user')
         return null
       }
@@ -68,6 +77,8 @@ export function AppProvider({ children }) {
       return null
     }
   })
+  // Why the last session ended, when it was not the person's choice.
+  const [sessionNote, setSessionNote] = useState(null)
 
   useEffect(() => {
     try {
@@ -81,45 +92,86 @@ export function AppProvider({ children }) {
     }
   }, [user])
 
-  const signIn = useCallback(async ({ email, name }) => {
-    await new Promise((r) => setTimeout(r, 650))     // make the loading state real
+  const acceptSession = useCallback(({ user: account, token }) => {
+    const next = { ...account, token, signedInAt: new Date().toISOString() }
+    // Written now, not only by the effect above: the very next request (the
+    // dashboard loading) must already carry this token.
+    try { sessionStorage.setItem('qro.session_user', JSON.stringify(next)) } catch {}
+    setSessionNote(null)
+    setUser(next)
+    return next
+  }, [])
+
+  const offlineSession = (email, name) => {
     const handle = (email || '').split('@')[0] || 'user'
-    const newUser = {
-      email: email || 'guest@qro.local',
-      name: name || handle.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      initials: (name || handle).slice(0, 2).toUpperCase(),
-      signedInAt: new Date().toISOString(),
-      guest: false,
+    const display = name || handle.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    return {
+      token: null,
+      user: {
+        id: `offline:${email}`, email, name: display, initials: display.slice(0, 2).toUpperCase(),
+        role: 'user', provider: 'offline', providers: [], offline: true,
+        preferences: { vehicle: 'car', mode: 'balanced', autoOpenAlerts: true },
+      },
     }
-    setUser(newUser)
-    try {
-      sessionStorage.setItem('qro.session_user', JSON.stringify(newUser))
-    } catch {}
-    return true
+  }
+
+  const signIn = useCallback(async ({ email, password }) => {
+    if (api.isMockMode()) return acceptSession(offlineSession(email))
+    return acceptSession(await api.loginAccount({ email, password }))
+  }, [acceptSession])
+
+  const register = useCallback(async ({ name, email, password }) => {
+    if (api.isMockMode()) return acceptSession(offlineSession(email, name))
+    return acceptSession(await api.registerAccount({ name, email, password }))
+  }, [acceptSession])
+
+  /** Google: the server verified Google's token and returned `{user, token}`. */
+  const completeSignIn = acceptSession
+
+  /** The server returned a changed account (name, preferences). */
+  const updateUser = useCallback((account) => {
+    setUser((prev) => (prev && prev.id === account.id ? { ...prev, ...account } : prev))
   }, [])
 
-  /**
-   * A user the SERVER has verified — Google sign-in. Unlike signIn() below,
-   * nothing here decides who the user is: /api/auth/google checked Google's
-   * signature, audience and verified email before returning this.
-   */
-  const completeSignIn = useCallback((verified) => {
-    const u = { ...verified, signedInAt: new Date().toISOString(), guest: false }
-    setUser(u)
-    try {
-      sessionStorage.setItem('qro.session_user', JSON.stringify(u))
-    } catch {}
-  }, [])
-
-  const signOut = useCallback(() => {
+  const signOut = useCallback((note = null) => {
     try {
       sessionStorage.removeItem('qro.session_user')
       localStorage.removeItem('qro.user')
     } catch {}
     // Otherwise Google would sign the same account straight back in.
     try { window.google?.accounts?.id?.disableAutoSelect() } catch {}
+    const reason = typeof note === 'string' ? note : null
+    setSessionNote(reason)
     setUser(null)
-  }, [])
+    // Choosing to log out lands on the sign-in page. A session that ran out
+    // keeps the address, so signing back in returns to the same page.
+    if (!reason) navigate('/login', { replace: true })
+  }, [navigate])
+
+  // The server ends sessions (expiry, a changed key); the app follows.
+  useEffect(() => {
+    api.setSessionExpiredHandler(() => signOut('Your session ended. Please sign in again.'))
+  }, [signOut])
+
+  // Re-read the account once per session: a name changed elsewhere shows up,
+  // and a role changed on the server asks for a fresh sign-in — the session
+  // still carries the old role, and the two disagreeing would be confusing.
+  useEffect(() => {
+    if (!user?.token) return
+    let cancelled = false
+    api.getMe()
+      .then(({ user: account }) => {
+        if (cancelled) return
+        if (account.role !== user.role) {
+          signOut('Your access changed. Please sign in again.')
+          return
+        }
+        updateUser(account)
+      })
+      .catch(() => { /* an expired session is handled by the 401 handler */ })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.token])
 
   /* --- preferences ------------------------------------------------------ */
   const [theme, setTheme] = useState(() => read('qro.theme', 'dark'))
@@ -160,6 +212,15 @@ export function AppProvider({ children }) {
     setVehicleState(v)
     try { localStorage.setItem('qroute.vehicle', v) } catch { /* not persisted; still applied */ }
   }, [])
+  // A signed-in user's saved preferences become the planner's defaults.
+  useEffect(() => {
+    const prefs = user?.preferences
+    if (!prefs) return
+    if (prefs.vehicle) setVehicle(prefs.vehicle)
+    if (prefs.mode) setMode(prefs.mode)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
+
   /* Which road network to route on. 'hyderabad' has every street but stops at
    * the ORR; 'india' reaches the whole country along arterial roads only, so
    * it cannot deliver to an address. Switching it clears the endpoints,
@@ -203,6 +264,20 @@ export function AppProvider({ children }) {
   /* --- rerouting -------------------------------------------------------- */
   const [rerouting, setRerouting] = useState(false)
   const [rerouteResult, setRerouteResult] = useState(null)
+
+  /* --- navigation (the user dashboard's trip) ----------------------------
+   * `trip` is the server's record of the journey; `navRoute` is the road the
+   * car on the map is driving now — the chosen route, then whatever the user
+   * switched to. The car's position is reported back, so the monitor always
+   * looks at the road still ahead of it.
+   */
+  const [trip, setTrip] = useState(null)
+  const [navRoute, setNavRoute] = useState(null)
+  const [navState, setNavState] = useState('idle')   // idle | starting | driving | paused | arrived
+  const [tripError, setTripError] = useState(null)
+  // The server's reading at the car's last reported position: remaining ETA
+  // measured on the graph with current traffic, not estimated in the browser.
+  const [navReading, setNavReading] = useState(null)
 
   /* --- demo mode -------------------------------------------------------- */
   const [demoMode, setDemoMode] = useState(false)
@@ -254,7 +329,7 @@ export function AppProvider({ children }) {
       const res = await api.getRouteOptimization({
         start, end, algorithm, mode, vehicle, graph,
         // Tags the saved route so History can show this user's own trips.
-        userId: user?.email || null,
+        userId: user?.id || null,
       })
       if (!res || !Array.isArray(res.routes) || !res.routes.length || !res.recommended) {
         throw new Error('The optimizer returned no usable route. Please try again.')
@@ -270,7 +345,7 @@ export function AppProvider({ children }) {
     } finally {
       setOptimizing(false)
     }
-  }, [start, end, algorithm, mode, vehicle, graph, user?.email])
+  }, [start, end, algorithm, mode, vehicle, graph, user?.id])
 
   const applyAssistantActions = useCallback((actions = []) => {
     actions.forEach((action) => {
@@ -357,10 +432,27 @@ export function AppProvider({ children }) {
         setError(res?.reason ? `Could not switch: ${res.reason}.` : 'Could not switch route.')
         return null
       }
+      setLatestAlert((a) => (a ? { ...a, resolved: 'accepted' } : a))
       if (res.newRoute) {
         // A distinct id: the backend numbers routes from r1, which would
         // replace the original on the map instead of standing beside it.
         const newRoute = { ...res.newRoute, id: `rerouted-${Date.now()}`, label: 'New route', recommended: true }
+        // A car on the road carries on along the new route. The server has
+        // already recorded the switch on the trip; this mirrors its figures.
+        setNavRoute((current) => (current ? newRoute : current))
+        setNavReading(null)
+        setTrip((t) => (t && res.tripId === t.id ? {
+          ...t,
+          rerouted: true,
+          reroutes: [...(t.reroutes || []), {
+            previousEtaMin: res.previousEtaMin, newEtaMin: res.newEtaMin,
+            timeSavedMin: res.timeSavedMin, savedPct: res.savedPct,
+          }],
+          originalEtaMin: t.originalEtaMin ?? res.previousEtaMin,
+          optimizedEtaMin: res.newEtaMin,
+          timeSavedMin: Number(((t.timeSavedMin || 0) + (res.timeSavedMin || 0)).toFixed(1)),
+          currentRoute: { distanceKm: newRoute.distanceKm, etaMin: newRoute.etaMin, via: newRoute.via },
+        } : t))
         setRoutes((prev) => [newRoute, ...prev.map((r) => ({ ...r, recommended: false }))])
         setSelectedRouteId(newRoute.id)
         setRoutesVersion((v) => v + 1)
@@ -388,8 +480,110 @@ export function AppProvider({ children }) {
   // Returns the backend's answer, so the robot can say whether it took.
   // Monitoring continues either way.
   const keepRoute = useCallback(async () => {
+    setLatestAlert((a) => (a ? { ...a, resolved: 'declined' } : a))
     try { return await api.declineReroute(graph) } catch { return null }
   }, [graph])
+
+  /* --- navigation actions ---------------------------------------------- */
+
+  /** Drive the selected route: it becomes the trip the server monitors. */
+  const startNavigation = useCallback(async () => {
+    const route = selectedRoute
+    setTripError(null)
+    if (!route || !start || !end) return null
+    if (!route.nodes?.length) {
+      setTripError('This route has no road data to follow. Find the route again, then start.')
+      return null
+    }
+    if (api.isMockMode()) {
+      setTripError('Navigation needs the server: it is what watches the road ahead.')
+      return null
+    }
+    setNavState('starting')
+    try {
+      const res = await api.startTrip({
+        route, start, end, graph, vehicle, mode, requestId: lastRun?.requestId,
+      })
+      setTrip(res.trip)
+      setNavRoute(route)
+      setNavReading(null)
+      setRerouteResult(null)
+      setLatestAlert(null)
+      setRouteCheck(null)
+      setNavState('driving')
+      return res.trip
+    } catch (err) {
+      setNavState('idle')
+      setTripError(err.message || 'Could not start navigation.')
+      return null
+    }
+  }, [selectedRoute, start, end, graph, vehicle, mode, lastRun?.requestId])
+
+  /** Where the car is, as a fraction of the current route's road nodes. */
+  const reportNavProgress = useCallback(async (fraction) => {
+    if (!trip || trip.status !== 'active') return
+    try {
+      setNavReading(await api.reportTripProgress(trip.id, fraction))
+    } catch (err) {
+      // 409: another route was planned on the server since, so this journey
+      // is no longer the one being watched. Say so and stop the car.
+      if (err.status === 409) {
+        setTripError(err.message)
+        setNavState('paused')
+      }
+    }
+  }, [trip])
+
+  const arrive = useCallback(async () => {
+    setNavState('arrived')
+    if (!trip) return
+    try {
+      const res = await api.finishTrip(trip.id, 'completed')
+      setTrip(res.trip)
+    } catch (err) {
+      setTripError(err.message || 'Arrived, but the trip could not be saved.')
+    }
+  }, [trip])
+
+  const endTrip = useCallback(async () => {
+    const current = trip
+    setNavState('idle')
+    setNavRoute(null)
+    if (!current || current.status !== 'active') return
+    try {
+      const res = await api.finishTrip(current.id, 'cancelled')
+      setTrip(res.trip)
+    } catch { /* the trip stays active on the server until the next one starts */ }
+  }, [trip])
+
+  const pauseNavigation = useCallback(() => setNavState((s) => (s === 'driving' ? 'paused' : s)), [])
+  const resumeNavigation = useCallback(() => setNavState((s) => (s === 'paused' ? 'driving' : s)), [])
+
+  /** Plan a fresh trip: leaves the finished one in history. */
+  const clearTrip = useCallback(() => {
+    setTrip(null)
+    setNavRoute(null)
+    setNavState('idle')
+    setTripError(null)
+    setRerouteResult(null)
+  }, [])
+
+  // Signing out leaves nothing of this person's journey for whoever signs in
+  // next in the same tab.
+  useEffect(() => {
+    if (user) return
+    setRoutes([])
+    setSelectedRouteId(null)
+    setTrip(null)
+    setNavRoute(null)
+    setNavState('idle')
+    setTripError(null)
+    setRerouteResult(null)
+    setLatestAlert(null)
+    setRouteCheck(null)
+    setDemoMode(false)
+    setDemoStep(null)
+  }, [user])
 
   /**
    * Every notification the backend pushes passes through here, so the demo
@@ -566,7 +760,7 @@ export function AppProvider({ children }) {
   }, [])
 
   const value = {
-    user, signIn, signUp: signIn, completeSignIn, signOut,
+    user, signIn, register, completeSignIn, signOut, updateUser, sessionNote,
     theme, setTheme,
     collapsed, setCollapsed,
     settings, setSettings,
@@ -584,6 +778,9 @@ export function AppProvider({ children }) {
     spikeAt, spiking, latestAlert, routeCheck, triggerSpike, reportNotification,
     rerouting, rerouteResult, switchRoute, keepRoute,
     demoMode, demoStep, startDemo, stopDemo, resetScenario,
+    trip, navRoute, navState, navReading, tripError, setTripError,
+    startNavigation, reportNavProgress, arrive, endTrip,
+    pauseNavigation, resumeNavigation, clearTrip,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

@@ -40,6 +40,8 @@ SAMPLE_BODY = {
     "destination": {"lat": 17.3616, "lon": 78.4747},
     "algorithm": "dijkstra",
     "question": "help",
+    # POST /trips: the route the car will drive. The graph is checked first.
+    "route": {"distance_km": 1.0, "eta_min": 2.0, "nodes": ["1", "2"]},
 }
 PATH_PARAMS = {"algorithm": "dijkstra"}
 

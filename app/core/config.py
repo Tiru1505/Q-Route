@@ -32,11 +32,27 @@ class Settings(BaseSettings):
     # Empty means Google sign-in is off, and the login page says so.
     google_client_id: str = ""
 
+    # Sessions. This key signs the token the browser presents on every request.
+    # Set it in .env: without one a random key is made at start-up, which works
+    # but signs everybody out whenever the server restarts.
+    session_secret: str = ""
+    session_hours: int = 12
+
+    # Comma-separated Google account emails that are admins. Only Google
+    # sign-in consults this list, because only Google has verified the address;
+    # a password registration proves nothing about who owns the email typed.
+    # Password admins are created with scripts/create_admin.py.
+    admin_emails: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def admin_email_set(self) -> set[str]:
+        return {e.strip().lower() for e in self.admin_emails.split(",") if e.strip()}
 
     @property
     def is_development(self) -> bool:

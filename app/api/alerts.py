@@ -1,11 +1,17 @@
 """Alert and notification API endpoints."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.models.alert_models import Alert, TriggerAlertRequest
 from app.services.alert_service import AlertService
 
+from app.core.security import require_admin
+
 router = APIRouter(prefix="/alerts", tags=["alerts"])
+
+# Control-room actions: they change traffic, the monitor or shared state for
+# everyone, so they need an admin session (see app/core/security.py).
+_admin = [Depends(require_admin)]
 _service = AlertService()
 
 
@@ -24,6 +30,7 @@ def alerts(
 
 @router.post(
     "/trigger",
+    dependencies=_admin,
     summary="Raise an alert on demand",
     description=(
         "Create a real alert immediately, for demonstrating the alerting path "
@@ -39,6 +46,7 @@ def trigger_alert(request: TriggerAlertRequest) -> dict:
 
 @router.post(
     "/clear",
+    dependencies=_admin,
     summary="Clear alerts",
     description="Remove alerts so a demo can be run again from a clean slate.",
 )

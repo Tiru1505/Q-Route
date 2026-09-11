@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 
 from app.services.vision_service import (
     DEFAULT_SEGMENT_M,
@@ -13,7 +13,13 @@ from app.services.vision_service import (
     VisionUnavailableError,
 )
 
+from app.core.security import require_admin
+
 router = APIRouter(prefix="/vision", tags=["vision"])
+
+# Control-room actions: they change traffic, the monitor or shared state for
+# everyone, so they need an admin session (see app/core/security.py).
+_admin = [Depends(require_admin)]
 _service = VisionService()
 
 IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/bmp"}
@@ -23,6 +29,7 @@ MAX_BYTES = 40 * 1024 * 1024          # 40 MB — a 30 s clip fits comfortably
 
 @router.post(
     "/analyse",
+    dependencies=_admin,
     summary="Detect and count vehicles in a road image or clip",
     description=(
         "Runs the trained YOLO detector over an uploaded photo or video.\n\n"
@@ -140,6 +147,7 @@ def roads(
 
 @router.post(
     "/reset",
+    dependencies=_admin,
     summary="Clear a session's rolling window",
     description="Drops the observations accumulated for one session id.",
 )
@@ -180,6 +188,7 @@ def observations() -> dict:
 
 @router.post(
     "/observations/clear",
+    dependencies=_admin,
     summary="Forget observed traffic",
     description="Drops recorded observations for one road, or all of them.",
 )

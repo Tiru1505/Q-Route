@@ -136,7 +136,11 @@ export default function AssistantPanel() {
   const {
     graph, start, end, selectedRoute, routes, segments, incidents,
     applyAssistantActions, demoMode, switchRoute, keepRoute, reportNotification,
+    latestAlert, user,
   } = useApp()
+  // A user may prefer the badge to the robot opening itself (Settings).
+  const autoOpenRef = useRef(true)
+  autoOpenRef.current = user?.preferences?.autoOpenAlerts !== false
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -194,8 +198,17 @@ export default function AssistantPanel() {
     })
     // The alert is the briefing: fetching one now would only be discarded.
     briefedRef.current = true
-    setOpen(true)
+    if (autoOpenRef.current) setOpen(true)
   }, [reportNotification])
+
+  // Answered somewhere else — the dashboard's recommendation card — so this
+  // message stops offering buttons for a decision already made.
+  useEffect(() => {
+    if (!latestAlert?.resolved) return
+    const status = latestAlert.resolved === 'accepted' ? 'switched' : 'kept'
+    setMessages((m) => m.map((x) => (
+      x.id === latestAlert.id && x.status === 'pending' ? { ...x, status } : x)))
+  }, [latestAlert])
 
   const connected = useNotificationSocket(deliver)
 

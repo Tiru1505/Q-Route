@@ -66,6 +66,9 @@ export function mapRoute(payload, index = 0, opts = {}) {
     runtimeMs: payload?.execution_time_ms ?? null,
     hops: Array.isArray(r.nodes) ? r.nodes.length : path.length,
     path,
+    // The road-graph nodes, one per point of `path`. Navigation sends them so
+    // the server monitors exactly the roads the car on the map drives.
+    nodes: Array.isArray(r.nodes) ? r.nodes.map(String) : null,
   }
 }
 

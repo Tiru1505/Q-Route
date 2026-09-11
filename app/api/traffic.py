@@ -1,13 +1,19 @@
 """Traffic data API endpoints."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.models.route_models import Coordinate
 from app.models.traffic_models import TrafficPrediction, TrafficUpdate
 from app.services.prediction_service import PredictionService
 from app.services.traffic_service import TrafficService
 
+from app.core.security import require_admin
+
 router = APIRouter(prefix="/traffic", tags=["traffic"])
+
+# Control-room actions: they change traffic, the monitor or shared state for
+# everyone, so they need an admin session (see app/core/security.py).
+_admin = [Depends(require_admin)]
 _traffic_service = TrafficService()
 _prediction_service = PredictionService()
 
@@ -28,6 +34,7 @@ def current_traffic() -> dict:
 
 @router.post(
     "/update",
+    dependencies=_admin,
     summary="Push traffic data update",
     description="Ingest new traffic records from sensors, APIs, or manual input.",
     responses={

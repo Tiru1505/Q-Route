@@ -22,7 +22,15 @@ const samePlace = (a, b) => {
   return Math.abs(a.lat - b.lat) < 1e-6 && Math.abs(a.lon - b.lon) < 1e-6
 }
 
-export default function RouteSelector({ onOptimize, busy }) {
+/**
+ * `variant="user"` is the driver's planner: where from, where to, which
+ * vehicle, what matters most. The algorithm picker, Demo Mode and reset are
+ * control-room tools and stay on the admin dashboard; QPSO still runs for
+ * every route either way — the user sees its result, not its controls.
+ * `locked` holds the plan still while a trip is being driven.
+ */
+export default function RouteSelector({ onOptimize, busy, variant = 'admin', locked = false }) {
+  const isUser = variant === 'user'
   const {
     start,
     setStart,
@@ -136,7 +144,8 @@ export default function RouteSelector({ onOptimize, busy }) {
           before the preferences below it */}
       <VehicleSelector />
 
-      {/* ALGORITHM */}
+      {/* ALGORITHM — admin only */}
+      {!isUser && (
       <div className="field route-field">
         <label htmlFor="algo">Algorithm</label>
 
@@ -160,10 +169,11 @@ export default function RouteSelector({ onOptimize, busy }) {
           </div>
         )}
       </div>
+      )}
 
       {/* OPTIMIZATION OBJECTIVE */}
       <div className="field route-field">
-        <label>Optimization objective</label>
+        <label>{isUser ? 'Route preference' : 'Optimization objective'}</label>
 
         <div className="segmented route-segmented">
           {OPTIMIZATION_MODES.map((m) => (
@@ -183,7 +193,7 @@ export default function RouteSelector({ onOptimize, busy }) {
       <button
         className="btn btn-primary btn-block optimize-route-btn"
         onClick={onOptimize}
-        disabled={busy || !ready}
+        disabled={busy || !ready || locked}
       >
         {busy ? (
           <Zap size={15} className="spin" style={{ color: '#FFB347' }} />
@@ -192,11 +202,18 @@ export default function RouteSelector({ onOptimize, busy }) {
         )}
 
         <span>
-          {busy ? 'Optimizing…' : 'Optimize Route'}
+          {isUser
+            ? (busy ? 'Finding the best route…' : 'Find best route')
+            : (busy ? 'Optimizing…' : 'Optimize Route')}
         </span>
       </button>
 
       {/* WHY THE BUTTON IS DISABLED */}
+      {locked && (
+        <p className="route-warning">
+          End the current trip to plan a new one.
+        </p>
+      )}
       {!busy && incomplete && (
         <p className="route-warning">
           Choose a start and a destination.
@@ -208,7 +225,8 @@ export default function RouteSelector({ onOptimize, busy }) {
         </p>
       )}
 
-      {/* DEMO + RESET */}
+      {/* DEMO + RESET — admin only */}
+      {!isUser && (
       <div className="route-actions">
 
         <button
@@ -234,6 +252,7 @@ export default function RouteSelector({ onOptimize, busy }) {
         </button>
 
       </div>
+      )}
     </div>
   )
 }

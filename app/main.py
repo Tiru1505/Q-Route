@@ -28,6 +28,7 @@ from app.api.prediction import router as prediction_router
 from app.api.vehicles import router as vehicles_router
 from app.api.simulation import router as simulation_router
 from app.api.traffic import router as traffic_router
+from app.api.trips import router as trips_router
 from app.api.vision import router as vision_router
 from app.core.config import get_settings
 from app.core.errors import SmartRouteError, domain_error_handler, validation_error_handler
@@ -202,6 +203,7 @@ app.include_router(graphs_router, prefix="/api")
 app.include_router(monitor_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
+app.include_router(trips_router, prefix="/api")
 app.include_router(routes_router, prefix="/api")
 app.include_router(places_router, prefix="/api")
 app.include_router(optimization_router, prefix="/api")

@@ -225,16 +225,20 @@ export default function Dashboard() {
             onAccept={() => setSelectedRouteId(rerouteResult?.newRoute?.id)}
           />
 
-          {!demoMode && !rerouteResult && !awaitingAlert && showResults && (
+          {/* Shown without a route of the admin's own too: in the two-tab
+              demo the active trip is a USER's, and planning a route here
+              would replace it. The spike lands on whichever trip is active. */}
+          {!demoMode && !rerouteResult && !awaitingAlert && (
             <div className="card">
               <div className="card-title">
                 <TriangleAlert size={13} />
                 Traffic Simulation
               </div>
               <p style={{ fontSize: 11.5, color: 'var(--text-dim)', marginBottom: 11 }}>
-                Congest the road ahead of the driver. The monitor detects it on
-                its own and alerts you if a better route exists — this button
-                changes the traffic, not the alert.
+                Congest the road ahead of the active trip, yours or a user's who
+                is navigating. The monitor detects it on its own and alerts the
+                driver if a better route exists. This button changes the
+                traffic, not the alert.
               </p>
               <button className="btn btn-sm btn-block" onClick={() => triggerSpike()} disabled={spiking}>
                 {spiking ? 'Applying spike…' : 'Simulate Congestion Spike'}

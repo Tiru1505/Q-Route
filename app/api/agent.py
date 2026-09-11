@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
 from graph.errors import UnknownGraphError
+
+from app.core.security import current_user
 
 from app.services.agent_service import (
     DEFAULT_HORIZON_MIN,
@@ -14,9 +16,14 @@ from app.services.agent_service import (
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
+# Analyse, accept and decline all change the shared trip and its alert policy,
+# so each needs someone signed in. Status only reads.
+_signed_in = [Depends(current_user)]
+
 
 @router.post(
     "/analyze",
+    dependencies=_signed_in,
     summary="Should the driver reroute?",
     description=(
         "Runs the full decision loop on the active trip: forecast the road "
@@ -50,6 +57,7 @@ def analyze(
 
 @router.post(
     "/accept",
+    dependencies=_signed_in,
     summary="Driver switched to the recommended route",
     description=(
         "The recommended route becomes the active trip and monitoring "
@@ -64,11 +72,19 @@ def accept(background: BackgroundTasks, graph: str | None = Query(default=None))
     from app.integrations.engine_bridge import get_engine
     from app.services.helper_service import check_new_route
 
+    from app.services import trip_service
+
     engine = get_engine(graph)
     if engine.trip is None:
         raise HTTPException(status_code=409, detail="No active trip.")
+    # Which journey this switch belongs to, read before the engine replaces
+    # its trip. The server knows; the browser is not asked.
+    trip_id = trip_service.monitored_trip(engine)
     out = engine.accept_reroute()
     if out.get("ok") and out.get("newRoute"):
+        if trip_id:
+            trip_service.record_reroute(trip_id, engine, out)
+            out["tripId"] = trip_id
         background.add_task(check_new_route, graph)
         out["routeCheck"] = "scheduled"
     return out
@@ -76,6 +92,7 @@ def accept(background: BackgroundTasks, graph: str | None = Query(default=None))
 
 @router.post(
     "/decline",
+    dependencies=_signed_in,
     summary="Driver kept the current route",
     description=(
         "The current route stands. Monitoring continues, and the policy's "
@@ -86,10 +103,16 @@ def accept(background: BackgroundTasks, graph: str | None = Query(default=None))
 def decline(graph: str | None = Query(default=None)) -> dict:
     from app.integrations.engine_bridge import get_engine
 
+    from app.services import trip_service
+
     engine = get_engine(graph)
     if engine.trip is None:
         raise HTTPException(status_code=409, detail="No active trip.")
-    return engine.decline_reroute()
+    trip_id = trip_service.monitored_trip(engine)
+    out = engine.decline_reroute()
+    if out.get("ok") and trip_id:
+        trip_service.record_decline(trip_id)
+    return out
 
 
 @router.get(

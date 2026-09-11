@@ -3,25 +3,35 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Activity, BarChart3, Bell, ChevronLeft, ChevronRight, FlaskConical,
-  History as HistoryIcon, LayoutDashboard, Menu, Pin, ScanEye,
+  History as HistoryIcon, LayoutDashboard, LogOut, Menu, Pin, ScanEye,
   Settings as SettingsIcon, X,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { SYSTEM_STATUS } from '../data/mockData'
 
+// The admin console: every page the app had before roles, unchanged, now
+// under /admin. (The old paths redirect here for admins.)
 export const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/traffic', label: 'Live Traffic', icon: Activity },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/vision', label: 'Traffic Analysis Lab', icon: ScanEye },
-  { to: '/benchmark', label: 'Benchmark', icon: FlaskConical },
-  { to: '/alerts', label: 'Alerts', icon: Bell, showCount: true },
-  { to: '/history', label: 'History', icon: HistoryIcon },
-  { to: '/settings', label: 'Settings', icon: SettingsIcon },
+  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/traffic', label: 'Live Traffic', icon: Activity },
+  { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/admin/vision', label: 'Traffic Analysis Lab', icon: ScanEye },
+  { to: '/admin/benchmark', label: 'Benchmark', icon: FlaskConical },
+  { to: '/admin/alerts', label: 'Alerts', icon: Bell, showCount: true },
+  { to: '/admin/history', label: 'History', icon: HistoryIcon },
+  { to: '/admin/settings', label: 'Settings', icon: SettingsIcon },
 ]
 
-export default function Sidebar() {
-  const { collapsed, setCollapsed, alerts, theme } = useApp()
+// A driver's app: plan and drive, look back, adjust.
+export const USER_NAV_ITEMS = [
+  { to: '/user/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/user/history', label: 'History', icon: HistoryIcon },
+  { to: '/user/settings', label: 'Settings', icon: SettingsIcon },
+]
+
+export default function Sidebar({ items = NAV_ITEMS, variant = 'admin' }) {
+  const { collapsed, setCollapsed, alerts, theme, user, signOut } = useApp()
+  const isUser = variant === 'user'
   const location = useLocation()
   const closeTimer = useRef(null)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -89,7 +99,7 @@ export default function Sidebar() {
                 transition={{ duration: 0.2 }}
               >
                 <strong>Quantum Route</strong>
-                <span>Optimizer</span>
+                <span>{isUser ? 'Your journeys' : 'Admin console'}</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -116,7 +126,7 @@ export default function Sidebar() {
         </div>
 
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map(({ to, label, icon: Icon, end, showCount }) => (
+          {items.map(({ to, label, icon: Icon, end, showCount }) => (
             <NavLink
               key={to}
               to={to}
@@ -138,7 +148,30 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        {!collapsed && (
+        {isUser && (
+          <div className="sidebar-profile" data-collapsed={collapsed}>
+            {!collapsed && (
+              <div className="sidebar-profile-who">
+                <span className="avatar" aria-hidden="true">{user?.initials || 'QR'}</span>
+                <div>
+                  <strong>{user?.name}</strong>
+                  <span>{user?.email}</span>
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              className="nav-item sidebar-logout"
+              onClick={() => signOut()}
+              title={collapsed ? 'Logout' : undefined}
+            >
+              <LogOut size={17} />
+              {!collapsed && <span>Logout</span>}
+            </button>
+          </div>
+        )}
+
+        {!collapsed && !isUser && (
           <div className="sidebar-foot">
             <div className="row-between">
               <span>Theme</span>
@@ -166,7 +199,7 @@ export default function Sidebar() {
 
       {/* Bottom navigation replaces the sidebar below 900px */}
       <nav className="mobile-nav">
-        {NAV_ITEMS.slice(0, 5).map(({ to, label, icon: Icon, end }) => {
+        {items.slice(0, 5).map(({ to, label, icon: Icon, end }) => {
           const active = end ? location.pathname === to : location.pathname.startsWith(to)
           return (
             <NavLink key={to} to={to} end={end} className={active ? 'active' : ''}>

@@ -35,24 +35,12 @@ def claims(**overrides):
     return base
 
 
-class FakeUsers:
-    """Records what sign-in writes, so no test user lands in the real database."""
-
-    def __init__(self):
-        self.upserts = []
-
-    def update_one(self, filter, update, upsert=False):
-        self.upserts.append((filter, update, upsert))
-
-
 @pytest.fixture(autouse=True)
-def users(monkeypatch):
+def users(memory_db):
     # The first version of these tests signed "Priya Sharma" into the real
     # `users` collection, and she had to be deleted by hand. Every test here
-    # gets a stand-in instead.
-    fake = FakeUsers()
-    monkeypatch.setattr("app.database.collections.get_users_col", lambda: fake)
-    return fake
+    # gets an in-memory stand-in instead.
+    return memory_db["users"]
 
 
 @pytest.fixture
@@ -95,26 +83,30 @@ def test_a_verified_google_account_signs_in(configured, google_says, users):
     seen = google_says(claims())
     r = client.post("/api/auth/google", json={"credential": TOKEN})
     assert r.status_code == 200, r.text
-    user = r.json()["user"]
-    assert user == {
+    body = r.json()
+    user = body["user"]
+    assert {k: user[k] for k in ("email", "name", "initials", "picture", "provider", "role")} == {
         "email": "priya.sharma@example.com", "name": "Priya Sharma", "initials": "PS",
         "picture": "https://lh3.googleusercontent.com/a/example", "provider": "google",
+        "role": "user",
     }
+    assert body["token"], "a verified sign-in starts a session"
     # The token was checked against THIS app's client ID, not any Google app's.
     assert seen["audience"] == CLIENT_ID
     assert seen["credential"] == TOKEN
 
-    # Recorded once, keyed by Google's stable account id rather than the email,
-    # which a person can change.
-    [(filter, update, upsert)] = users.upserts
-    assert filter == {"google_sub": "109876543210"} and upsert is True
-    assert update["$set"]["email"] == "priya.sharma@example.com"
+    # Recorded once, keyed by Google's stable account id — and signing in
+    # again finds the same account rather than making a second.
+    [doc] = users.docs
+    assert doc["google_sub"] == "109876543210" and doc["email"] == "priya.sharma@example.com"
+    again = client.post("/api/auth/google", json={"credential": TOKEN}).json()
+    assert again["user"]["id"] == user["id"] and len(users.docs) == 1
 
 
 def test_a_refused_token_records_nobody(configured, google_says, users):
     google_says(claims(email_verified=False))
     assert client.post("/api/auth/google", json={"credential": TOKEN}).status_code == 401
-    assert users.upserts == []
+    assert users.docs == []
 
 
 @pytest.mark.parametrize("reason,outcome", [
@@ -126,7 +118,7 @@ def test_a_token_that_fails_any_check_is_refused(configured, google_says, reason
     google_says(outcome)
     r = client.post("/api/auth/google", json={"credential": TOKEN})
     assert r.status_code == 401, f"{reason}: {r.status_code}"
-    assert "user" not in r.json()
+    assert "user" not in r.json() and "token" not in r.json()
 
 
 def test_a_missing_or_trivial_credential_never_reaches_google(configured, google_says):

@@ -1,16 +1,23 @@
 """Benchmarking API endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.models.benchmark_models import BenchmarkRequest, BenchmarkResult, ConvergenceResult
 from app.services.benchmark_service import BenchmarkService
 
+from app.core.security import require_admin
+
 router = APIRouter(prefix="/benchmark", tags=["benchmark"])
+
+# Control-room actions: they change traffic, the monitor or shared state for
+# everyone, so they need an admin session (see app/core/security.py).
+_admin = [Depends(require_admin)]
 _service = BenchmarkService()
 
 
 @router.post(
     "/run",
+    dependencies=_admin,
     response_model=BenchmarkResult,
     summary="Run algorithm benchmark",
     description=(

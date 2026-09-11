@@ -25,9 +25,11 @@ export default function History() {
     // visitor's trips, because the backend filtered on a user_id the frontend
     // never sent.
     setRows(null)
-    getRouteHistory(user?.email || null).then((d) => !cancelled && setRows(d))
+    // The server scopes this to the signed-in session now; the email is no
+    // longer sent (or trusted).
+    getRouteHistory().then((d) => !cancelled && setRows(d))
     return () => { cancelled = true }
-  }, [user?.email])
+  }, [user?.id])
 
   const filtered = useMemo(() => {
     if (!rows) return null
@@ -134,7 +136,7 @@ export default function History() {
                     <td>
                       <button
                         className="btn btn-sm"
-                        onClick={() => navigate('/')}
+                        onClick={() => navigate('/admin/dashboard')}
                         title="Open in the dashboard planner"
                       >
                         Open

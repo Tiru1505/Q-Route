@@ -20,9 +20,15 @@ observed traffic.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.core.security import require_admin
 
 router = APIRouter(prefix="/simulation", tags=["simulation"])
+
+# Control-room actions: they change traffic, the monitor or shared state for
+# everyone, so they need an admin session (see app/core/security.py).
+_admin = [Depends(require_admin)]
 
 # The scenarios the traffic layer actually implements. Exposed rather than
 # duplicated, so this list cannot drift from what the simulator supports.
@@ -60,6 +66,7 @@ def scenarios(graph: str | None = Query(default=None)) -> dict:
 
 @router.post(
     "/event",
+    dependencies=_admin,
     summary="Trigger a traffic event",
     description=(
         "Switches the traffic layer to a scenario and re-applies it to the "
@@ -115,6 +122,7 @@ def event(
 
 @router.post(
     "/congest-route",
+    dependencies=_admin,
     summary="Congest the active route specifically",
     description=(
         "Raises congestion on the road the driver is actually on.\n\n"
@@ -148,6 +156,7 @@ def congest_route(
 
 @router.post(
     "/advance",
+    dependencies=_admin,
     summary="Move the simulated driver along the route",
     description=(
         "Places the driver `progress` of the way along the active trip. Nothing "
@@ -179,6 +188,7 @@ def advance(
 
 @router.post(
     "/reset",
+    dependencies=_admin,
     summary="Return traffic to normal",
     description="Clears events and closures by re-applying the 'normal' scenario.",
 )

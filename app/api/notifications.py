@@ -12,12 +12,18 @@ opened needs the recent ones and a WebSocket only carries what happens next.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 
 from app.core.logging import get_logger
 from app.services import notify_service
 
+from app.core.security import require_admin
+
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+# Control-room actions: they change traffic, the monitor or shared state for
+# everyone, so they need an admin session (see app/core/security.py).
+_admin = [Depends(require_admin)]
 _logger = get_logger("api.notifications")
 
 
@@ -47,13 +53,14 @@ def recent(limit: int = Query(default=20, ge=1, le=50)) -> dict:
     }
 
 
-@router.post("/clear", summary="Discard notifications")
+@router.post("/clear", dependencies=_admin, summary="Discard notifications")
 def clear() -> dict:
     return notify_service.clear()
 
 
 @router.post(
     "/test",
+    dependencies=_admin,
     summary="Send a test notification",
     description=(
         "Publishes a notification from the agent's current view, so delivery "

@@ -15,6 +15,8 @@ const MESSAGES = {
   password: 'Turning around! Your password is 100% private 🙈🔒',
   email2: 'Welcome back! Good to see you 😊',
   password2: 'Turning around! Your password is 100% private 🙈🔒',
+  passwordConfirm: 'Once more, so a typo cannot lock you out 🔁',
+  admin: 'Admin access. Accounts are issued, not registered 🛡️',
 }
 
 export function Robot({ turned }) {
@@ -107,7 +109,9 @@ function AnimatedField({
           ? 'Full Name'
           : field === 'email' || field === 'email2'
             ? 'Email Address'
-            : 'Password'}
+            : field === 'passwordConfirm'
+              ? 'Confirm Password'
+              : 'Password'}
       </label>
 
       <div
@@ -169,13 +173,20 @@ export default function AnimatedAuthForm({
   setShowPassword,
   onSubmit,
   busy,
+  confirmPassword = '',
+  setConfirmPassword = () => {},
+  submitLabel = null,
+  minPassword = 8,
 }) {
+  // Admin access is a sign-in with a different door, not a different form.
+  const signinLike = mode !== 'signup'
+  const greeting = mode === 'admin' ? MESSAGES.admin : MESSAGES.email2
 
   const [turned, setTurned] = useState(false)
 
   const [bubble, setBubble] = useState(
-    mode === 'signin'
-      ? MESSAGES.email2
+    signinLike
+      ? greeting
       : MESSAGES.idle
   )
 
@@ -183,17 +194,18 @@ export default function AnimatedAuthForm({
     setTurned(false)
 
     setBubble(
-      mode === 'signin'
-        ? MESSAGES.email2
+      signinLike
+        ? greeting
         : MESSAGES.idle
     )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 
   const handlePasswordFocus = () => {
     setTurned(true)
 
     setBubble(
-      mode === 'signin'
+      signinLike
         ? MESSAGES.password2
         : MESSAGES.password
     )
@@ -203,8 +215,8 @@ export default function AnimatedAuthForm({
     setTurned(false)
 
     setBubble(
-      mode === 'signin'
-        ? MESSAGES.email2
+      signinLike
+        ? greeting
         : MESSAGES.email
     )
   }
@@ -302,7 +314,7 @@ export default function AnimatedAuthForm({
               key={mode}
               initial={{
                 opacity: 0,
-                x: mode === 'signin' ? 25 : -25,
+                x: signinLike ? 25 : -25,
               }}
               animate={{
                 opacity: 1,
@@ -310,7 +322,7 @@ export default function AnimatedAuthForm({
               }}
               exit={{
                 opacity: 0,
-                x: mode === 'signin' ? -25 : 25,
+                x: signinLike ? -25 : 25,
               }}
               transition={{
                 duration: 0.35,
@@ -341,7 +353,7 @@ export default function AnimatedAuthForm({
               >
                 <AnimatedField
                   field={
-                    mode === 'signin'
+                    signinLike
                       ? 'email2'
                       : 'email'
                   }
@@ -363,7 +375,7 @@ export default function AnimatedAuthForm({
               >
                 <AnimatedField
                   field={
-                    mode === 'signin'
+                    signinLike
                       ? 'password2'
                       : 'password'
                   }
@@ -371,12 +383,26 @@ export default function AnimatedAuthForm({
                   onChange={(e) =>
                     setPassword(e.target.value)
                   }
-                  placeholder="At least 4 characters"
+                  placeholder={signinLike ? 'Your password' : `At least ${minPassword} characters`}
                   icon={<Lock size={16} />}
                   showPassword={showPassword}
                   setShowPassword={setShowPassword}
                 />
               </div>
+
+              {mode === 'signup' && (
+                <div onFocus={() => { setTurned(true); setBubble(MESSAGES.passwordConfirm) }}>
+                  <AnimatedField
+                    field="passwordConfirm"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Type the password again"
+                    icon={<Lock size={16} />}
+                    showPassword={showPassword}
+                    setShowPassword={setShowPassword}
+                  />
+                </div>
+              )}
 
 
               <motion.button
@@ -393,9 +419,7 @@ export default function AnimatedAuthForm({
 
                 {busy
                   ? 'Processing…'
-                  : mode === 'signin'
-                    ? 'Sign In'
-                    : 'Create Account'}
+                  : submitLabel || (signinLike ? 'Sign In' : 'Create Account')}
 
                 <span>→</span>
 
@@ -410,7 +434,18 @@ export default function AnimatedAuthForm({
 
         <div className="qro-animation-switch">
 
-          {mode === 'signin' ? (
+          {mode === 'admin' ? (
+            <>
+              Not an admin?
+
+              <button
+                type="button"
+                onClick={() => setMode('signin')}
+              >
+                Sign in as a user
+              </button>
+            </>
+          ) : mode === 'signin' ? (
             <>
               Don't have an account?
 
@@ -432,7 +467,7 @@ export default function AnimatedAuthForm({
   type="button"
   onClick={() => {
     setMode('signin')
-    setBubble(MESSAGES.email2)
+    setBubble(greeting)
   }}
 >
   Sign In

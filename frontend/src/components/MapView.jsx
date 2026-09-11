@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MapContainer,
   Marker,
@@ -538,6 +538,199 @@ function AnimatedCar({
 }
 
 /* ============================================================
+   NAVIGATION CAR — the user's own car, driving their trip
+   ============================================================ */
+
+const EARTH_RADIUS_M = 6371008.8
+
+function haversineM(a, b) {
+  const toRad = Math.PI / 180
+  const dLat = (b[0] - a[0]) * toRad
+  const dLon = (b[1] - a[1]) * toRad
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(a[0] * toRad) * Math.cos(b[0] * toRad) * Math.sin(dLon / 2) ** 2
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h))
+}
+
+/** Compass bearing from a to b, degrees clockwise from north — the car icon points north at 0. */
+function bearingDeg(a, b) {
+  const toRad = Math.PI / 180
+  const y = Math.sin((b[1] - a[1]) * toRad) * Math.cos(b[0] * toRad)
+  const x = Math.cos(a[0] * toRad) * Math.sin(b[0] * toRad)
+    - Math.sin(a[0] * toRad) * Math.cos(b[0] * toRad) * Math.cos((b[1] - a[1]) * toRad)
+  return (Math.atan2(y, x) * 180) / Math.PI
+}
+
+// A top-down car pointing north, so rotating it by the compass bearing points
+// it along the road. Drawn as SVG: the older car markup above relies on
+// .car-body / .car-wheel styles that were never written, and renders nothing.
+// Not given the 'animated-car-marker' class either — that class's
+// reduced-motion rule sets transform:none, which is how Leaflet positions a
+// marker, and would pin the car to the map's corner.
+const NAV_CAR_ICON = L.divIcon({
+  className: 'nav-car-marker',
+  html: `
+    <div class="nav-car" role="img" aria-label="Your car">
+      <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+        <ellipse cx="16.5" cy="17.5" rx="9.5" ry="13.5" fill="rgba(0,0,0,0.28)"/>
+        <rect x="8" y="3" width="16" height="26" rx="6" fill="#FF6B35" stroke="#ffffff" stroke-width="1.6"/>
+        <rect x="10.4" y="8.2" width="11.2" height="6" rx="2" fill="#dbe9ff"/>
+        <rect x="10.8" y="19.4" width="10.4" height="4.6" rx="1.8" fill="#b9cbe6"/>
+        <rect x="9.6" y="3.6" width="3.2" height="2" rx="1" fill="#fff4b8"/>
+        <rect x="19.2" y="3.6" width="3.2" height="2" rx="1" fill="#fff4b8"/>
+      </svg>
+    </div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+})
+
+/**
+ * The car follows the route's real geometry at a steady speed.
+ *
+ * The admin map's car (AnimatedCar above) loops forever and gives every
+ * segment the same number of frames, so it crawls through a junction's short
+ * segments and races down a long straight. This one moves by DISTANCE: it
+ * knows how many metres along the road it is, advances by speed × time each
+ * frame, and finds the segment that distance falls in. It drives once, from
+ * source to destination, and stops.
+ *
+ * It moves the Leaflet marker directly rather than through React state, so a
+ * frame costs a setLatLng, not a re-render of the map.
+ *
+ * When the route is switched mid-journey, the new route begins where the
+ * driver was when the agent decided — a few seconds behind the car. Starting
+ * at the new route's nearest point to the car keeps it where it is instead of
+ * jumping back.
+ */
+function NavigationCar({ path, legKey, running, speedMps, onProgress, onArrive }) {
+  const map = useMap()
+  const markerRef = useRef(null)
+  const distRef = useRef(0)
+  const lastPosRef = useRef(null)
+  const arrivedRef = useRef(false)
+  const callbacks = useRef({ onProgress, onArrive })
+  callbacks.current = { onProgress, onArrive }
+
+  // One leg = one path. Keyed on the leg, not the array: the same path handed
+  // down again by a re-render must not restart the car.
+  const leg = useMemo(() => {
+    const cum = [0]
+    for (let i = 1; i < path.length; i += 1) cum.push(cum[i - 1] + haversineM(path[i - 1], path[i]))
+
+    // Where this leg begins: the start of the route, or the point nearest the car.
+    let startIndex = 0
+    const here = lastPosRef.current
+    if (here) {
+      let bestD = Infinity
+      path.forEach((p, i) => {
+        const d = haversineM(here, p)
+        if (d < bestD) { bestD = d; startIndex = i }
+      })
+    }
+    return { cum, total: cum[cum.length - 1] || 0, startIndex, first: path[startIndex] }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [legKey])
+
+  const place = (dist) => {
+    const { cum } = leg
+    // Binary search for the segment the distance falls in.
+    let lo = 0
+    let hi = cum.length - 1
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1
+      if (cum[mid] <= dist) lo = mid
+      else hi = mid
+    }
+    const a = path[lo]
+    const b = path[Math.min(lo + 1, path.length - 1)]
+    const span = cum[lo + 1] - cum[lo] || 1
+    const t = Math.min(Math.max((dist - cum[lo]) / span, 0), 1)
+    const pos = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
+    lastPosRef.current = pos
+
+    const marker = markerRef.current
+    if (marker) {
+      marker.setLatLng(pos)
+      const el = marker.getElement()?.querySelector('.nav-car')
+      if (el && (a[0] !== b[0] || a[1] !== b[1])) el.style.transform = `rotate(${bearingDeg(a, b)}deg)`
+    }
+    // Progress in road nodes is what the server's trip counts in.
+    return { pos, nodeFraction: path.length > 1 ? (lo + t) / (path.length - 1) : 1 }
+  }
+
+  // A new leg starts at its own start point (or next to the car).
+  useEffect(() => {
+    distRef.current = leg.cum[leg.startIndex] || 0
+    arrivedRef.current = false
+  }, [leg])
+
+  useEffect(() => {
+    if (!leg.total) return undefined
+    const { pos } = place(distRef.current)
+    if (!running || arrivedRef.current) return undefined
+
+    let frame
+    let last = performance.now()
+    let lastReport = 0
+    let lastPan = 0
+    let done = false
+    if (!map.getBounds().contains(pos)) map.panTo(pos, { animate: true })
+
+    const step = (now) => {
+      // Capped, so a long stall resumes with a short hop rather than a leap.
+      const dt = Math.min((now - last) / 1000, 2)
+      last = now
+      distRef.current = Math.min(distRef.current + speedMps * dt, leg.total)
+      const { pos: here, nodeFraction } = place(distRef.current)
+
+      if (now - lastReport > 2000) {
+        lastReport = now
+        callbacks.current.onProgress?.(nodeFraction, distRef.current / leg.total)
+      }
+      // Keep the car in view, without fighting someone panning the map.
+      if (now - lastPan > 1500) {
+        lastPan = now
+        if (!map.getBounds().pad(-0.15).contains(here)) map.panTo(here, { animate: true })
+      }
+      if (distRef.current >= leg.total) {
+        done = true
+        arrivedRef.current = true
+        callbacks.current.onProgress?.(1, 1)
+        callbacks.current.onArrive?.()
+      }
+    }
+
+    // Smooth motion comes from animation frames. Browsers stop sending those
+    // to a tab in the background — and the two-tab demo puts the user's tab
+    // there while the admin works — so a watchdog keeps the trip moving at
+    // the same speed whenever frames stop arriving.
+    const tick = (now) => {
+      if (done) return
+      step(now)
+      if (!done) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    const watchdog = setInterval(() => {
+      const now = performance.now()
+      if (!done && now - last > 300) step(now)
+    }, 250)
+    return () => { cancelAnimationFrame(frame); clearInterval(watchdog) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, leg, speedMps])
+
+  if (!leg.first) return null
+  return (
+    <Marker
+      ref={markerRef}
+      position={leg.first}
+      icon={NAV_CAR_ICON}
+      interactive={false}
+      zIndexOffset={1200}
+    />
+  )
+}
+
+/* ============================================================
    SMALL TRAFFIC CAR
    ============================================================ */
 
@@ -753,6 +946,16 @@ export default function MapView({
 
   center = HYDERABAD_CENTER,
   zoom = 12,
+
+  /*
+   * The user's trip: { path, legKey, running, speedMps, onProgress, onArrive }.
+   * When present, the user's own car drives it; the admin map passes nothing
+   * and keeps its looping car exactly as before.
+   */
+  navigation = null,
+  // The small cars that illustrate traffic on the route. The user map turns
+  // them off, so the only car on it is theirs.
+  decorativeCars = true,
 }) {
   /* ==========================================================
      ORDER ROUTES
@@ -975,7 +1178,19 @@ export default function MapView({
           MAIN CAR
           ====================================================== */}
 
+      {navigation?.path?.length >= 2 && (
+        <NavigationCar
+          path={navigation.path}
+          legKey={navigation.legKey}
+          running={navigation.running}
+          speedMps={navigation.speedMps}
+          onProgress={navigation.onProgress}
+          onArrive={navigation.onArrive}
+        />
+      )}
+
       {showTraffic &&
+        !navigation &&
         selectedRoute && (
           <AnimatedCar
             key={`
@@ -1003,6 +1218,7 @@ export default function MapView({
           ====================================================== */}
 
       {showTraffic &&
+        decorativeCars &&
         selectedRoute &&
         selectedRoute.path
           ?.length >= 2 && (

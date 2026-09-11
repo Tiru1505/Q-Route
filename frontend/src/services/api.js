@@ -59,11 +59,51 @@ class ApiError extends Error {
   }
 }
 
+/* --------------------------------------------------------- the session
+ *
+ * The server signs a session token at sign-in; it rides on every request as
+ * `Authorization: Bearer ...`, and the server decides from it who is calling
+ * and whether they may. The token lives in sessionStorage with the user, so
+ * each browser tab holds its own sign-in — which is how a demo can show a
+ * user in one tab and the admin in another.
+ */
+const SESSION_KEY = 'qro.session_user'
+
+export function sessionToken() {
+  try {
+    return JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null')?.token || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The session header on its own, for calls that cannot go through `request`
+ * — an upload, whose Content-Type must be left to the browser. Forgetting it
+ * there is how the Traffic Analysis Lab first failed after sign-in became real:
+ * the server refused the upload as coming from nobody.
+ */
+export function authHeaders() {
+  const token = sessionToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+// Set by the app: what to do when the server says the session is over.
+let onSessionExpired = null
+export function setSessionExpiredHandler(fn) {
+  onSessionExpired = fn
+}
+
 async function request(path, options = {}) {
+  const token = sessionToken()
   try {
     const res = await fetch(`${BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
       ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
     })
     if (!res.ok) {
       // A failing response that is not JSON did not come from our API at all —
@@ -77,7 +117,19 @@ async function request(path, options = {}) {
       if (!type.includes('json')) {
         throw new ApiError(`No API at ${BASE} (host returned ${res.status}).`, 0)
       }
-      throw new ApiError(`Request failed: ${res.statusText}`, res.status)
+      // The API's own explanation, when it gave one — "Email or password is
+      // incorrect" is worth more to the person than "Unauthorized".
+      let message = `Request failed: ${res.statusText}`
+      try {
+        const body = await res.json()
+        message = body?.error?.message || body?.detail || message
+        if (typeof message !== 'string') message = `Request failed: ${res.statusText}`
+      } catch { /* keep the status text */ }
+      // A signed request refused as unauthenticated means the session is over
+      // (expired, or the server's key changed). Sign-in attempts carry no token,
+      // so a wrong password never lands here.
+      if (res.status === 401 && token) onSessionExpired?.(message)
+      throw new ApiError(message, res.status)
     }
     return await res.json()
   } catch (err) {
@@ -308,9 +360,79 @@ export async function getAuthConfig() {
   return request('/auth/config')
 }
 
-/** Exchange a Google ID token for a user the server has verified. */
+/** Exchange a Google ID token for a verified user and a session: `{user, token}`. */
 export async function signInWithGoogle(credential) {
   return request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) })
+}
+
+/* ------------------------------------------------------------ accounts */
+
+export async function registerAccount({ name, email, password }) {
+  return request('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) })
+}
+
+export async function loginAccount({ email, password }) {
+  return request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
+}
+
+export async function getMe() {
+  return request('/auth/me')
+}
+
+export async function updateMe({ name, preferences } = {}) {
+  return request('/auth/me', { method: 'PATCH', body: JSON.stringify({ name, preferences }) })
+}
+
+export async function changePassword({ currentPassword, newPassword }) {
+  return request('/auth/password', {
+    method: 'POST',
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  })
+}
+
+/* --------------------------------------------------------------- trips
+ *
+ * A trip is one journey: started on the route the user chose, moved along by
+ * the car on the map, switched when the agent recommends it, finished on
+ * arrival. The switch itself is recorded by /agent/accept on the server.
+ */
+
+export async function startTrip({ route, start, end, graph, vehicle, mode, requestId }) {
+  return request('/trips', {
+    method: 'POST',
+    body: JSON.stringify({
+      graph,
+      request_id: requestId || null,
+      source: { name: start?.name || '', lat: start.lat ?? start.coords?.[0], lon: start.lon ?? start.coords?.[1] },
+      destination: { name: end?.name || '', lat: end.lat ?? end.coords?.[0], lon: end.lon ?? end.coords?.[1] },
+      route: {
+        label: route.label || '',
+        via: route.via || '',
+        distance_km: route.distanceKm,
+        eta_min: route.etaMin,
+        congestion: Math.min(Math.max(route.congestion || 0, 0), 1),
+        nodes: route.nodes,
+      },
+      vehicle,
+      mode,
+    }),
+  })
+}
+
+export async function reportTripProgress(tripId, fraction) {
+  return request(`/trips/${tripId}/progress`, { method: 'POST', body: JSON.stringify({ fraction }) })
+}
+
+export async function getTripOutlook(tripId) {
+  return request(`/trips/${tripId}/outlook`)
+}
+
+export async function finishTrip(tripId, status) {
+  return request(`/trips/${tripId}/finish`, { method: 'POST', body: JSON.stringify({ status }) })
+}
+
+export async function getTrips() {
+  return request('/trips')
 }
 
 /**
@@ -541,13 +663,17 @@ export async function analyseRoadMedia(file, { session, segmentM, sampleFps, max
   if (city) body.append('city', city)
   if (roadId) body.append('road_id', roadId)
 
-  const res = await fetch(`${BASE}/vision/analyse`, { method: 'POST', body })
+  // The session goes with it: analysing footage is an admin action, and the
+  // server refuses an upload that names nobody.
+  const headers = authHeaders()
+  const res = await fetch(`${BASE}/vision/analyse`, { method: 'POST', body, headers })
   if (!res.ok) {
     let detail = `Analysis failed (${res.status})`
     try {
       const j = await res.json()
-      detail = j?.detail || j?.error?.message || detail
+      detail = j?.error?.message || j?.detail || detail
     } catch { /* non-JSON error body */ }
+    if (res.status === 401 && headers.Authorization) onSessionExpired?.(detail)
     throw new ApiError(detail, res.status)
   }
   return res.json()
@@ -571,7 +697,7 @@ export async function getRoads(city, q = '', limit = 50) {
 
 export async function resetVisionSession(session) {
   const res = await fetch(`${BASE}/vision/reset?session=${encodeURIComponent(session)}`,
-                          { method: 'POST' })
+                          { method: 'POST', headers: authHeaders() })
   return res.ok ? res.json() : { cleared: false }
 }
 

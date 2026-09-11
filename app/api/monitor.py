@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.services import monitor_service
 
+from app.core.security import require_admin
+
 router = APIRouter(prefix="/monitor", tags=["monitor"])
+
+# Control-room actions: they change traffic, the monitor or shared state for
+# everyone, so they need an admin session (see app/core/security.py).
+_admin = [Depends(require_admin)]
 
 
 @router.post(
     "/start",
+    dependencies=_admin,
     summary="Start watching the active trip",
     description=(
         "Runs the decision loop on a timer instead of waiting to be asked.\n\n"
@@ -38,6 +45,7 @@ async def start(
 
 @router.post(
     "/stop",
+    dependencies=_admin,
     summary="Stop watching",
     description="Ends the loop and waits for the in-flight tick to finish.",
 )

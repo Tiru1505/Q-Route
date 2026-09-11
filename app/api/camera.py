@@ -14,11 +14,17 @@ from __future__ import annotations
 
 import pathlib
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.logging import get_logger
 
+from app.core.security import require_admin
+
 router = APIRouter(prefix="/camera", tags=["camera"])
+
+# Control-room actions: they change traffic, the monitor or shared state for
+# everyone, so they need an admin session (see app/core/security.py).
+_admin = [Depends(require_admin)]
 _logger = get_logger("api.camera")
 
 _feed = None
@@ -50,6 +56,7 @@ def _get_feed():
 
 @router.post(
     "/start",
+    dependencies=_admin,
     summary="Start watching a road",
     description=(
         "Opens the source and counts vehicles across a line, continuously.\n\n"
@@ -107,7 +114,7 @@ def start(
     )
 
 
-@router.post("/stop", summary="Stop watching")
+@router.post("/stop", dependencies=_admin, summary="Stop watching")
 def stop() -> dict:
     return _get_feed().stop()
 

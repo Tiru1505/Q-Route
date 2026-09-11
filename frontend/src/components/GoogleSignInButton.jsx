@@ -53,11 +53,15 @@ function GoogleMark() {
   )
 }
 
-export default function GoogleSignInButton({ onError }) {
+export default function GoogleSignInButton({ onError, onVerified }) {
   const { completeSignIn } = useApp()
   const holder = useRef(null)
   const onErrorRef = useRef(onError)
   onErrorRef.current = onError
+  // The Admin Access tab passes its own check; everywhere else the verified
+  // session is simply accepted.
+  const onVerifiedRef = useRef(onVerified)
+  onVerifiedRef.current = onVerified
   // loading | ready | verifying | off | failed
   const [state, setState] = useState('loading')
   const [note, setNote] = useState(null)
@@ -86,8 +90,11 @@ export default function GoogleSignInButton({ onError }) {
           callback: async ({ credential }) => {
             setState('verifying')
             try {
-              const { user } = await signInWithGoogle(credential)
-              completeSignIn(user)
+              const session = await signInWithGoogle(credential)
+              const accepted = onVerifiedRef.current
+                ? onVerifiedRef.current(session)
+                : completeSignIn(session)
+              if (accepted === false) setState('ready')
             } catch (err) {
               setState('ready')
               onErrorRef.current?.(err.message || 'Google sign-in failed.')

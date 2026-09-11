@@ -5,24 +5,48 @@ import {
   ArrowRight, Atom, Bell, Eye, EyeOff, GitBranch, Loader2, Lock, Mail,
   ShieldAlert, User, Zap,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useApp } from '../store/AppContext'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import { SYSTEM_STATUS } from '../data/mockData'
+import * as api from '../services/api'
 
-export default function Login() {
-  const { signIn } = useApp()
+const MIN_PASSWORD = 8
 
-  const [mode, setMode] = useState('signin') // 'signin' | 'signup'
+/**
+ * Three doors, one account system.
+ *
+ *   Sign In            any account; the server's answer decides where you land
+ *   Register as User   name, email, password (twice) — always a USER account
+ *   Admin Access       a sign-in that only admits accounts the server says
+ *                      are admins. There is no admin registration: admin
+ *                      accounts are issued by whoever runs the server.
+ *
+ * Nothing on this page decides a role. It sends credentials and shows what
+ * the server returned.
+ */
+export default function Login({ initialMode = 'signin' }) {
+  const { signIn, register, completeSignIn, sessionNote } = useApp()
+  const navigate = useNavigate()
+
+  const [mode, setMode] = useState(initialMode) // 'signin' | 'signup' | 'admin'
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
-
-  // Fixed positions so the particles don't jump on every keystroke.
-  
+  /** The Admin tab admits admins only; anyone else is told, and not signed in. */
+  const admitAdminOnly = (session) => {
+    if (session?.user?.role !== 'admin') {
+      setError('This account does not have admin access. Use the Sign In tab.')
+      return false
+    }
+    completeSignIn(session)
+    return true
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -32,28 +56,54 @@ export default function Login() {
       setError('Please enter your name.')
       return
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
       setError('Enter a valid email address.')
       return
     }
-    if (password.length < 4) {
-      setError('Password must be at least 4 characters.')
+    if (mode === 'signup') {
+      if (password.length < MIN_PASSWORD) {
+        setError(`Use a password of at least ${MIN_PASSWORD} characters.`)
+        return
+      }
+      if (password !== confirmPassword) {
+        setError('The two passwords do not match.')
+        return
+      }
+    } else if (!password) {
+      setError('Enter your password.')
       return
     }
 
     setBusy(true)
     try {
-      await signIn({ email, name: mode === 'signup' ? name.trim() : '' })
-    } catch {
-      setError('Sign-in failed. Please try again.')
+      if (mode === 'signup') {
+        await register({ name: name.trim(), email: email.trim(), password })
+      } else if (mode === 'admin') {
+        if (api.isMockMode()) {
+          setError('Admin access needs the server; offline mode has no admins.')
+          return
+        }
+        admitAdminOnly(await api.loginAccount({ email: email.trim(), password }))
+      } else {
+        await signIn({ email: email.trim(), password })
+      }
+    } catch (err) {
+      setError(err?.message && err.status !== 0
+        ? err.message
+        : 'Cannot reach the Q Route server. Is the backend running?')
     } finally {
       setBusy(false)
     }
   }
+
   const switchMode = (newMode) => {
-  setMode(newMode)
-  setError(null)
-}
+    setMode(newMode)
+    setError(null)
+    setConfirmPassword('')
+    // Keep the address honest about which door is open.
+    navigate(newMode === 'signup' ? '/register' : '/login', { replace: true })
+  }
+
   return (
     <div className="login">
       {/* Full-screen animated background */}
@@ -236,11 +286,13 @@ export default function Login() {
       ease: [0.22, 1, 0.36, 1],
     }}
   >
-    <div className="qro-mode-tabs">
+    <div className="qro-mode-tabs qro-mode-tabs-3" role="tablist" aria-label="How to sign in">
       <button
         className={mode === 'signin' ? 'active' : ''}
         onClick={() => switchMode('signin')}
         type="button"
+        role="tab"
+        aria-selected={mode === 'signin'}
       >
         Sign In
       </button>
@@ -249,14 +301,35 @@ export default function Login() {
         className={mode === 'signup' ? 'active' : ''}
         onClick={() => switchMode('signup')}
         type="button"
+        role="tab"
+        aria-selected={mode === 'signup'}
       >
-        Register
+        Register as User
+      </button>
+
+      <button
+        className={mode === 'admin' ? 'active' : ''}
+        onClick={() => switchMode('admin')}
+        type="button"
+        role="tab"
+        aria-selected={mode === 'admin'}
+      >
+        <ShieldAlert size={12} /> Admin Access
       </button>
     </div>
 
+    {sessionNote && <p className="login-auth-note" role="status">{sessionNote}</p>}
+
+    {mode === 'admin' && (
+      <p className="login-admin-note">
+        For the traffic control room. Admin accounts are issued by whoever runs
+        the Q Route server, so there is no admin sign-up.
+      </p>
+    )}
+
     <AnimatedAuthForm
       mode={mode}
-      setMode={setMode}
+      setMode={switchMode}
       name={name}
       email={email}
       password={password}
@@ -267,19 +340,23 @@ export default function Login() {
       setShowPassword={setShowPassword}
       onSubmit={submit}
       busy={busy}
+      confirmPassword={confirmPassword}
+      setConfirmPassword={setConfirmPassword}
+      minPassword={MIN_PASSWORD}
+      submitLabel={mode === 'admin' ? 'Sign in as admin' : null}
     />
 
     <div className="login-divider">or</div>
 
-    <GoogleSignInButton onError={setError} />
+    <GoogleSignInButton
+      onError={setError}
+      onVerified={mode === 'admin' ? admitAdminOnly : undefined}
+    />
 
     {error && <p className="login-auth-error" role="status">{error}</p>}
 
-    {/* NOTE FOR DEVELOPERS (removed from the UI at the team's request):
-        there is no auth backend. Nothing here validates a credential, and the
-        password is never stored or transmitted — only a name/email/initials
-        object goes into localStorage. Replace signIn() in store/AppContext.jsx
-        with a real backend call before this is deployed anywhere public. */}
+    {/* Credentials go to /api/auth/*: the server hashes passwords (PBKDF2),
+        issues a signed session, and decides the role. */}
 
     <p
       style={{

@@ -63,7 +63,7 @@ function BrandMark() {
   )
 }
 
-export default function Navbar() {
+export default function Navbar({ items = NAV_ITEMS, settingsPath = '/admin/settings' }) {
   const { alerts, dismissAlert, theme, setTheme, segments, user, signOut } = useApp()
   const [open, setOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -72,7 +72,7 @@ export default function Navbar() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const current = NAV_ITEMS.find((n) =>
+  const current = items.find((n) =>
     n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)
   )
   const status = cityStatus(segments)
@@ -175,11 +175,11 @@ export default function Navbar() {
 
               <button
                 className="item"
-                onClick={() => { setMenuOpen(false); navigate('/settings') }}
+                onClick={() => { setMenuOpen(false); navigate(settingsPath) }}
               >
                 <SettingsIcon size={14} /> Settings
               </button>
-              <button className="item danger" onClick={signOut}>
+              <button className="item danger" onClick={() => signOut()}>
                 <LogOut size={14} /> Sign out
               </button>
             </motion.div>
