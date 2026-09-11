@@ -34,6 +34,7 @@ transient advice about a journey in progress rather than a record of anything.
 from __future__ import annotations
 
 import asyncio
+import math
 import threading
 import time
 import uuid
@@ -65,6 +66,17 @@ def bind_loop(loop: asyncio.AbstractEventLoop) -> None:
 
 # --------------------------------------------------------------- building
 
+def _whole(x: float) -> int:
+    """
+    Round half up, the way a person — and the browser's Math.round — does.
+
+    Python's formatting rounds half to even, so 40.5 min printed as "40" here
+    while the robot's figures line, rounded in JavaScript, said "41": two
+    numbers for one ETA, side by side in the same message.
+    """
+    return int(math.floor(float(x) + 0.5))
+
+
 def _template(decision: dict) -> str:
     """
     The notification, written from measured values alone.
@@ -84,11 +96,11 @@ def _template(decision: dict) -> str:
     if decision.get("decision") == "reroute":
         pct = decision.get("savedPct") or 0
         return (f"Heavy traffic ahead on your route. Switching saves about "
-                f"{saved:.0f} minutes — {current:.0f} min now versus "
-                f"{alternative:.0f} min on the alternative, {pct:.0f}% better.")
+                f"{_whole(saved)} minutes — {_whole(current)} min now versus "
+                f"{_whole(alternative)} min on the alternative, {_whole(pct)}% better.")
 
     if decision.get("betterButBelowThreshold"):
-        return (f"A slightly faster route exists, saving about {saved:.0f} "
+        return (f"A slightly faster route exists, saving about {_whole(saved)} "
                 "minutes. That is below the threshold for suggesting a change, "
                 "so you are staying on your current route.")
 

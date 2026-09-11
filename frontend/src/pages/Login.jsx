@@ -6,6 +6,7 @@ import {
   ShieldAlert, User, Zap,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 import { SYSTEM_STATUS } from '../data/mockData'
 
 export default function Login() {
@@ -268,7 +269,9 @@ export default function Login() {
       busy={busy}
     />
 
+    <div className="login-divider">or</div>
 
+    <GoogleSignInButton onError={setError} />
 
     {error && <p className="login-auth-error" role="status">{error}</p>}
 

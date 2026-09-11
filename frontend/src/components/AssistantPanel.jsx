@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Loader2, MessageCircle, Send, Sparkles, X } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import * as api from '../services/api'
+import useNotificationSocket from '../hooks/useNotificationSocket'
 import robotImage from '../assets/q-route-ai-robot.png'
-import NotificationToasts from './NotificationToasts'
+import RobotNotice from './RobotNotice'
 
 /**
  * The robot, and what it is allowed to say.
@@ -21,6 +22,12 @@ import NotificationToasts from './NotificationToasts'
  *
  * On opening, the robot speaks first. Congestion forming ahead is not
  * something a driver should have to think to ask about.
+ *
+ * And it does not wait to be opened. When the monitor pushes an alert, or the
+ * check of a route the driver has just switched to, the robot opens itself and
+ * says it in the thread — with the Switch / Keep buttons on that message. If
+ * the driver closes the panel with an alert still unanswered, the robot keeps
+ * a red badge until it is.
  */
 
 const DEFAULT_SUGGESTIONS = [
@@ -37,7 +44,7 @@ const SOURCE_LABEL = {
   unmatched: 'Outside what I track',
 }
 
-function AssistantRobot({ busy, open, onClick }) {
+function AssistantRobot({ busy, open, alerting, onClick }) {
   const stageRef = useRef(null)
   const targetRef = useRef({ x: 0, y: 0 })
   const currentRef = useRef({ x: 0, y: 0 })
@@ -102,14 +109,15 @@ function AssistantRobot({ busy, open, onClick }) {
   return (
     <button
       ref={stageRef}
-      className={`assistant-float-button ${near ? 'is-near' : ''} ${busy ? 'is-thinking' : ''}`}
+      className={`assistant-float-button ${near ? 'is-near' : ''} ${busy ? 'is-thinking' : ''} ${alerting ? 'is-alerting' : ''}`}
       type="button"
       onClick={onClick}
-      aria-label="Ask Q Route AI"
+      aria-label={alerting ? 'Q Route AI has a traffic alert for you' : 'Ask Q Route AI'}
       aria-expanded={open}
-      title="Ask Q Route AI"
+      title={alerting ? 'Traffic alert waiting' : 'Ask Q Route AI'}
     >
       <span className="assistant-pulse" aria-hidden="true" />
+      {alerting && !open && <span className="assistant-badge" aria-hidden="true">!</span>}
       <span className="assistant-robot-art">
         <span className={`assistant-eye-layer ${blinking ? 'is-blinking' : ''}`} aria-hidden="true">
           <span className="assistant-eye assistant-eye-left" />
@@ -127,7 +135,7 @@ function AssistantRobot({ busy, open, onClick }) {
 export default function AssistantPanel() {
   const {
     graph, start, end, selectedRoute, routes, segments, incidents,
-    applyAssistantActions,
+    applyAssistantActions, demoMode, switchRoute, keepRoute, reportNotification,
   } = useApp()
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
@@ -165,11 +173,56 @@ export default function AssistantPanel() {
     return () => { cancelled = true }
   }, [open, graph])
 
+  /**
+   * The robot delivers what the backend pushed.
+   *
+   * Reported to the app first, so the demo moves on the SYSTEM's alert — the
+   * only signal that one happened. A new alert retires any older one still
+   * waiting: accepting always acts on the latest suggestion, so an old
+   * message's button would switch to a route it never described.
+   */
+  const deliver = useCallback((note) => {
+    reportNotification(note)
+    setMessages((m) => {
+      if (m.some((x) => x.id === note.id)) return m
+      const earlier = note.actionable
+        ? m.map((x) => (x.status === 'pending' ? { ...x, status: 'superseded' } : x))
+        : m
+      return [...earlier, {
+        id: note.id, role: 'assistant', note, status: note.actionable ? 'pending' : null,
+      }]
+    })
+    // The alert is the briefing: fetching one now would only be discarded.
+    briefedRef.current = true
+    setOpen(true)
+  }, [reportNotification])
+
+  const connected = useNotificationSocket(deliver)
+
+  // Switching goes through the app, not straight to the API, so the map is
+  // redrawn with the route the backend switched to.
+  const act = useCallback(async (id, accept) => {
+    setMessages((m) => m.map((x) => (x.id === id ? { ...x, status: 'working' } : x)))
+    const res = await (accept ? switchRoute() : keepRoute())
+    let status = res?.ok ? (accept ? 'switched' : 'kept') : 'failed'
+    let outcome = null
+    if (!res?.ok) {
+      outcome = res?.reason ? `That did not go through: ${res.reason}.` : null
+    } else if (accept && res.newEtaMin != null && res.previousEtaMin != null) {
+      outcome = `Switched. ${Math.round(res.newEtaMin)} min on the new route instead of `
+        + `${Math.round(res.previousEtaMin)} — it is drawn on the map. I will check it next.`
+    }
+    setMessages((m) => m.map((x) => (x.id === id ? { ...x, status, outcome } : x)))
+  }, [switchRoute, keepRoute])
+
+  const alerting = messages.some((m) => m.status === 'pending')
+
   async function submit(text = draft) {
     const content = text.trim()
     if (!content || busy) return
-    const nextMessages = [...messages, { role: 'user', content }]
-    setMessages(nextMessages)
+    // Appended, never rebuilt from a copy: an alert can land while the answer
+    // is in flight, and rebuilding would erase it.
+    setMessages((m) => [...m, { role: 'user', content }])
     setDraft('')
     setError(null)
     setBusy(true)
@@ -189,7 +242,7 @@ export default function AssistantPanel() {
       // Only the model path returns actions; a state-backed answer reports,
       // it does not steer the map.
       if (response.actions?.length) applyAssistantActions(response.actions)
-      setMessages([...nextMessages, {
+      setMessages((m) => [...m, {
         role: 'assistant', content: response.text, source: response.source,
       }])
       setChips(response.suggestions?.length ? response.suggestions : DEFAULT_SUGGESTIONS)
@@ -202,11 +255,6 @@ export default function AssistantPanel() {
 
   return (
     <div className="assistant-float">
-      {/* The system's popups live in the robot's own column, so they stack
-          just above it at every screen size. Pinned separately to the same
-          corner, the robot covered their text and, on phones, the bottom bar
-          hid them — and the alerts are the robot talking, so they belong here. */}
-      <NotificationToasts />
       <AnimatePresence>
         {open && (
           <motion.section
@@ -230,7 +278,10 @@ export default function AssistantPanel() {
                   <span>I read the forecast, the agent&apos;s decision and the live traffic layer directly — every figure I give you is measured, not guessed.</span>
                 </div>
               )}
-              {messages.map((message, index) => (
+              {messages.map((message, index) => (message.note ? (
+                <RobotNotice key={message.id} message={message} demoMode={demoMode}
+                             connected={connected} onAct={act} />
+              ) : (
                 <div key={`${message.role}-${index}`} className={`assistant-message ${message.role}`}>
                   {message.content}
                   {message.role === 'assistant' && message.source && (
@@ -239,7 +290,7 @@ export default function AssistantPanel() {
                     </span>
                   )}
                 </div>
-              ))}
+              )))}
               {busy && <div className="assistant-message assistant"><Loader2 size={13} className="spin" /> Checking the live route data...</div>}
             </div>
 
@@ -276,7 +327,8 @@ export default function AssistantPanel() {
         )}
       </AnimatePresence>
 
-      <AssistantRobot busy={busy} open={open} onClick={() => setOpen((value) => !value)} />
+      <AssistantRobot busy={busy} open={open} alerting={alerting}
+                      onClick={() => setOpen((value) => !value)} />
     </div>
   )
 }

@@ -98,11 +98,26 @@ export function AppProvider({ children }) {
     return true
   }, [])
 
+  /**
+   * A user the SERVER has verified — Google sign-in. Unlike signIn() below,
+   * nothing here decides who the user is: /api/auth/google checked Google's
+   * signature, audience and verified email before returning this.
+   */
+  const completeSignIn = useCallback((verified) => {
+    const u = { ...verified, signedInAt: new Date().toISOString(), guest: false }
+    setUser(u)
+    try {
+      sessionStorage.setItem('qro.session_user', JSON.stringify(u))
+    } catch {}
+  }, [])
+
   const signOut = useCallback(() => {
     try {
       sessionStorage.removeItem('qro.session_user')
       localStorage.removeItem('qro.user')
     } catch {}
+    // Otherwise Google would sign the same account straight back in.
+    try { window.google?.accounts?.id?.disableAutoSelect() } catch {}
     setUser(null)
   }, [])
 
@@ -370,8 +385,10 @@ export function AppProvider({ children }) {
     }
   }, [demoMode, graph, selectedRoute])
 
+  // Returns the backend's answer, so the robot can say whether it took.
+  // Monitoring continues either way.
   const keepRoute = useCallback(async () => {
-    try { await api.declineReroute(graph) } catch { /* monitoring continues either way */ }
+    try { return await api.declineReroute(graph) } catch { return null }
   }, [graph])
 
   /**
@@ -549,7 +566,7 @@ export function AppProvider({ children }) {
   }, [])
 
   const value = {
-    user, signIn, signUp: signIn, signOut,
+    user, signIn, signUp: signIn, completeSignIn, signOut,
     theme, setTheme,
     collapsed, setCollapsed,
     settings, setSettings,

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from graph.errors import UnknownGraphError
 
+from app.api.auth import router as auth_router
 from app.api.analytics import router as analytics_router
 from app.api.forecast import router as forecast_router
 from app.api.graphs import router as graphs_router
@@ -215,3 +216,4 @@ app.include_router(agent_router, prefix="/api")
 app.include_router(simulation_router, prefix="/api")
 app.include_router(assistant_router, prefix="/api")
 app.include_router(vehicles_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")

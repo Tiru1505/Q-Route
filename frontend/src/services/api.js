@@ -300,6 +300,20 @@ export async function congestActiveRoute({ level = 0.92, graph } = {}) {
 }
 
 /**
+ * Which sign-in methods the server offers. The Google client ID comes from
+ * here — one copy, on the server — rather than from the frontend's own .env.
+ */
+export async function getAuthConfig() {
+  if (USE_MOCK) return { google: { enabled: false, clientId: null }, offline: true }
+  return request('/auth/config')
+}
+
+/** Exchange a Google ID token for a user the server has verified. */
+export async function signInWithGoogle(credential) {
+  return request('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) })
+}
+
+/**
  * Place the simulated driver part-way along the active trip.
  *
  * A spike lands on the road AHEAD of the driver, so the demo needs the driver

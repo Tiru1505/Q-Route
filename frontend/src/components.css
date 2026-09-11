@@ -466,7 +466,7 @@
   .assistant-robot-art, .assistant-robot-image, .assistant-eye-layer, .assistant-hand-layer, .assistant-pulse, .assistant-float-button.is-thinking .assistant-eye { animation: none; }
   .assistant-eye { transition: none; }
 }
-.assistant-thread { display: flex; flex-direction: column; gap: 8px; max-height: 210px; overflow-y: auto; }
+.assistant-thread { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; }
 .assistant-empty { display: grid; gap: 4px; color: var(--text-dim); font-size: 11px; line-height: 1.45; }
 .assistant-empty strong { color: var(--text); font-size: 12px; }
 .assistant-message { max-width: 92%; padding: 8px 10px; border-radius: 8px; font-size: 11.5px; line-height: 1.45; white-space: pre-wrap; }
@@ -1708,7 +1708,7 @@
     max-height: calc(100vh - 148px);
     overflow-y: auto;
   }
-  .assistant-thread { max-height: min(210px, 28vh); }
+  .assistant-thread { max-height: min(280px, 36vh); }
 }
 
 @media (max-width: 380px) {
@@ -2441,6 +2441,52 @@
   box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
 }
 
+
+/* =========================================================
+   LOGIN DIVIDER
+   ========================================================= */
+
+.login .login-divider {
+  margin: 20px 0;
+  color: #94A3B8;
+}
+
+
+/* =========================================================
+   SECONDARY BUTTONS (inside login) — the Google button uses these
+   ========================================================= */
+
+.login .btn.btn-block {
+  height: 40px;
+  background: var(--panel);
+  border: 1px solid #26304A;
+  color: #CBD5E1;
+  transition: all 0.2s ease;
+}
+
+.login .btn.btn-block:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--brand);
+  color: #F8FAFC;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+}
+
+.login-google-btn {
+  margin-top: 10px;
+  gap: 8px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.login-google-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.login-google-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
 
 .login-auth-error {
   margin: 9px 0 0;
@@ -3602,72 +3648,6 @@
 .lab-origin em { margin-left: auto; font-style: normal; color: var(--text-faint); }
 @media (max-width: 640px) { .lab-location { grid-template-columns: 1fr; } }
 
-/* ============================================================
-   NOTIFICATION TOASTS — pushed from the backend
-   ============================================================ */
-
-.toast-stack {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  z-index: 900;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: min(360px, calc(100vw - 36px));
-  pointer-events: none;
-}
-.toast {
-  pointer-events: auto;
-  background: var(--panel-solid);
-  border: 1px solid var(--border-strong);
-  border-left-width: 3px;
-  border-radius: var(--radius);
-  padding: 11px 13px;
-  box-shadow: var(--shadow-lg);
-}
-.toast-severe   { border-left-color: var(--severe); }
-.toast-moderate { border-left-color: var(--heavy); }
-.toast-info     { border-left-color: var(--low); }
-
-.toast-head {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 12px; color: var(--text);
-}
-.toast-severe .toast-head svg   { color: var(--severe); }
-.toast-moderate .toast-head svg { color: var(--heavy); }
-.toast-info .toast-head svg     { color: var(--low); }
-.toast-x {
-  margin-left: auto; background: none; border: 0; cursor: pointer;
-  color: var(--text-faint); padding: 2px; line-height: 0;
-}
-.toast-x:hover { color: var(--text); }
-
-.toast-text {
-  font-size: 12px; line-height: 1.55; color: var(--text-dim);
-  margin: 7px 0 0;
-}
-.toast-figures {
-  display: flex; align-items: baseline; gap: 7px;
-  font-size: 11px; color: var(--text-faint);
-  margin-top: 8px; font-variant-numeric: tabular-nums;
-}
-.toast-figures b { color: var(--low); margin-left: auto; }
-
-.toast-actions { display: flex; gap: 7px; margin-top: 10px; }
-.toast-actions .btn-primary, .toast-actions .btn-ghost { flex: 1; justify-content: center; }
-
-.toast-foot {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 9.5px; color: var(--text-faint);
-  margin-top: 9px; padding-top: 7px;
-  border-top: 1px solid var(--border);
-}
-
-@media (max-width: 560px) {
-  .toast-stack { right: 10px; left: 10px; bottom: 10px; width: auto; }
-}
-
 /* ---------------------------------------------------- vehicle distribution
    Count share against PCU share. The two colours are defined as role vars so
    a theme change moves them together and neither collides with the congestion
@@ -3756,22 +3736,77 @@
 .vehicle-rule svg { flex: none; margin-top: 2px; }
 .vehicle-assumed { font-style: normal; color: var(--moderate, #f59e0b); }
 
-/* The demo's automatic switch, and the assistant's check of the new route. */
-.toast-autoswitch {
-  margin-top: 8px;
-  font-size: 10.5px;
+/* ------------------------------------------------------------ robot notices
+   An alert, or the check of a new route, said by the robot in its own thread
+   (see RobotNotice). The severity stripe carries the same meaning the map's
+   congestion colours do; the check uses the brand colour because it reports
+   rather than warns. Three classes, so it wins over .assistant-message's flex
+   row without !important. */
+.assistant-message.assistant.robot-notice {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  max-width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--low);
+  white-space: normal;
+}
+.robot-notice-severe   { border-left-color: var(--severe) !important; }
+.robot-notice-moderate { border-left-color: var(--heavy) !important; }
+.robot-notice-check    { border-left-color: var(--brand) !important; }
+
+.robot-notice-head { display: flex; align-items: center; gap: 6px; font-size: 11.5px; }
+.robot-notice-head strong { color: var(--text); }
+.robot-notice-head time { margin-left: auto; font-size: 9.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.robot-notice-severe .robot-notice-head svg   { color: var(--severe); }
+.robot-notice-moderate .robot-notice-head svg { color: var(--heavy); }
+.robot-notice-info .robot-notice-head svg     { color: var(--low); }
+.robot-notice-check .robot-notice-head svg    { color: var(--brand); }
+
+.robot-notice-text { margin: 0; color: var(--text); line-height: 1.5; }
+.robot-notice-figures {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 10.5px; color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.robot-notice-figures b { margin-left: auto; color: var(--text); }
+.robot-notice-auto { font-size: 10.5px; color: var(--text-dim); }
+.robot-notice-actions { display: flex; gap: 6px; }
+.robot-notice-actions .btn-primary,
+.robot-notice-actions .btn-ghost { flex: 1; justify-content: center; }
+.robot-notice-outcome {
+  padding: 6px 8px; border-radius: 6px;
+  font-size: 10.5px; line-height: 1.45;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
   color: var(--text-dim);
 }
-.toast-route-check { border-color: color-mix(in srgb, var(--brand) 55%, var(--border)); }
-.toast-route-check .toast-head svg { color: var(--brand); }
+.robot-notice-outcome.is-switched { color: var(--text); box-shadow: inset 2px 0 0 var(--low); }
+.robot-notice-outcome.is-failed   { color: var(--severe); }
+.robot-notice .assistant-provenance { margin-top: 0; }
 
-/* Popups inside the robot's floating column (see AssistantPanel). The column
-   is already fixed above the mobile bar and aligned right, so the stack flows
-   in it rather than being pinned to the corner the robot occupies. */
-.assistant-float .toast-stack {
-  position: static;
-  right: auto;
-  left: auto;
-  bottom: auto;
-  width: min(360px, calc(100vw - 32px));
+/* The robot, while an alert waits for an answer: a red glow and a badge, so a
+   driver who closed the panel still sees it has something to say. */
+.assistant-float-button.is-alerting .assistant-pulse {
+  background: color-mix(in srgb, var(--severe) 45%, transparent);
+  animation-duration: 1.2s;
+}
+.assistant-badge {
+  position: absolute; top: 12px; right: 16px; z-index: 4;
+  display: grid; place-items: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px;
+  background: var(--severe); color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 1;
+  box-shadow: 0 0 0 2px var(--panel-solid);
+  pointer-events: none;
+}
+
+/* Google sign-in: Google draws its own button into the slot. */
+.google-signin { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.google-signin-slot { display: flex; justify-content: center; min-height: 40px; }
+.google-signin-slot[hidden] { display: none; }
+.google-signin-note {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin: 0; font-size: 11px; line-height: 1.45; color: var(--text-dim); text-align: center;
 }
