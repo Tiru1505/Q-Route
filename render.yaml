@@ -29,7 +29,7 @@ services:
 
     buildCommand: |
       pip install --upgrade pip
-      pip install -r requirements.txt
+      pip install -r backend/requirements.txt
 
     # The graph is fetched at START, not during the build. The disk below is
     # attached to the running container, not to the builder, so anything a
@@ -41,8 +41,8 @@ services:
     # second one would need another 1.7 GB. Concurrency comes from the fact that
     # the heavy calls are CPU-bound and already cached, not from more workers.
     startCommand: >
-      python scripts/ensure_graph.py &&
-      uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+      python backend/scripts/ensure_graph.py &&
+      uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT --workers 1
 
     disk:
       name: qroute-graph

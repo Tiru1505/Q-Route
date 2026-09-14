@@ -10,7 +10,7 @@ actually good for. Read the **Verdict** column before you build on anything.
 | | |
 |---|---|
 | Source | OpenStreetMap via OSMnx / Overpass |
-| Script | `scripts/build_city_graph.py` |
+| Script | `backend/scripts/build_city_graph.py` |
 | Output | `data/processed/<slug>/<slug>_drive.graphml` + nodes/edges Parquet |
 | Licence | ODbL 1.0 — attribution required ("© OpenStreetMap contributors") |
 | Verdict | **Use it.** Complete, free, and the only road-geometry source you need. |
@@ -18,7 +18,7 @@ actually good for. Read the **Verdict** column before you build on anything.
 Parameterised by city, so the same pipeline serves Hyderabad, Bengaluru, Delhi:
 
 ```bash
-python scripts/build_city_graph.py --city "Hyderabad, Telangana, India" --metro
+python backend/scripts/build_city_graph.py --city "Hyderabad, Telangana, India" --metro
 ```
 
 Two graphs are built and kept:
@@ -107,7 +107,7 @@ but opinionated — use the `.h5` if you want a different window length.
 
 Note: these were pulled from HuggingFace mirrors (`jimmygao3218/*`,
 `witgaw/*`), not Zenodo. **Zenodo returns HTTP 403 for file downloads from
-many networks** including this one; `scripts/fetch_benchmarks.sh` uses the
+many networks** including this one; `backend/scripts/fetch_benchmarks.sh` uses the
 mirrors, which serve byte-identical data.
 
 ---
@@ -120,7 +120,7 @@ data accrues in wall-clock time, not compute time.
 | | |
 |---|---|
 | Source | TomTom Traffic API — Flow Segment Data |
-| Script | `scripts/collect_tomtom.py` |
+| Script | `backend/scripts/collect_tomtom.py` |
 | Seed points | `data/raw/india/hyderabad_segments.csv` — 50 points across 11 corridors |
 | Cost | Free tier, ~2,500 requests/day, no credit card |
 | Verdict | **The only route to real Hyderabad congestion data.** Start it today. |
@@ -132,8 +132,8 @@ the dynamic edge-weight layer consumes.
 
 ```bash
 setx TOMTOM_API_KEY "your-key"                  # once, from developer.tomtom.com
-python scripts/collect_tomtom.py --once         # smoke test
-python scripts/collect_tomtom.py --interval 900 --start-hour 6 --end-hour 22
+python backend/scripts/collect_tomtom.py --once         # smoke test
+python backend/scripts/collect_tomtom.py --interval 900 --start-hour 6 --end-hour 22
 ```
 
 **Budget arithmetic.** 2,500 requests/day ÷ polls-per-day = segments you can
@@ -197,7 +197,7 @@ Vanasthalipuram and Malkajgiri. Published junction volumes: three-arm
 Dated and PDF-bound. An earlier version of this file suggested the report say
 *"synthetic peak-hour volumes are calibrated to HMDA CTS observed PCU ranges"*.
 Do not: nothing fits the simulator to these figures, and measured against them
-(`scripts/measure_simulated_volumes.py`) it runs high. What the report can say:
+(`backend/scripts/measure_simulated_volumes.py`) it runs high. What the report can say:
 
 > Simulated junction volumes — median 53,957 PCU/12h at three-arm and 59,366
 > at four-arm junctions — fall inside the range the HMDA CTS observed at 93%
@@ -226,7 +226,7 @@ Two distinct things, and the distinction matters in the report:
 
 | | Purpose |
 |---|---|
-| **Synthetic layer** (`traffic/` module, to build) | Controlled, reproducible scenarios — the 8 test cases: peak hour, sudden congestion, road closure, etc. Calibrated to HMDA PCU ranges. |
+| **Synthetic layer** (`backend/traffic/` module, to build) | Controlled, reproducible scenarios — the 8 test cases: peak hour, sudden congestion, road closure, etc. Calibrated to HMDA PCU ranges. |
 | **SUMO** (Eclipse, optional) | Microscopic simulation on the real OSM network with ground-truth flows. The legitimate way to generate 5k/10k-node scalability experiments. |
 
 Synthetic traffic is not a weakness *provided you say so plainly*. The
@@ -257,7 +257,7 @@ a theoretical one.
 ## Reproducing everything
 
 ```bash
-bash scripts/fetch_benchmarks.sh                              # METR-LA + PEMS-BAY
-python scripts/build_city_graph.py --city "Hyderabad, Telangana, India"
-python scripts/collect_tomtom.py --once                       # needs TOMTOM_API_KEY
+bash backend/scripts/fetch_benchmarks.sh                              # METR-LA + PEMS-BAY
+python backend/scripts/build_city_graph.py --city "Hyderabad, Telangana, India"
+python backend/scripts/collect_tomtom.py --once                       # needs TOMTOM_API_KEY
 ```

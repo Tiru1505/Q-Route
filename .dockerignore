@@ -7,7 +7,7 @@ __pycache__/
 .git/
 .gitignore
 *.md
-tests/
+backend/tests/
 .dockerignore
 .DS_Store
 *.egg-info/

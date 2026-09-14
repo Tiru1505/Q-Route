@@ -11,25 +11,15 @@
 # directory, not what git tracks, so the 214 MB graph pickle in data/processed/
 # is picked up unless excluded — and it exceeds Vercel's 100 MB file limit.
 
-/app/
-/graph/
-/optimization/
-/traffic/
-/routing/
-/alerts/
-/benchmarking/
-/preprocessing/
-/scripts/
-/tests/
-/config/
+/backend/
 /data/
 /results/
+/models/
 /notebooks/
+/diagrams/
 /.venv/
 /node_modules/
 
-/requirements.txt
-/engine.py
 /render.yaml
 /railway.toml
 /docker-compose.yml

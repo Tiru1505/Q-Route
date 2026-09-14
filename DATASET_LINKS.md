@@ -9,7 +9,7 @@ Status legend: ✅ already on disk · ⬇ download needed · 🔑 free registrat
 
 | Source | Link | Status |
 |---|---|---|
-| **OpenStreetMap via OSMnx** | no manual download — `python preprocessing/osm_processor.py --metro` | ✅ built |
+| **OpenStreetMap via OSMnx** | no manual download — `python backend/preprocessing/osm_processor.py --metro` | ✅ built |
 | Geofabrik India extract (bulk/offline alternative) | https://download.geofabrik.de/asia/india.html | optional |
 | Overpass Turbo (ad-hoc queries) | https://overpass-turbo.eu/ | optional |
 
@@ -52,7 +52,7 @@ No open dataset exists. You collect it. Free tiers, no credit card:
 🚫 **Google Maps Platform is excluded.** Its ToS prohibits storing, caching or
 deriving datasets from its traffic responses — a real disqualification risk.
 
-Collector is written and waiting on a key: `scripts/collect_tomtom_hyderabad.py`
+Collector is written and waiting on a key: `backend/scripts/collect_tomtom_hyderabad.py`
 
 ---
 
@@ -76,7 +76,7 @@ your target city. DATS_2022's own Mendeley page says annotations cover only
 *"a small set of images"*, which is why it is third here despite the spec naming it.
 
 Drop whichever you pick into `data/vision/<name>/` and run
-`python scripts/inspect_datasets.py` — it reports real image count, annotation
+`python backend/scripts/inspect_datasets.py` — it reports real image count, annotation
 coverage %, and per-class box counts before you commit to training.
 
 ---

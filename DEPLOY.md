@@ -120,7 +120,7 @@ Then **New Project → Deploy from GitHub repo → `Tiru1505/SmartRoute-AI`**.
 
 ### Get the graph there the fast way
 
-On first boot `scripts/ensure_graph.py` runs before uvicorn binds. If
+On first boot `backend/scripts/ensure_graph.py` runs before uvicorn binds. If
 `QRO_GRAPH_URL` is set it downloads a prebuilt pickle (~214 MB, a couple of
 minutes). If not, it rebuilds the whole metro extract from OpenStreetMap, which
 is slow and briefly uses *more* memory than the API itself.

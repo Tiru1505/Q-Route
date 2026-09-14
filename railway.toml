@@ -32,7 +32,7 @@ builder = "NIXPACKS"
 # boot after a volume is provisioned. It must run here rather than in the build
 # step: the volume is attached to the running container, not to the builder, so
 # anything a build command wrote to /data would be discarded.
-startCommand = "python scripts/ensure_graph.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1"
+startCommand = "python backend/scripts/ensure_graph.py && uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT --workers 1"
 
 healthcheckPath = "/api/health"
 

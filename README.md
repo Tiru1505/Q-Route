@@ -8,9 +8,9 @@ Four parts, one repository:
 
 | Part | What it is | Where |
 |---|---|---|
-| **Optimisation engine** | QPSO, PSO, GA, Dijkstra + Lagrangian, traffic simulation, rerouting, alerts | `optimization/`, `graph/`, `traffic/`, `routing/`, `alerts/`, `engine.py` |
-| **AI layer** | YOLOv8 vehicle counting, LSTM congestion forecast, the traffic agent that decides when to reroute | `results/`, `app/services/` |
-| **API** | FastAPI service over the engine, with accounts, roles and MongoDB persistence | `app/` |
+| **Optimisation engine** | QPSO, PSO, GA, Dijkstra + Lagrangian, traffic simulation, rerouting, alerts | `backend/optimization/`, `backend/graph/`, `backend/traffic/`, `backend/routing/`, `backend/alerts/`, `backend/engine.py` |
+| **AI layer** | YOLOv8 vehicle counting, LSTM congestion forecast, the traffic agent that decides when to reroute | `results/`, `backend/app/services/` |
+| **API** | FastAPI service over the engine, with accounts, roles and MongoDB persistence | `backend/app/` |
 | **Web app** | React + Vite + Leaflet — a driver's app for users and a control-room console for admins | `frontend/` |
 
 The road graph is real: **286,603 nodes, 741,203 edges**, extracted from
@@ -62,7 +62,7 @@ measured against the exact optimum from brute force over all 720 orderings:
 Reproduce it:
 
 ```bash
-python scripts/run_multistop.py --stops 6 --trials 30
+python backend/scripts/run_multistop.py --stops 6 --trials 30
 ```
 
 Fairness is enforced structurally, not by convention: all three metaheuristics
@@ -87,19 +87,19 @@ browser fails the session's signature check.
 
 A user who types an admin address gets an "Admins only" page, and the API
 refuses the request with 403 in any case: hiding a page is not the protection,
-the server check is (`app/core/security.py`).
+the server check is (`backend/app/core/security.py`).
 
 **There is no public admin sign-up** — anyone who could register as an admin
 could make themselves one. An account becomes admin in one of two ways:
 
 ```bash
 # an existing account (e.g. one that signed in with Google) -> admin
-.venv/Scripts/python.exe scripts/create_admin.py you@gmail.com --promote
+.venv/Scripts/python.exe backend/scripts/create_admin.py you@gmail.com --promote
 ```
 
 ```bash
 # a new admin with an email + password (typed at the prompt, never shown)
-.venv/Scripts/python.exe scripts/create_admin.py ops@example.com --name "Control Room"
+.venv/Scripts/python.exe backend/scripts/create_admin.py ops@example.com --name "Control Room"
 ```
 
 Or list Google accounts in `ADMIN_EMAILS` in `.env`. That list is only read for
@@ -143,7 +143,7 @@ python -m venv .venv
 ```
 
 ```bash
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
 This pulls **torch, ultralytics, opencv and lap** as well — the vehicle
@@ -152,7 +152,7 @@ detector and the traffic forecaster both load real trained weights.
 ### 2. Check what the clone is missing
 
 ```bash
-python scripts/setup_check.py
+python backend/scripts/setup_check.py
 ```
 
 Several things this system needs are too large for the repository: the road
@@ -164,7 +164,7 @@ The check imports every package, stats every file and opens every model, then
 prints one table. Nothing is assumed. To install and build whatever is missing:
 
 ```bash
-python scripts/setup_check.py --fix
+python backend/scripts/setup_check.py --fix
 ```
 
 Add `--download-extract` to also fetch the 1.71 GB country extract. That is
@@ -178,9 +178,9 @@ Seven networks are configured. **None are in the repository** — the smallest i
 
 | Network | Covers | Build |
 |---|---|---|
-| `hyderabad` | every street inside the ORR | `python preprocessing/osm_processor.py --city "Hyderabad, Telangana, India" --metro` |
-| `india` | national motorway/trunk/primary | `python scripts/build_india_highways.py` |
-| `bengaluru`, `delhi`, `chennai`, `mumbai`, `pune` | every street in the metro | `python scripts/build_city_graphs.py` |
+| `hyderabad` | every street inside the ORR | `python backend/preprocessing/osm_processor.py --city "Hyderabad, Telangana, India" --metro` |
+| `india` | national motorway/trunk/primary | `python backend/scripts/build_india_highways.py` |
+| `bengaluru`, `delhi`, `chennai`, `mumbai`, `pune` | every street in the metro | `python backend/scripts/build_city_graphs.py` |
 
 The `--metro` flag matters for Hyderabad: `graph_from_place("Hyderabad")`
 returns only the municipal boundary, which silently excludes the airport,
@@ -198,8 +198,8 @@ Both ship with the repository and need no training to run:
 - **YOLOv8n** — `results/yolo/dats_v8n/weights/best.pt`, 6.2 MB, 12 vehicle classes
 - **LSTM** — `results/lstm_india/india_traffic_lstm.pt`, 30 KB (32 hidden units, 4-step lookback)
 
-Retrain with `python scripts/train_yolo.py` and
-`python scripts/train_lstm_india.py`.
+Retrain with `python backend/scripts/train_yolo.py` and
+`python backend/scripts/train_lstm_india.py`.
 
 ### 5. MongoDB
 
@@ -226,14 +226,14 @@ see [Environment variables](#environment-variables).
 ### 7. Run the API
 
 ```bash
-uvicorn app.main:app --reload --port 8010
+uvicorn app.main:app --app-dir backend --reload --port 8010
 ```
 
 Port 8010 rather than 8000 because another service commonly holds 8000; the
 Vite proxy targets 8010 by default (override with `VITE_API_TARGET`).
 
 **First-run timings, so a cold start is not mistaken for a hang:** the
-Hyderabad graph takes ~30 s to load and `app/main.py` warms it at startup. The
+Hyderabad graph takes ~30 s to load and `backend/app/main.py` warms it at startup. The
 first QPSO route takes ~10 s, later ones ~2 s. The India graph adds ~24 s the
 first time something routes on it. The first image upload pays ~30 s while YOLO
 loads its weights. Every one of these is once per process.
@@ -247,7 +247,7 @@ cd frontend && npm install && npm run dev
 ```
 
 Opens at `http://localhost:5173`. Register a user on the login page, and make
-yourself an admin with `scripts/create_admin.py` (above).
+yourself an admin with `backend/scripts/create_admin.py` (above).
 
 Set `VITE_USE_MOCK=true` in `frontend/.env` to run the UI on bundled demo data
 with no backend at all. Offline mode signs you in locally as a **user** only —
@@ -262,7 +262,7 @@ forecast, alerts and the robot all run without a single key.
 |---|---|---|
 | `GOOGLE_CLIENT_ID` | "Continue with Google" | Email + password sign-in only; the Google button says it is not configured |
 | `AI_API_KEY` | Free-form `/assistant/chat`, and rewording notifications | The robot still answers from measured system state (`/assistant/ask`) and notifications use plain wording |
-| `TOMTOM_API_KEY` | `scripts/collect_tomtom_hyderabad.py` only | Traffic stays simulated |
+| `TOMTOM_API_KEY` | `backend/scripts/collect_tomtom_hyderabad.py` only | Traffic stays simulated |
 
 ---
 
@@ -274,20 +274,20 @@ React + Vite + Leaflet  (frontend/)
           │  HTTP / JSON + Bearer session, proxied /api -> :8010
           │  WebSocket /api/notifications/ws  (alerts pushed to the robot)
           ▼
-      FastAPI  (app/)              Swagger at /docs
+      FastAPI  (backend/app/)              Swagger at /docs
           │
-    Access layer       app/core/security.py — signed sessions, current_user,
+    Access layer       backend/app/core/security.py — signed sessions, current_user,
           │            require_admin; passwords hashed with PBKDF2-SHA256
     Service layer      route · trips · auth · agent · monitor · notify ·
           │            forecast (LSTM) · vision (YOLO) · benchmark · alert
           ▼
     Adapter layer      abstract base + mock + REAL implementation
-          │            app/integrations/engine_bridge.py
+          │            backend/app/integrations/engine_bridge.py
           ▼
-    QROEngine  (engine.py)         one object, loaded once, one lock
+    QROEngine  (backend/engine.py)         one object, loaded once, one lock
           │
     ┌─────┴─────┬──────────┬──────────┬─────────┐
-  graph/    optimization/  traffic/  routing/  alerts/
+  backend/graph/    backend/optimization/  backend/traffic/  backend/routing/  backend/alerts/
 ```
 
 The adapter layer is why the backend could be built and tested before the
@@ -357,21 +357,21 @@ messages; the figures stay measured, and the card says which wording was used.
 
 | Script | What it does |
 |---|---|
-| `scripts/run_multistop.py` | **The headline experiment** — QPSO vs PSO vs GA vs brute force |
-| `scripts/run_qpso.py` | Single-pair QPSO against Dijkstra |
-| `scripts/run_dijkstra.py` | Shortest path, verified against NetworkX |
-| `scripts/run_constrained.py` | Congestion-budget routing vs Lagrangian relaxation |
-| `scripts/run_traffic.py` | Traffic scenarios on the network |
-| `scripts/run_rerouting.py` | Mid-trip reroute on a congestion spike |
-| `scripts/run_demo.py` | End-to-end scripted scenario |
-| `scripts/create_admin.py` | Create an admin, or promote an existing account |
+| `backend/scripts/run_multistop.py` | **The headline experiment** — QPSO vs PSO vs GA vs brute force |
+| `backend/scripts/run_qpso.py` | Single-pair QPSO against Dijkstra |
+| `backend/scripts/run_dijkstra.py` | Shortest path, verified against NetworkX |
+| `backend/scripts/run_constrained.py` | Congestion-budget routing vs Lagrangian relaxation |
+| `backend/scripts/run_traffic.py` | Traffic scenarios on the network |
+| `backend/scripts/run_rerouting.py` | Mid-trip reroute on a congestion spike |
+| `backend/scripts/run_demo.py` | End-to-end scripted scenario |
+| `backend/scripts/create_admin.py` | Create an admin, or promote an existing account |
 
 ---
 
 ## Tests
 
 ```bash
-pytest tests/ -q
+pytest -q
 ```
 
 **164 tests**, including:
@@ -408,7 +408,7 @@ users into your database.
 | `AI_BASE_URL` | Any OpenAI-compatible gateway | `https://api.openai.com/v1` |
 | `QRO_GRAPH_PATH` | Point at a Hyderabad graph outside the repo | *(unset)* |
 | `QRO_INDIA_GRAPH_PATH` | Point at a national graph outside the repo | *(unset)* |
-| `TOMTOM_API_KEY` | Only `scripts/collect_tomtom_hyderabad.py` | *(unset)* |
+| `TOMTOM_API_KEY` | Only `backend/scripts/collect_tomtom_hyderabad.py` | *(unset)* |
 | `VITE_USE_MOCK` | `true` runs the frontend with no backend | `false` |
 | `VITE_API_TARGET` | Where the Vite proxy sends `/api` | `http://127.0.0.1:8010` |
 
@@ -456,7 +456,7 @@ Things a reader — or a judge — should know, rather than discover:
   account lockout yet; add both before any public deployment.
 - **Place search uses Nominatim**, throttled to one request per second per its
   usage policy and cached. Add a contact address to `CONTACT` in
-  `app/api/places.py` before any public deployment.
+  `backend/app/api/places.py` before any public deployment.
 - **Every chart plots something measured.** An empty state is shown before any
   route has been run, rather than invented bars.
 - **Google Maps data is deliberately not used.** Its terms forbid storing or
@@ -466,29 +466,53 @@ Things a reader — or a judge — should know, rather than discover:
 
 ## Repository layout
 
+Three folders, one job each: the React app, the Python side, and the datasets.
+
 ```
-├── engine.py                 # QROEngine — the single object the API calls
-├── app/                      # FastAPI service
-│   ├── api/                  # Endpoints (auth, trips, routes, agent, simulation, …)
-│   ├── core/security.py      # Passwords, signed sessions, current_user / require_admin
-│   ├── services/             # Orchestration (auth, trips, agent, monitor, notify, …)
-│   ├── integrations/         # Adapters, incl. engine_bridge.py (the real one)
-│   ├── models/               # Pydantic schemas
-│   └── database/             # MongoDB (users, trips, route history, …)
-├── optimization/             # qpso · pso · ga · dijkstra · encoding · multistop
-├── graph/                    # graph_loader · edge_weights (the cost model) · vehicles
-├── traffic/                  # congestion_model · simulator
-├── routing/                  # route · rerouting · validator
-├── alerts/                   # alert_engine
-├── benchmarking/             # benchmark harness · convergence plots
-├── preprocessing/            # osm_processor — builds the graph
-├── scripts/                  # Runnable experiments, create_admin.py
-├── config/                   # places.yaml · datasets.yaml
-├── frontend/                 # React + Vite + Leaflet
-│   └── src/pages/user/       # The driver's Dashboard, Trip History, Settings
-├── tests/                    # pytest
-└── results/                  # Trained models, reports and plots
+├── frontend/                     # React + Vite + Leaflet
+│   ├── src/pages/                # Admin console pages
+│   ├── src/pages/user/           # The driver's Dashboard, Trip History, Settings
+│   ├── src/components/           # MapView (the car), the robot, route cards
+│   └── src/services/api.js       # Every call to the API, with the session
+│
+├── backend/                      # Everything Python
+│   ├── engine.py                 # QROEngine — the single object the API calls
+│   ├── app/                      # FastAPI service
+│   │   ├── api/                  # Endpoints (auth, trips, routes, agent, simulation, …)
+│   │   ├── core/security.py      # Passwords, signed sessions, current_user / require_admin
+│   │   ├── services/             # Orchestration (auth, trips, agent, monitor, notify, …)
+│   │   ├── integrations/         # Adapters, incl. engine_bridge.py (the real one)
+│   │   ├── models/               # Pydantic schemas
+│   │   └── database/             # MongoDB (users, trips, route history, …)
+│   ├── optimization/             # qpso · pso · ga · dijkstra · encoding · multistop
+│   ├── graph/                    # graph_loader · edge_weights (the cost model) · vehicles
+│   ├── traffic/                  # congestion_model · simulator
+│   ├── routing/                  # route · rerouting · validator
+│   ├── alerts/                   # alert_engine
+│   ├── forecasting/              # The LSTM: model · replay
+│   ├── vision/                   # The YOLO detector
+│   ├── benchmarking/             # benchmark harness · convergence plots
+│   ├── preprocessing/            # osm_processor — builds the graph
+│   ├── dataio/                   # Helpers that read the files in data/
+│   ├── scripts/                  # Runnable experiments, create_admin.py
+│   ├── config/                   # places.yaml · datasets.yaml
+│   ├── tests/                    # pytest
+│   └── requirements.txt
+│
+├── data/                         # Datasets only — no code
+│   ├── raw/                      # As downloaded: OSM extracts, Indian traffic CSVs
+│   ├── processed/                # Built road graphs (large; not in the repository)
+│   ├── vision/                   # Road imagery for the detector
+│   ├── sample/ · synthetic/      # Small bundled samples
+│   └── traffic/
+│
+├── results/                      # Trained models, metrics, plots, reports
+├── pytest.ini · Dockerfile · docker-compose.yml · render.yaml · railway.toml
+└── vercel.json                   # Builds frontend/ only
 ```
+
+Run everything from the repository root: `pytest -q`,
+`uvicorn app.main:app --app-dir backend`, `python backend/scripts/…`.
 
 Further reading: [`DEPLOY.md`](DEPLOY.md) on hosting this (read the memory constraint
 first), [`DATA.md`](DATA.md) on datasets and what they can and cannot

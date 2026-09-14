@@ -1,7 +1,7 @@
 # Phase 1 — Dataset Inspection Report
 
 Every source inspected on disk before any modelling decision. Machine-readable
-stats in `inspection.json`; reproduce with `python scripts/inspect_datasets.py`.
+stats in `inspection.json`; reproduce with `python backend/scripts/inspect_datasets.py`.
 
 ## Verdict summary
 
@@ -189,7 +189,7 @@ download. **This one is yours to download**, same as the others.
 ⚠️ **Verify coverage before planning around it.** The Mendeley description says
 annotations exist for *"a small set of images"*, which contradicts the "45
 classes over 10,000 images" figure that circulates in summaries. Drop it into
-`data/vision/dats_2022/` and `scripts/inspect_datasets.py` will report the real
+`data/vision/dats_2022/` and `backend/scripts/inspect_datasets.py` will report the real
 image count, annotation coverage percentage, and per-class box counts before you
 commit to training.
 
