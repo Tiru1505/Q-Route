@@ -26,7 +26,7 @@ const MIN_PASSWORD = 8
  * the server returned.
  */
 export default function Login({ initialMode = 'signin' }) {
-  const { signIn, register, completeSignIn, sessionNote } = useApp()
+  const { signIn, register, completeSignIn, sessionNote, t } = useApp()
   const navigate = useNavigate()
 
   const [mode, setMode] = useState(initialMode) // 'signin' | 'signup' | 'admin'
@@ -41,7 +41,7 @@ export default function Login({ initialMode = 'signin' }) {
   /** The Admin tab admits admins only; anyone else is told, and not signed in. */
   const admitAdminOnly = (session) => {
     if (session?.user?.role !== 'admin') {
-      setError('This account does not have admin access. Use the Sign In tab.')
+      setError(t('login.notAdmin'))
       return false
     }
     completeSignIn(session)
@@ -53,24 +53,24 @@ export default function Login({ initialMode = 'signin' }) {
     setError(null)
 
     if (mode === 'signup' && !name.trim()) {
-      setError('Please enter your name.')
+      setError(t('login.enterName'))
       return
     }
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
-      setError('Enter a valid email address.')
+      setError(t('login.validEmail'))
       return
     }
     if (mode === 'signup') {
       if (password.length < MIN_PASSWORD) {
-        setError(`Use a password of at least ${MIN_PASSWORD} characters.`)
+        setError(t('login.passwordTooShort', { n: MIN_PASSWORD }))
         return
       }
       if (password !== confirmPassword) {
-        setError('The two passwords do not match.')
+        setError(t('login.passwordsDiffer'))
         return
       }
     } else if (!password) {
-      setError('Enter your password.')
+      setError(t('login.enterPassword'))
       return
     }
 
@@ -80,7 +80,7 @@ export default function Login({ initialMode = 'signin' }) {
         await register({ name: name.trim(), email: email.trim(), password })
       } else if (mode === 'admin') {
         if (api.isMockMode()) {
-          setError('Admin access needs the server; offline mode has no admins.')
+          setError(t('login.offlineNoAdmin'))
           return
         }
         admitAdminOnly(await api.loginAccount({ email: email.trim(), password }))
@@ -90,7 +90,7 @@ export default function Login({ initialMode = 'signin' }) {
     } catch (err) {
       setError(err?.message && err.status !== 0
         ? err.message
-        : 'Cannot reach the Q Route server. Is the backend running?')
+        : t('login.serverUnreachable'))
     } finally {
       setBusy(false)
     }
@@ -294,7 +294,7 @@ export default function Login({ initialMode = 'signin' }) {
         role="tab"
         aria-selected={mode === 'signin'}
       >
-        Sign In
+        {t('login.signIn')}
       </button>
 
       <button
@@ -304,7 +304,7 @@ export default function Login({ initialMode = 'signin' }) {
         role="tab"
         aria-selected={mode === 'signup'}
       >
-        Register as User
+        {t('login.registerAsUser')}
       </button>
 
       <button
@@ -314,17 +314,14 @@ export default function Login({ initialMode = 'signin' }) {
         role="tab"
         aria-selected={mode === 'admin'}
       >
-        <ShieldAlert size={12} /> Admin Access
+        <ShieldAlert size={12} /> {t('login.adminAccess')}
       </button>
     </div>
 
     {sessionNote && <p className="login-auth-note" role="status">{sessionNote}</p>}
 
     {mode === 'admin' && (
-      <p className="login-admin-note">
-        For the traffic control room. Admin accounts are issued by whoever runs
-        the Q Route server, so there is no admin sign-up.
-      </p>
+      <p className="login-admin-note">{t('login.adminNote')}</p>
     )}
 
     <AnimatedAuthForm
@@ -343,7 +340,7 @@ export default function Login({ initialMode = 'signin' }) {
       confirmPassword={confirmPassword}
       setConfirmPassword={setConfirmPassword}
       minPassword={MIN_PASSWORD}
-      submitLabel={mode === 'admin' ? 'Sign in as admin' : null}
+      submitLabel={mode === 'admin' ? t('login.signInAsAdmin') : null}
     />
 
     <div className="login-divider">or</div>

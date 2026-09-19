@@ -57,14 +57,36 @@ class VehicleProfile:
     label: str
     excluded: frozenset = field(default_factory=frozenset)
     max_speed_kph: float | None = None
+    # How much of a jam's delay this vehicle actually suffers.
+    #
+    # A car and a two-wheeler both do 60 km/h on an empty road, so a top speed
+    # cannot express the difference between them — the difference only appears
+    # when the road is full. A two-wheeler filters past a queue the car has to
+    # sit in; a bus cannot, and loses more than a car because it also stops.
+    # 1.0 is the car, and leaves its times exactly as they were.
+    jam_share: float = 1.0
     basis: str = ""
     assumption: bool = True
 
     def permits(self, data) -> bool:
         return not self.excluded or road_class(data) not in self.excluded
 
-    def adjust_time(self, time_s: float, length_m: float) -> float:
-        """Travel time at the slower of the road's speed and this vehicle's cap."""
+    def adjust_time(self, time_s: float, length_m: float,
+                    free_flow_s: float | None = None) -> float:
+        """
+        Travel time for THIS vehicle on one road, in two steps.
+
+        First the congestion delay is shared: everything above the free-flow
+        time is a queue, and `jam_share` says how much of that queue this
+        vehicle actually waits in. Then the top speed caps whatever is left —
+        a bus cannot take a clear 80 km/h road at 80.
+
+        Without a free-flow time (a graph built before the traffic layer, or a
+        test edge) the delay cannot be separated from the journey, so the
+        sharing is skipped rather than guessed.
+        """
+        if free_flow_s and self.jam_share != 1.0 and time_s > free_flow_s:
+            time_s = free_flow_s + self.jam_share * (time_s - free_flow_s)
         if not self.max_speed_kph:
             return time_s
         return max(time_s, length_m / (self.max_speed_kph / 3.6))
@@ -79,6 +101,7 @@ class VehicleProfile:
             "id": self.id,
             "label": self.label,
             "avoids": sorted(self.excluded),
+            "jamShare": self.jam_share,
             "maxSpeedKph": self.max_speed_kph,
             "basis": self.basis,
             "assumption": self.assumption,
@@ -93,18 +116,25 @@ VEHICLES: dict[str, VehicleProfile] = {
             assumption=False,
         ),
         VehicleProfile(
-            "two_wheeler", "Two-wheeler", excluded=EXPRESSWAY,
+            "two_wheeler", "Two-wheeler", excluded=EXPRESSWAY, jam_share=0.55,
             basis=("Access-controlled expressways commonly prohibit two-wheelers. "
-                   "Check the local notification."),
+                   "Check the local notification. In a jam it keeps moving where "
+                   "a car queues: an assumed 55% of the car's delay, in the same "
+                   "spirit as its 0.5 PCU — half a car's road space."),
         ),
         VehicleProfile(
             "auto_rickshaw", "Auto-rickshaw", excluded=EXPRESSWAY, max_speed_kph=50,
+            jam_share=0.8,
             basis=("Three-wheelers are commonly barred from expressways and are "
-                   "slow; 50 km/h is an assumed top speed."),
+                   "slow; 50 km/h is an assumed top speed. Narrower than a car "
+                   "but not as nimble as a two-wheeler: an assumed 80% of the "
+                   "car's delay in a jam."),
         ),
         VehicleProfile(
-            "bus", "Bus", max_speed_kph=60,
-            basis="60 km/h is an assumed top speed for a city bus.",
+            "bus", "Bus", max_speed_kph=60, jam_share=1.15,
+            basis=("60 km/h is an assumed top speed for a city bus. It cannot "
+                   "filter and pulls away slowly, so it is assumed to lose 15% "
+                   "more than a car in a jam. Bus stops are not modelled."),
         ),
         # No road ban. An earlier version barred trucks from every residential
         # street, and a truck then could not reach Charminar from Hitec City at
@@ -114,14 +144,17 @@ VEHICLES: dict[str, VehicleProfile] = {
         # address. A rule that makes ordinary trips impossible is worse than
         # none, so only the speed cap is modelled.
         VehicleProfile(
-            "truck", "Truck", max_speed_kph=60,
+            "truck", "Truck", max_speed_kph=60, jam_share=1.15,
             basis=("60 km/h is an assumed top speed. Residential and time-of-day "
-                   "restrictions on heavy vehicles are not modelled."),
+                   "restrictions on heavy vehicles are not modelled. Like a bus "
+                   "it cannot filter: an assumed 15% more delay than a car."),
         ),
         VehicleProfile(
             "bicycle", "Bicycle", excluded=EXPRESSWAY, max_speed_kph=15,
+            jam_share=0.6,
             basis=("Non-motorised vehicles do not use access-controlled "
-                   "expressways. 15 km/h is an assumed riding speed."),
+                   "expressways. 15 km/h is an assumed riding speed, which "
+                   "already dominates: a jam rarely slows a bicycle below it."),
         ),
     )
 }

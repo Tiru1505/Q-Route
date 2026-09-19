@@ -6,6 +6,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { initialLanguage, isLanguage, translate } from '../i18n'
 import {
   DEFAULT_END, DEFAULT_START, REROUTED_ROUTE, ROUTES, TRAFFIC_SEGMENTS,
 } from '../data/mockData'
@@ -212,12 +213,42 @@ export function AppProvider({ children }) {
     setVehicleState(v)
     try { localStorage.setItem('qroute.vehicle', v) } catch { /* not persisted; still applied */ }
   }, [])
+  /* --- language ----------------------------------------------------------
+   * Kept in the browser so the login page is already in the right language
+   * before anyone signs in, and on the account so the choice follows the
+   * person to another device. `t` re-creates itself when the language
+   * changes, which is what re-renders the interface.
+   */
+  const [language, setLanguageState] = useState(initialLanguage)
+
+  useEffect(() => {
+    try { localStorage.setItem('qro.language', language) } catch {}
+    // Screen readers and the browser's own translation prompt read this.
+    document.documentElement.lang = language
+  }, [language])
+
+  const t = useCallback((key, vars) => translate(language, key, vars), [language])
+
+  const setLanguage = useCallback(async (code) => {
+    if (!isLanguage(code)) return
+    setLanguageState(code)
+    // Signed in and online: remember it on the account too. A failure here is
+    // not worth an error — the language has already changed on screen.
+    if (user?.token && !api.isMockMode()) {
+      try {
+        const { user: account } = await api.updateMe({ preferences: { language: code } })
+        setUser((prev) => (prev && prev.id === account.id ? { ...prev, ...account } : prev))
+      } catch { /* stays a local choice until the next successful save */ }
+    }
+  }, [user?.token, user?.id])
+
   // A signed-in user's saved preferences become the planner's defaults.
   useEffect(() => {
     const prefs = user?.preferences
     if (!prefs) return
     if (prefs.vehicle) setVehicle(prefs.vehicle)
     if (prefs.mode) setMode(prefs.mode)
+    if (isLanguage(prefs.language)) setLanguageState(prefs.language)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
@@ -762,6 +793,7 @@ export function AppProvider({ children }) {
   const value = {
     user, signIn, register, completeSignIn, signOut, updateUser, sessionNote,
     theme, setTheme,
+    language, setLanguage, t,
     collapsed, setCollapsed,
     settings, setSettings,
     start, setStart, end, setEnd,

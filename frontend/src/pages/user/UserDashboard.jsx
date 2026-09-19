@@ -36,11 +36,11 @@ const OUTLOOK_EVERY_MS = 20_000
 const levelOf = (c) => (c == null ? null : c < 0.3 ? 'low' : c < 0.5 ? 'moderate' : c < 0.7 ? 'heavy' : 'severe')
 const pct = (c) => (c == null ? '—' : `${Math.round(c * 100)}%`)
 
-function minutes(m) {
+function minutes(t, m) {
   if (m == null || Number.isNaN(m)) return '—'
   const total = Math.round(m)
-  if (total < 60) return `${total} min`
-  return `${Math.floor(total / 60)} h ${String(total % 60).padStart(2, '0')} min`
+  if (total < 60) return t('units.min', { n: total })
+  return t('units.hourMin', { h: Math.floor(total / 60), m: String(total % 60).padStart(2, '0') })
 }
 
 function Stat({ icon: Icon, label, value, hint, tone }) {
@@ -53,13 +53,13 @@ function Stat({ icon: Icon, label, value, hint, tone }) {
   )
 }
 
-function TrafficValue({ congestion }) {
+function TrafficValue({ congestion, t }) {
   const level = levelOf(congestion)
   if (!level) return <>—</>
   return (
     <span className="trip-traffic">
       <span className="dot" style={{ background: TRAFFIC_COLORS[level] }} />
-      {TRAFFIC_LABELS[level]} · {pct(congestion)}
+      {t(`traffic.${level}`)} · {pct(congestion)}
     </span>
   )
 }
@@ -71,8 +71,11 @@ export default function UserDashboard() {
     latestAlert, switchRoute, keepRoute, rerouting, rerouteResult,
     trip, navRoute, navState, navReading, tripError,
     startNavigation, reportNavProgress, arrive, endTrip,
-    pauseNavigation, resumeNavigation, clearTrip,
+    pauseNavigation, resumeNavigation, clearTrip, t,
   } = useApp()
+
+  // Bound to the chosen language, so every duration on the page reads in it.
+  const mins = (m) => minutes(t, m)
 
   const [legFraction, setLegFraction] = useState(0)
   const [outlook, setOutlook] = useState(null)
@@ -177,27 +180,31 @@ export default function UserDashboard() {
           <div className="map-overlay map-topright">
             {optimizing && (
               <div className="legend-card user-finding">
-                <Loader2 size={13} className="spin" /> Finding the best route…
+                <Loader2 size={13} className="spin" /> {t('planner.finding')}
               </div>
             )}
             {!optimizing && !routes.length && (
               <div className="legend-card" style={{ maxWidth: 220 }}>
-                <div className="legend-title">Where to?</div>
+                <div className="legend-title">{t('trip.whereTo')}</div>
                 <p style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-                  Choose a start and a destination, then find the best route.
+                  {t('trip.whereToHint')}
                 </p>
               </div>
             )}
             {navigating && (
               <div className="legend-card nav-hud" aria-live="polite">
                 <div className="legend-title">
-                  {pendingAlert ? 'Waiting for your decision' : navState === 'paused' ? 'Paused' : 'Navigating'}
+                  {pendingAlert ? t('trip.waitingDecision')
+                    : navState === 'paused' ? t('trip.paused') : t('trip.navigating')}
                 </div>
                 <div className="nav-hud-row">
-                  <Clock size={11} /> {minutes(remainingEta)} left
+                  <Clock size={11} /> {t('trip.left', { v: mins(remainingEta) })}
                 </div>
                 <div className="nav-progress"><span style={{ width: `${Math.round(legFraction * 100)}%` }} /></div>
-                <small>Simulated drive{speedup ? ` · ${speedup}× speed` : ''}</small>
+                <small>
+                  {t('trip.simulatedDrive')}
+                  {speedup ? ` · ${t('trip.speed', { n: speedup })}` : ''}
+                </small>
               </div>
             )}
           </div>
@@ -226,34 +233,34 @@ export default function UserDashboard() {
               role="alert"
             >
               <div className="card-title" style={{ color: 'var(--severe)' }}>
-                <TriangleAlert size={13} /> Faster route available
+                <TriangleAlert size={13} /> {t('recommend.title')}
               </div>
               <p className="recommend-text">{pendingAlert.text}</p>
               <div className="recommend-compare">
                 <div>
-                  <small>Current route</small>
-                  <b className="mono">{minutes(pendingAlert.currentEta)}</b>
+                  <small>{t('recommend.currentRoute')}</small>
+                  <b className="mono">{mins(pendingAlert.currentEta)}</b>
                 </div>
                 <ArrowRight size={16} />
                 <div>
-                  <small>Alternative</small>
-                  <b className="mono">{minutes(pendingAlert.alternativeEta)}</b>
+                  <small>{t('recommend.alternative')}</small>
+                  <b className="mono">{mins(pendingAlert.alternativeEta)}</b>
                 </div>
                 <div className="recommend-saving">
-                  <small>You save</small>
-                  <b className="mono">{minutes(pendingAlert.timeSaved)}</b>
+                  <small>{t('recommend.youSave')}</small>
+                  <b className="mono">{mins(pendingAlert.timeSaved)}</b>
                 </div>
               </div>
               <div className="recommend-actions">
                 <button className="btn btn-primary" type="button" onClick={() => switchRoute()} disabled={rerouting}>
-                  {rerouting ? <Loader2 size={13} className="spin" /> : <RouteIcon size={13} />} Switch route
+                  {rerouting ? <Loader2 size={13} className="spin" /> : <RouteIcon size={13} />} {t('recommend.switch')}
                 </button>
                 <button className="btn" type="button" onClick={() => keepRoute()} disabled={rerouting}>
-                  Keep current route
+                  {t('recommend.keep')}
                 </button>
               </div>
               <p className="recommend-foot">
-                Found by the traffic agent on the road ahead; figures are measured on the road graph.
+                {t('recommend.foot')}
               </p>
             </motion.div>
           )}
@@ -268,8 +275,11 @@ export default function UserDashboard() {
           <div className="card trip-card">
             <div className="card-title">
               <Navigation2 size={13} />
-              {navState === 'arrived' ? 'Trip complete' : navigating ? 'Your trip' : 'Recommended route'}
-              {trip?.rerouted && <span className="badge badge-blue" style={{ marginLeft: 'auto' }}>Rerouted</span>}
+              {navState === 'arrived' ? t('trip.complete')
+                : navigating ? t('trip.yourTrip') : t('trip.recommended')}
+              {trip?.rerouted && (
+                <span className="badge badge-blue" style={{ marginLeft: 'auto' }}>{t('trip.rerouted')}</span>
+              )}
             </div>
 
             <div className="trip-ends">
@@ -277,42 +287,46 @@ export default function UserDashboard() {
               <ArrowRight size={12} />
               <span><Flag size={12} /> {end?.name || 'Destination'}</span>
             </div>
-            {current.via && <p className="trip-via">via {current.via}</p>}
+            {current.via && <p className="trip-via">{current.via}</p>}
 
             <div className="trip-stats">
-              <Stat icon={Clock} label={navigating ? 'ETA left' : 'ETA'}
-                    value={minutes(navigating ? remainingEta : current.etaMin)}
-                    hint={navigating && navReading ? 'measured on the road graph' : null} />
-              <Stat icon={MapPin} label="Distance" value={`${current.distanceKm} km`}
-                    hint={trip?.rerouted ? 'new route, from the switch' : null} />
-              <Stat icon={Gauge} label="Traffic now" value={<TrafficValue congestion={trafficNow} />}
-                    hint={navigating && outlook ? 'on the road ahead' : 'along the route'} />
+              <Stat icon={Clock} label={navigating ? t('trip.etaLeft') : t('trip.eta')}
+                    value={mins(navigating ? remainingEta : current.etaMin)}
+                    hint={navigating && navReading ? t('trip.measured') : null} />
+              <Stat icon={MapPin} label={t('trip.distance')}
+                    value={t('units.km', { n: current.distanceKm })}
+                    hint={trip?.rerouted ? t('trip.newRouteFromSwitch') : null} />
+              <Stat icon={Gauge} label={t('trip.trafficNow')}
+                    value={<TrafficValue congestion={trafficNow} t={t} />}
+                    hint={navigating && outlook ? t('trip.onRoadAhead') : t('trip.alongRoute')} />
               <Stat
                 icon={outlook?.worsening ? TrendingUp : TrendingDown}
-                label={`Predicted${outlook?.horizonMin ? ` +${outlook.horizonMin} min` : ''}`}
-                value={predicted != null ? <TrafficValue congestion={predicted} /> : '—'}
+                label={`${t('trip.predicted')}${outlook?.horizonMin
+                  ? ` +${t('units.min', { n: outlook.horizonMin })}` : ''}`}
+                value={predicted != null ? <TrafficValue congestion={predicted} t={t} /> : '—'}
                 hint={navigating
-                  ? (outlook?.forecastApplied ? 'LSTM forecast' : outlook ? 'forecast unavailable' : 'reading…')
-                  : 'starts with navigation'}
+                  ? (outlook?.forecastApplied ? t('trip.lstmForecast')
+                    : outlook ? t('trip.forecastUnavailable') : t('trip.reading'))
+                  : t('trip.startsWithNavigation')}
                 tone={outlook?.worsening ? 'warn' : undefined}
               />
-              <Stat icon={CheckCircle2} label="Time saved"
-                    value={minutes(trip?.timeSavedMin || 0)}
-                    hint={trip?.rerouted ? 'vs staying on the jammed road' : 'no switch yet'}
+              <Stat icon={CheckCircle2} label={t('trip.timeSaved')}
+                    value={mins(trip?.timeSavedMin || 0)}
+                    hint={trip?.rerouted ? t('trip.vsStaying') : t('trip.noSwitchYet')}
                     tone={trip?.timeSavedMin > 0 ? 'good' : undefined} />
             </div>
 
             {navState === 'arrived' ? (
               <div className="trip-actions">
-                <Link className="btn btn-primary" to="/user/history">View in history</Link>
-                <button className="btn" type="button" onClick={clearTrip}>Plan another trip</button>
+                <Link className="btn btn-primary" to="/user/history">{t('trip.viewInHistory')}</Link>
+                <button className="btn" type="button" onClick={clearTrip}>{t('trip.planAnother')}</button>
               </div>
             ) : navigating ? (
               <div className="trip-actions">
                 {navState === 'driving'
-                  ? <button className="btn" type="button" onClick={pauseNavigation} disabled={!!pendingAlert}><Pause size={13} /> Pause</button>
-                  : <button className="btn btn-primary" type="button" onClick={resumeNavigation}><Play size={13} /> Resume</button>}
-                <button className="btn" type="button" onClick={endTrip}><Square size={13} /> End trip</button>
+                  ? <button className="btn" type="button" onClick={pauseNavigation} disabled={!!pendingAlert}><Pause size={13} /> {t('trip.pause')}</button>
+                  : <button className="btn btn-primary" type="button" onClick={resumeNavigation}><Play size={13} /> {t('trip.resume')}</button>}
+                <button className="btn" type="button" onClick={endTrip}><Square size={13} /> {t('trip.endTrip')}</button>
               </div>
             ) : (
               <div className="trip-actions">
@@ -323,23 +337,19 @@ export default function UserDashboard() {
                   disabled={navState === 'starting' || optimizing}
                 >
                   {navState === 'starting' ? <Loader2 size={14} className="spin" /> : <Navigation2 size={14} />}
-                  Start navigation
+                  {t('trip.startNavigation')}
                 </button>
               </div>
             )}
             {!navigating && navState !== 'arrived' && (
-              <p className="trip-note">
-                The car drives this route on the map at demo speed. The traffic
-                agent watches the road ahead and tells you if a better one appears.
-              </p>
+              <p className="trip-note">{t('trip.note')}</p>
             )}
           </div>
         ) : (
           <div className="card">
-            <div className="card-title"><Navigation2 size={13} /> Your trip</div>
+            <div className="card-title"><Navigation2 size={13} /> {t('trip.yourTrip')}</div>
             <p style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.55 }}>
-              Plan a route and it appears here: ETA, distance, traffic now and
-              predicted, and any time saved by switching on the way.
+              {t('trip.empty')}
             </p>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useApp } from '../store/AppContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Eye,
@@ -8,15 +9,17 @@ import {
   User,
 } from 'lucide-react'
 
-const MESSAGES = {
-  idle: 'Hi there! 👋',
-  name: 'What is your full name? 🖋️',
-  email: 'Enter your email address 📧',
-  password: 'Turning around! Your password is 100% private 🙈🔒',
-  email2: 'Welcome back! Good to see you 😊',
-  password2: 'Turning around! Your password is 100% private 🙈🔒',
-  passwordConfirm: 'Once more, so a typo cannot lock you out 🔁',
-  admin: 'Admin access. Accounts are issued, not registered 🛡️',
+// What the robot says, by field. Keys rather than sentences: the bubble is
+// translated like everything else on the page.
+const MESSAGE_KEYS = {
+  idle: 'auth.msgIdle',
+  name: 'auth.msgName',
+  email: 'auth.msgEmail',
+  password: 'auth.msgPassword',
+  email2: 'auth.msgWelcomeBack',
+  password2: 'auth.msgPassword',
+  passwordConfirm: 'auth.msgConfirm',
+  admin: 'auth.msgAdmin',
 }
 
 export function Robot({ turned }) {
@@ -92,26 +95,27 @@ function AnimatedField({
   showPassword,
   setShowPassword,
 }) {
+  const { t } = useApp()
   const [focused, setFocused] = useState(false)
   const [bubble, setBubble] = useState('')
 
   useEffect(() => {
     if (focused) {
-      setBubble(MESSAGES[field])
+      setBubble(t(MESSAGE_KEYS[field]))
     }
-  }, [focused, field])
+  }, [focused, field, t])
 
   return (
     <div className="qro-animated-field">
 
       <label>
         {field === 'name'
-          ? 'Full Name'
+          ? t('auth.fullName')
           : field === 'email' || field === 'email2'
-            ? 'Email Address'
+            ? t('auth.emailAddress')
             : field === 'passwordConfirm'
-              ? 'Confirm Password'
-              : 'Password'}
+              ? t('auth.confirmPassword')
+              : t('auth.password')}
       </label>
 
       <div
@@ -178,16 +182,17 @@ export default function AnimatedAuthForm({
   submitLabel = null,
   minPassword = 8,
 }) {
+  const { t } = useApp()
   // Admin access is a sign-in with a different door, not a different form.
   const signinLike = mode !== 'signup'
-  const greeting = mode === 'admin' ? MESSAGES.admin : MESSAGES.email2
+  const greeting = mode === 'admin' ? t('auth.msgAdmin') : t('auth.msgWelcomeBack')
 
   const [turned, setTurned] = useState(false)
 
   const [bubble, setBubble] = useState(
     signinLike
       ? greeting
-      : MESSAGES.idle
+      : t('auth.msgIdle')
   )
 
   useEffect(() => {
@@ -196,7 +201,7 @@ export default function AnimatedAuthForm({
     setBubble(
       signinLike
         ? greeting
-        : MESSAGES.idle
+        : t('auth.msgIdle')
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
@@ -204,11 +209,7 @@ export default function AnimatedAuthForm({
   const handlePasswordFocus = () => {
     setTurned(true)
 
-    setBubble(
-      signinLike
-        ? MESSAGES.password2
-        : MESSAGES.password
-    )
+    setBubble(t('auth.msgPassword'))
   }
 
   const handleEmailFocus = () => {
@@ -217,13 +218,13 @@ export default function AnimatedAuthForm({
     setBubble(
       signinLike
         ? greeting
-        : MESSAGES.email
+        : t('auth.msgEmail')
     )
   }
 
   const handleNameFocus = () => {
     setTurned(false)
-    setBubble(MESSAGES.name)
+    setBubble(t('auth.msgName'))
   }
 
   return (
@@ -339,7 +340,7 @@ export default function AnimatedAuthForm({
                     onChange={(e) =>
                       setName(e.target.value)
                     }
-                    placeholder="e.g. Your Name"
+                    placeholder={t('auth.namePlaceholder')}
                     icon={<User size={16} />}
                     showPassword={false}
                     setShowPassword={setShowPassword}
@@ -383,7 +384,9 @@ export default function AnimatedAuthForm({
                   onChange={(e) =>
                     setPassword(e.target.value)
                   }
-                  placeholder={signinLike ? 'Your password' : `At least ${minPassword} characters`}
+                  placeholder={signinLike
+                    ? t('auth.yourPassword')
+                    : t('auth.passwordMin', { n: minPassword })}
                   icon={<Lock size={16} />}
                   showPassword={showPassword}
                   setShowPassword={setShowPassword}
@@ -396,7 +399,7 @@ export default function AnimatedAuthForm({
                     field="passwordConfirm"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Type the password again"
+                    placeholder={t('auth.passwordAgain')}
                     icon={<Lock size={16} />}
                     showPassword={showPassword}
                     setShowPassword={setShowPassword}
@@ -418,8 +421,8 @@ export default function AnimatedAuthForm({
               >
 
                 {busy
-                  ? 'Processing…'
-                  : submitLabel || (signinLike ? 'Sign In' : 'Create Account')}
+                  ? t('auth.processing')
+                  : submitLabel || (signinLike ? t('login.signIn') : t('auth.createAccount'))}
 
                 <span>→</span>
 
@@ -436,32 +439,32 @@ export default function AnimatedAuthForm({
 
           {mode === 'admin' ? (
             <>
-              Not an admin?
+              {t('auth.notAdmin')}
 
               <button
                 type="button"
                 onClick={() => setMode('signin')}
               >
-                Sign in as a user
+                {t('auth.signInAsUser')}
               </button>
             </>
           ) : mode === 'signin' ? (
             <>
-              Don't have an account?
+              {t('auth.noAccount')}
 
               <button
   type="button"
   onClick={() => {
     setMode('signup')
-    setBubble(MESSAGES.idle)
+    setBubble(t('auth.msgIdle'))
   }}
 >
-  Register
+  {t('auth.registerLink')}
 </button>
             </>
           ) : (
             <>
-              Already have an account?
+              {t('auth.haveAccount')}
 
               <button
   type="button"
@@ -470,7 +473,7 @@ export default function AnimatedAuthForm({
     setBubble(greeting)
   }}
 >
-  Sign In
+  {t('login.signIn')}
 </button>
             </>
           )}

@@ -12,25 +12,25 @@ import { SYSTEM_STATUS } from '../data/mockData'
 // The admin console: every page the app had before roles, unchanged, now
 // under /admin. (The old paths redirect here for admins.)
 export const NAV_ITEMS = [
-  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/admin/traffic', label: 'Live Traffic', icon: Activity },
-  { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/admin/vision', label: 'Traffic Analysis Lab', icon: ScanEye },
-  { to: '/admin/benchmark', label: 'Benchmark', icon: FlaskConical },
-  { to: '/admin/alerts', label: 'Alerts', icon: Bell, showCount: true },
-  { to: '/admin/history', label: 'History', icon: HistoryIcon },
-  { to: '/admin/settings', label: 'Settings', icon: SettingsIcon },
+  { to: '/admin/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/traffic', labelKey: 'nav.liveTraffic', icon: Activity },
+  { to: '/admin/analytics', labelKey: 'nav.analytics', icon: BarChart3 },
+  { to: '/admin/vision', labelKey: 'nav.lab', icon: ScanEye },
+  { to: '/admin/benchmark', labelKey: 'nav.benchmark', icon: FlaskConical },
+  { to: '/admin/alerts', labelKey: 'nav.alerts', icon: Bell, showCount: true },
+  { to: '/admin/history', labelKey: 'nav.history', icon: HistoryIcon },
+  { to: '/admin/settings', labelKey: 'nav.settings', icon: SettingsIcon },
 ]
 
 // A driver's app: plan and drive, look back, adjust.
 export const USER_NAV_ITEMS = [
-  { to: '/user/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/user/history', label: 'History', icon: HistoryIcon },
-  { to: '/user/settings', label: 'Settings', icon: SettingsIcon },
+  { to: '/user/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard, end: true },
+  { to: '/user/history', labelKey: 'nav.history', icon: HistoryIcon },
+  { to: '/user/settings', labelKey: 'nav.settings', icon: SettingsIcon },
 ]
 
 export default function Sidebar({ items = NAV_ITEMS, variant = 'admin' }) {
-  const { collapsed, setCollapsed, alerts, theme, user, signOut } = useApp()
+  const { collapsed, setCollapsed, alerts, theme, user, signOut, t } = useApp()
   const isUser = variant === 'user'
   const location = useLocation()
   const closeTimer = useRef(null)
@@ -99,7 +99,7 @@ export default function Sidebar({ items = NAV_ITEMS, variant = 'admin' }) {
                 transition={{ duration: 0.2 }}
               >
                 <strong>Quantum Route</strong>
-                <span>{isUser ? 'Your journeys' : 'Admin console'}</span>
+                <span>{isUser ? t('nav.yourJourneys') : t('nav.adminConsole')}</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -126,19 +126,19 @@ export default function Sidebar({ items = NAV_ITEMS, variant = 'admin' }) {
         </div>
 
         <nav className="sidebar-nav">
-          {items.map(({ to, label, icon: Icon, end, showCount }) => (
+          {items.map(({ to, labelKey, icon: Icon, end, showCount }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-              title={collapsed ? label : undefined}
+              title={collapsed ? t(labelKey) : undefined}
             >
               <Icon size={17} />
               {!collapsed && (
                 <>
-                  <span>{label}</span>
+                  <span>{t(labelKey)}</span>
                   {showCount && alerts.length > 0 && (
                     <span className="nav-count">{alerts.length}</span>
                   )}
@@ -163,10 +163,10 @@ export default function Sidebar({ items = NAV_ITEMS, variant = 'admin' }) {
               type="button"
               className="nav-item sidebar-logout"
               onClick={() => signOut()}
-              title={collapsed ? 'Logout' : undefined}
+              title={collapsed ? t('nav.logout') : undefined}
             >
               <LogOut size={17} />
-              {!collapsed && <span>Logout</span>}
+              {!collapsed && <span>{t('nav.logout')}</span>}
             </button>
           </div>
         )}
@@ -199,12 +199,12 @@ export default function Sidebar({ items = NAV_ITEMS, variant = 'admin' }) {
 
       {/* Bottom navigation replaces the sidebar below 900px */}
       <nav className="mobile-nav">
-        {items.slice(0, 5).map(({ to, label, icon: Icon, end }) => {
+        {items.slice(0, 5).map(({ to, labelKey, icon: Icon, end }) => {
           const active = end ? location.pathname === to : location.pathname.startsWith(to)
           return (
             <NavLink key={to} to={to} end={end} className={active ? 'active' : ''}>
               <Icon size={18} />
-              <span>{label.split(' ')[0]}</span>
+              <span>{t(labelKey).split(' ')[0]}</span>
             </NavLink>
           )
         })}

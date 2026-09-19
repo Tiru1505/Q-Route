@@ -1,4 +1,5 @@
 import { Bell, Map, Moon, RotateCcw, Sliders, Zap } from 'lucide-react'
+import LanguagePicker from '../components/LanguagePicker'
 import { useApp } from '../store/AppContext'
 import { ALGORITHMS } from '../data/mockData'
 
@@ -24,31 +25,33 @@ function Toggle({ on, onChange, label, hint }) {
 }
 
 export default function Settings() {
-  const { theme, setTheme, settings, setSettings, resetScenario } = useApp()
+  const { theme, setTheme, settings, setSettings, resetScenario, t } = useApp()
   const set = (k, v) => setSettings((s) => ({ ...s, [k]: v }))
 
   return (
     <>
       <div className="page-head">
-        <h1>Settings</h1>
-        <p>Preferences are stored in this browser only.</p>
+        <h1>{t('settings.title')}</h1>
+        <p>{t('adminSettings.subtitle')}</p>
       </div>
 
       <div className="grid grid-2">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <LanguagePicker />
+
           <div className="card">
             <div className="card-title">
               <Moon size={13} />
-              Appearance
+              {t('settings.appearance')}
             </div>
             <Toggle
-              label="Dark mode"
-              hint="The interface is designed dark-first."
+              label={t('settings.darkMode')}
+              hint={t('adminSettings.darkHint')}
               on={theme === 'dark'}
               onChange={(v) => setTheme(v ? 'dark' : 'light')}
             />
             <div className="field" style={{ marginTop: 8 }}>
-              <label htmlFor="mapstyle">Map style</label>
+              <label htmlFor="mapstyle">{t('adminSettings.mapStyle')}</label>
               <select
                 id="mapstyle"
                 className="select"
@@ -64,10 +67,10 @@ export default function Settings() {
           <div className="card">
             <div className="card-title">
               <Zap size={13} />
-              Optimization
+              {t('adminSettings.optimization')}
             </div>
             <div className="field">
-              <label htmlFor="prefalgo">Preferred algorithm</label>
+              <label htmlFor="prefalgo">{t('adminSettings.preferredAlgorithm')}</label>
               <select
                 id="prefalgo"
                 className="select"
@@ -80,12 +83,12 @@ export default function Settings() {
               </select>
             </div>
             <Toggle
-              label="Avoid toll roads"
+              label={t('adminSettings.avoidTolls')}
               on={settings.avoidTolls}
               onChange={(v) => set('avoidTolls', v)}
             />
             <Toggle
-              label="Avoid highways"
+              label={t('adminSettings.avoidHighways')}
               on={settings.avoidHighways}
               onChange={(v) => set('avoidHighways', v)}
             />
@@ -96,12 +99,12 @@ export default function Settings() {
           <div className="card">
             <div className="card-title">
               <Sliders size={13} />
-              Sensitivity
+              {t('adminSettings.sensitivity')}
             </div>
 
             <div className="field">
               <div className="row-between" style={{ marginBottom: 7 }}>
-                <label style={{ margin: 0 }}>Congestion sensitivity</label>
+                <label style={{ margin: 0 }}>{t('adminSettings.congestionSensitivity')}</label>
                 <span className="mono" style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
                   {settings.congestionSensitivity}%
                 </span>
@@ -114,13 +117,13 @@ export default function Settings() {
                 onChange={(e) => set('congestionSensitivity', Number(e.target.value))}
               />
               <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 6 }}>
-                How strongly congestion is weighted relative to time and distance.
+                {t('adminSettings.congestionHint')}
               </p>
             </div>
 
             <div className="field" style={{ marginBottom: 0 }}>
               <div className="row-between" style={{ marginBottom: 7 }}>
-                <label style={{ margin: 0 }}>Alert threshold</label>
+                <label style={{ margin: 0 }}>{t('adminSettings.alertThreshold')}</label>
                 <span className="mono" style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 600 }}>
                   {settings.alertThresholdMin} min
                 </span>
@@ -133,8 +136,7 @@ export default function Settings() {
                 onChange={(e) => set('alertThresholdMin', Number(e.target.value))}
               />
               <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 6 }}>
-                Only alert when an alternative saves at least this much time. Higher
-                values mean fewer, more meaningful alerts.
+                {t('adminSettings.alertHint')}
               </p>
             </div>
           </div>
@@ -142,23 +144,23 @@ export default function Settings() {
           <div className="card">
             <div className="card-title">
               <Bell size={13} />
-              Notifications
+              {t('adminSettings.notifications')}
             </div>
             <Toggle
-              label="Predictive alerts"
-              hint="Forecast congestion before it happens."
+              label={t('adminSettings.predictiveAlerts')}
+              hint={t('adminSettings.predictiveHint')}
               on={settings.notifyPredictive}
               onChange={(v) => set('notifyPredictive', v)}
             />
             <Toggle
-              label="Incident alerts"
-              hint="Accidents, closures and waterlogging."
+              label={t('adminSettings.incidentAlerts')}
+              hint={t('adminSettings.incidentHint')}
               on={settings.notifyIncidents}
               onChange={(v) => set('notifyIncidents', v)}
             />
             <Toggle
-              label="Route change suggestions"
-              hint="Notify when a better route appears."
+              label={t('adminSettings.routeChange')}
+              hint={t('adminSettings.routeChangeHint')}
               on={settings.notifyReroute}
               onChange={(v) => set('notifyReroute', v)}
             />
@@ -167,13 +169,13 @@ export default function Settings() {
           <div className="card">
             <div className="card-title">
               <Map size={13} />
-              Session
+              {t('adminSettings.session')}
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 11 }}>
-              Clear the current routes, traffic simulation and alerts.
+              {t('adminSettings.sessionHint')}
             </p>
             <button className="btn btn-sm" onClick={resetScenario}>
-              <RotateCcw size={13} /> Reset Scenario
+              <RotateCcw size={13} /> {t('adminSettings.resetScenario')}
             </button>
           </div>
         </div>

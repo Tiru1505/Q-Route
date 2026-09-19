@@ -181,7 +181,15 @@ def test_profile_preferences_and_password(memory_db):
                                            "autoOpenAlerts": False}})
     assert r.status_code == 200
     assert r.json()["user"]["preferences"] == {"vehicle": "bus", "mode": "fastest",
-                                               "autoOpenAlerts": False}
+                                               "autoOpenAlerts": False, "language": "en"}
+
+    # The interface language is a preference like the others: a known one is
+    # stored, an unknown one is refused rather than saved and shown as English.
+    assert client.patch("/api/auth/me", headers=auth(token),
+                        json={"preferences": {"language": "te"}}
+                        ).json()["user"]["preferences"]["language"] == "te"
+    assert client.patch("/api/auth/me", headers=auth(token),
+                        json={"preferences": {"language": "klingon"}}).status_code == 400
     assert client.patch("/api/auth/me", headers=auth(token),
                         json={"preferences": {"vehicle": "spaceship"}}).status_code == 400
 

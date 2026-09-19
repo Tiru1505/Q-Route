@@ -195,7 +195,9 @@ class CostModel:
         driven by a car, and the ETA shown would be the car's.
         """
         time_s, length_m, congested_m = edge_components(data)
-        return self.vehicle.adjust_time(time_s, length_m), length_m, congested_m
+        free_flow_s = float(data.get("free_flow_time_s", 0.0) or 0.0)
+        return (self.vehicle.adjust_time(time_s, length_m, free_flow_s),
+                length_m, congested_m)
 
     def edge_cost(self, data):
         """Normalised cost of one edge. Infinite for a closed road, or one this vehicle may not use."""
@@ -205,8 +207,9 @@ class CostModel:
         if vehicle.excluded and not vehicle.permits(data):
             return math.inf
         time_s, length_m, congested_m = edge_components(data)
-        if vehicle.max_speed_kph:
-            time_s = vehicle.adjust_time(time_s, length_m)
+        if vehicle.max_speed_kph or vehicle.jam_share != 1.0:
+            time_s = vehicle.adjust_time(
+                time_s, length_m, float(data.get("free_flow_time_s", 0.0) or 0.0))
         return (
             self.weights.time * (time_s / self.ref_time_s)
             + self.weights.distance * (length_m / self.ref_distance_m)

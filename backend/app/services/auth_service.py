@@ -55,7 +55,13 @@ MIN_PASSWORD = 8
 # What a new account starts with. Only settings the app actually applies:
 # the vehicle and objective go into every route request, and the robot's
 # auto-open is honoured by the assistant panel.
-DEFAULT_PREFERENCES = {"vehicle": "car", "mode": "balanced", "autoOpenAlerts": True}
+# The interface languages the app ships translations for. English is the
+# fallback: a string with no translation yet is shown in English rather
+# than left blank.
+LANGUAGES = ("en", "hi", "te")
+
+DEFAULT_PREFERENCES = {"vehicle": "car", "mode": "balanced",
+                       "autoOpenAlerts": True, "language": "en"}
 
 
 class GoogleAuthNotConfigured(RuntimeError):
@@ -317,6 +323,8 @@ def update_profile(user_id: str, name: str | None = None,
             elif key == "mode" and value in MODES:
                 prefs[key] = value
             elif key == "autoOpenAlerts" and isinstance(value, bool):
+                prefs[key] = value
+            elif key == "language" and value in LANGUAGES:
                 prefs[key] = value
             else:
                 raise AuthError(f"Unsupported preference {key}={value!r}.")

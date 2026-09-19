@@ -44,6 +44,27 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 DATA = ROOT / "data/vision/dats_yolo/data.yaml"
 
 
+def _point_dataset_at_itself(yaml_path):
+    """
+    Keep data.yaml's `path` pointing at the folder it actually sits in.
+
+    Ultralytics writes an ABSOLUTE path in there when the dataset is built, so
+    moving or cloning the repository leaves it naming a directory that no
+    longer exists, and training then fails with a confusing "dataset not
+    found" about a path nobody typed. It is rewritten here, on every run, from
+    where this file really is.
+    """
+    import yaml
+
+    spec = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    here = str(yaml_path.parent).replace("\\", "/")
+    if spec.get("path") == here:
+        return
+    print(f"  dataset path corrected: {spec.get('path')} -> {here}")
+    spec["path"] = here
+    yaml_path.write_text(yaml.safe_dump(spec, sort_keys=False), encoding="utf-8")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--epochs", type=int, default=25)
@@ -58,6 +79,8 @@ def main() -> int:
         raise SystemExit(
             f"No dataset at {DATA}.\nBuild it first with scripts/prepare_yolo_data.py"
         )
+
+    _point_dataset_at_itself(DATA)
 
     from ultralytics import YOLO
 

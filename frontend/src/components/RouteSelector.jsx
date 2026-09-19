@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react'
 import PlaceInput from './PlaceInput'
 import VehicleSelector from './VehicleSelector'
 import { ALGORITHMS, OPTIMIZATION_MODES } from '../data/mockData'
+import { labelFor } from '../i18n/labels'
 import { getGraphs } from '../services/api'
 import { useApp } from '../store/AppContext'
 
@@ -46,6 +47,7 @@ export default function RouteSelector({ onOptimize, busy, variant = 'admin', loc
     startDemo,
     stopDemo,
     resetScenario,
+    t,
   } = useApp()
 
   const swap = () => {
@@ -79,12 +81,12 @@ export default function RouteSelector({ onOptimize, busy, variant = 'admin', loc
       {/* HEADER */}
       <div className="card-title route-selector-title">
         <Navigation size={13} />
-        <span>Route Planner</span>
+        <span>{t('planner.title')}</span>
       </div>
 
       {/* ROAD NETWORK — decides what the other fields can even mean */}
       <div className="field route-field">
-        <label htmlFor="graph"><Globe2 size={12} /> Road network</label>
+        <label htmlFor="graph"><Globe2 size={12} /> {t('planner.roadNetwork')}</label>
         <select
           id="graph"
           className="select route-select"
@@ -109,7 +111,7 @@ export default function RouteSelector({ onOptimize, busy, variant = 'admin', loc
       {/* START LOCATION */}
       <PlaceInput
         id="start"
-        label="Start location"
+        label={t('planner.startLocation')}
         value={start}
         onChange={setStart}
         placeholder={`Type start location in ${where}…`}
@@ -132,7 +134,7 @@ export default function RouteSelector({ onOptimize, busy, variant = 'admin', loc
       {/* DESTINATION */}
       <PlaceInput
         id="end"
-        label="Destination"
+        label={t('planner.destination')}
         value={end}
         onChange={setEnd}
         placeholder={`Type destination in ${where}…`}
@@ -147,7 +149,7 @@ export default function RouteSelector({ onOptimize, busy, variant = 'admin', loc
       {/* ALGORITHM — admin only */}
       {!isUser && (
       <div className="field route-field">
-        <label htmlFor="algo">Algorithm</label>
+        <label htmlFor="algo">{t('planner.algorithm')}</label>
 
         <select
           id="algo"
@@ -173,7 +175,7 @@ export default function RouteSelector({ onOptimize, busy, variant = 'admin', loc
 
       {/* OPTIMIZATION OBJECTIVE */}
       <div className="field route-field">
-        <label>{isUser ? 'Route preference' : 'Optimization objective'}</label>
+        <label>{isUser ? t('planner.routePreference') : t('planner.objective')}</label>
 
         <div className="segmented route-segmented">
           {OPTIMIZATION_MODES.map((m) => (
@@ -183,7 +185,7 @@ export default function RouteSelector({ onOptimize, busy, variant = 'admin', loc
               onClick={() => setMode(m.id)}
               title={`time ${m.weights.time} · distance ${m.weights.distance} · congestion ${m.weights.congestion}`}
             >
-              {m.name}
+              {labelFor(t, 'mode', m.id, m.name)}
             </button>
           ))}
         </div>
@@ -203,25 +205,25 @@ export default function RouteSelector({ onOptimize, busy, variant = 'admin', loc
 
         <span>
           {isUser
-            ? (busy ? 'Finding the best route…' : 'Find best route')
-            : (busy ? 'Optimizing…' : 'Optimize Route')}
+            ? (busy ? t('planner.finding') : t('planner.findBestRoute'))
+            : (busy ? t('planner.optimizing') : t('planner.optimizeRoute'))}
         </span>
       </button>
 
       {/* WHY THE BUTTON IS DISABLED */}
       {locked && (
         <p className="route-warning">
-          End the current trip to plan a new one.
+          {t('planner.endTripFirst')}
         </p>
       )}
       {!busy && incomplete && (
         <p className="route-warning">
-          Choose a start and a destination.
+          {t('planner.chooseBoth')}
         </p>
       )}
       {!busy && !incomplete && identical && (
         <p className="route-warning">
-          Start and destination must differ.
+          {t('planner.mustDiffer')}
         </p>
       )}
 

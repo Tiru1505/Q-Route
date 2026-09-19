@@ -201,3 +201,75 @@ def test_qpso_does_not_reuse_another_vehicles_search():
     keys = [k for k in engine_bridge._decoders if "truck" in k]
     assert keys, f"no decoder keyed by vehicle: {list(engine_bridge._decoders)[:3]}"
     assert all(k[0] == "hyderabad" for k in keys), "decoder key does not name the graph"
+
+
+# ------------------------------------------------- what a jam costs each vehicle
+
+def jammed(free_flow_s=60.0, current_s=180.0, length_m=1000.0):
+    """One kilometre that flows in 60 s and is currently taking 180 s."""
+    return {"highway": "primary", "length_m": length_m,
+            "free_flow_time_s": free_flow_s, "current_time_s": current_s,
+            "congestion": 0.8}
+
+
+def test_a_two_wheeler_loses_less_of_a_jam_than_a_car():
+    """
+    The point of the vehicle model: a top speed cannot express this. Both do
+    60 km/h on an empty road; the difference is that one filters past the
+    queue and the other sits in it.
+    """
+    edge = jammed()
+    car = model("car").components(edge)[0]
+    bike = model("two_wheeler").components(edge)[0]
+    auto = model("auto_rickshaw").components(edge)[0]
+    bus = model("bus").components(edge)[0]
+
+    assert bike < auto < car < bus, (bike, auto, car, bus)
+    # The delay is shared, never the free-flow time: 60 + 0.55 x 120.
+    assert bike == pytest.approx(60 + 0.55 * 120)
+    assert car == pytest.approx(180), "the car is the baseline and must not move"
+
+
+def test_no_vehicle_gains_on_a_road_that_is_not_congested():
+    """
+    Filtering past a queue that is not there would be a free lunch. The test
+    road runs at 60 km/h, so only a cap BELOW that may change the time — and
+    a cap can only ever slow a vehicle down.
+    """
+    clear = jammed(current_s=60.0)
+    clear["congestion"] = 0.0
+    for vid in ("car", "two_wheeler", "bus", "truck"):
+        assert model(vid).components(clear)[0] == pytest.approx(60.0), vid
+    # The auto's 50 km/h cap: a clear kilometre still takes it 72 s.
+    assert model("auto_rickshaw").components(clear)[0] == pytest.approx(72.0)
+
+
+def test_a_jam_never_makes_a_vehicle_faster_than_free_flow():
+    for vid in VEHICLES:
+        t, _, _ = model(vid).components(jammed())
+        assert t >= 60.0, f"{vid} beat the free-flow time"
+
+
+def test_the_endpoint_publishes_the_jam_rule():
+    """The interface explains the rule; it cannot do that if it is hidden."""
+    body = client.get("/api/vehicles").json()
+    shares = {v["id"]: v["jamShare"] for v in body["vehicles"]}
+    assert shares["car"] == 1.0
+    assert shares["two_wheeler"] < 1.0 < shares["bus"]
+
+
+def test_the_vehicle_changes_the_eta_on_the_real_graph():
+    """
+    End to end, in peak-hour traffic, on a trip with no expressway to ban:
+    the same two points cost a two-wheeler less than a car and a bus more.
+    """
+    r = client.post("/api/simulation/event?scenario=peak_hour")
+    assert r.status_code == 200, r.text
+    try:
+        etas = {}
+        for vid in ("two_wheeler", "car", "bus"):
+            d = _route({"source": HITEC, "destination": CHARMINAR, "vehicle": vid})
+            etas[vid] = d["route"]["travel_time_minutes"]
+        assert etas["two_wheeler"] < etas["car"] < etas["bus"], etas
+    finally:
+        client.post("/api/simulation/event?scenario=normal")

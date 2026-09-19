@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Car, History as HistoryIcon, Search } from 'lucide-react'
 import { CardSkeleton } from '../../components/LoadingScreen'
 import { getTrips } from '../../services/api'
-import { TRAFFIC_COLORS, TRAFFIC_LABELS } from '../../data/mockData'
+import { TRAFFIC_COLORS } from '../../data/mockData'
+import { useApp } from '../../store/AppContext'
 
 /**
  * Trips the signed-in user actually drove, from the server's `trips` records.
@@ -19,28 +20,31 @@ import { TRAFFIC_COLORS, TRAFFIC_LABELS } from '../../data/mockData'
  */
 
 const STATUS = {
-  completed: { label: 'Completed', badge: 'badge-green' },
-  active: { label: 'In progress', badge: 'badge-blue' },
-  cancelled: { label: 'Ended early', badge: 'badge-grey' },
+  completed: { key: 'history.completed', badge: 'badge-green' },
+  active: { key: 'history.inProgress', badge: 'badge-blue' },
+  cancelled: { key: 'history.endedEarly', badge: 'badge-grey' },
 }
 
-function minutes(m) {
+function minutes(t, m) {
   if (m == null) return '—'
   const total = Math.round(m)
-  if (total < 60) return `${total} min`
-  return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, '0')}m`
+  if (total < 60) return t('units.min', { n: total })
+  return t('units.hourMin', { h: Math.floor(total / 60), m: String(total % 60).padStart(2, '0') })
 }
 
-function when(iso) {
+// Dates follow the chosen language: 16 సెప్టెంబర్ 2026 rather than 16 Sep 2026.
+function when(iso, language) {
   if (!iso) return ''
   const d = new Date(iso)
-  return `${d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })} · ${
-    d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+  const locale = language === 'en' ? [] : `${language}-IN`
+  return `${d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })} · ${
+    d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`
 }
 
-function TripCard({ trip, index }) {
+function TripCard({ trip, index, t, language }) {
   const status = STATUS[trip.status] || STATUS.cancelled
   const optimized = trip.rerouted
+  const mins = (m) => minutes(t, m)
   return (
     <motion.article
       className="card trip-history-card"
@@ -50,42 +54,45 @@ function TripCard({ trip, index }) {
     >
       <header className="trip-history-head">
         <div className="trip-history-route">
-          <span><small>From</small>{trip.source?.name || 'Start'}</span>
+          <span><small>{t('history.from')}</small>{trip.source?.name || 'Start'}</span>
           <ArrowRight size={14} aria-hidden="true" />
-          <span><small>To</small>{trip.destination?.name || 'Destination'}</span>
+          <span><small>{t('history.to')}</small>{trip.destination?.name || 'Destination'}</span>
         </div>
         <div className="trip-history-badges">
-          {optimized && <span className="badge badge-quantum">Route optimized</span>}
-          <span className={`badge ${status.badge}`}>{status.label}</span>
+          {optimized && <span className="badge badge-quantum">{t('history.routeOptimized')}</span>}
+          <span className={`badge ${status.badge}`}>{t(status.key)}</span>
         </div>
       </header>
 
       <dl className="trip-history-facts">
-        <div><dt>Date</dt><dd>{when(trip.createdAt)}</dd></div>
-        <div><dt>Route</dt><dd>{trip.route?.label || 'Route'}{trip.route?.via ? ` · via ${trip.route.via}` : ''}</dd></div>
-        <div><dt>Planned ETA</dt><dd className="mono">{minutes(trip.plannedEtaMin)}</dd></div>
-        <div><dt>Distance</dt><dd className="mono">{trip.distanceKm} km</dd></div>
+        <div><dt>{t('history.date')}</dt><dd>{when(trip.createdAt, language)}</dd></div>
+        <div><dt>{t('history.route')}</dt><dd>{trip.route?.label || 'Route'}{trip.route?.via ? ` · ${trip.route.via}` : ''}</dd></div>
+        <div><dt>{t('history.plannedEta')}</dt><dd className="mono">{mins(trip.plannedEtaMin)}</dd></div>
+        <div><dt>{t('trip.distance')}</dt><dd className="mono">{t('units.km', { n: trip.distanceKm })}</dd></div>
         <div>
-          <dt>Traffic at start</dt>
+          <dt>{t('history.trafficAtStart')}</dt>
           <dd className="trip-traffic">
             <span className="dot" style={{ background: TRAFFIC_COLORS[trip.trafficCondition] }} />
-            {TRAFFIC_LABELS[trip.trafficCondition] || '—'}
+            {trip.trafficCondition ? t(`traffic.${trip.trafficCondition}`) : '—'}
           </dd>
         </div>
-        <div><dt>Vehicle</dt><dd style={{ textTransform: 'capitalize' }}>{(trip.vehicle || 'car').replace('_', ' ')}</dd></div>
+        <div><dt>{t('history.vehicle')}</dt><dd style={{ textTransform: 'capitalize' }}>{(trip.vehicle || 'car').replace('_', ' ')}</dd></div>
         <div>
-          <dt>Rerouted</dt>
-          <dd>{optimized ? `Yes · ${trip.reroutes.length} switch${trip.reroutes.length > 1 ? 'es' : ''}` : 'No'}
-            {trip.declined ? ` · ${trip.declined} kept` : ''}</dd>
+          <dt>{t('history.wasRerouted')}</dt>
+          <dd>{optimized
+            ? `${t('history.yes')} · ${trip.reroutes.length > 1
+              ? t('history.switches', { n: trip.reroutes.length }) : t('history.oneSwitch')}`
+            : t('history.no')}
+            {trip.declined ? ` · ${t('history.kept', { n: trip.declined })}` : ''}</dd>
         </div>
       </dl>
 
       {optimized && (
         <div className="trip-history-saving">
-          <div><small>Original ETA</small><b className="mono">{minutes(trip.originalEtaMin)}</b></div>
+          <div><small>{t('history.originalEta')}</small><b className="mono">{mins(trip.originalEtaMin)}</b></div>
           <ArrowRight size={14} aria-hidden="true" />
-          <div><small>Optimized ETA</small><b className="mono">{minutes(trip.optimizedEtaMin)}</b></div>
-          <div className="trip-history-saved"><small>Time saved</small><b className="mono">{minutes(trip.timeSavedMin)}</b></div>
+          <div><small>{t('history.optimizedEta')}</small><b className="mono">{mins(trip.optimizedEtaMin)}</b></div>
+          <div className="trip-history-saved"><small>{t('trip.timeSaved')}</small><b className="mono">{mins(trip.timeSavedMin)}</b></div>
         </div>
       )}
     </motion.article>
@@ -93,6 +100,7 @@ function TripCard({ trip, index }) {
 }
 
 export default function TripHistory() {
+  const { t, language } = useApp()
   const [trips, setTrips] = useState(null)
   const [failed, setFailed] = useState(null)
   const [q, setQ] = useState('')
@@ -125,23 +133,23 @@ export default function TripHistory() {
     <>
       <div className="row-between page-head">
         <div>
-          <h1>Trip History</h1>
-          <p>Journeys you drove, and what switching route saved.</p>
+          <h1>{t('history.title')}</h1>
+          <p>{t('history.subtitle')}</p>
         </div>
         <div style={{ position: 'relative', width: 240, maxWidth: '45vw' }}>
           <Search size={13} style={{
             position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-faint)',
           }} />
-          <input className="input" style={{ paddingLeft: 31 }} placeholder="Search places…"
-                 value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search trips by place" />
+          <input className="input" style={{ paddingLeft: 31 }} placeholder={t('history.search')}
+                 value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('history.search')} />
         </div>
       </div>
 
       {totals && (
         <div className="trip-totals">
-          <div><small>Trips</small><b className="mono">{totals.trips}</b></div>
-          <div><small>Rerouted</small><b className="mono">{totals.rerouted}</b></div>
-          <div><small>Time saved</small><b className="mono">{minutes(totals.saved)}</b></div>
+          <div><small>{t('history.trips')}</small><b className="mono">{totals.trips}</b></div>
+          <div><small>{t('history.reroutedCount')}</small><b className="mono">{totals.rerouted}</b></div>
+          <div><small>{t('trip.timeSaved')}</small><b className="mono">{minutes(t, totals.saved)}</b></div>
         </div>
       )}
 
@@ -154,18 +162,20 @@ export default function TripHistory() {
           <div className="empty">
             {q.trim() ? <HistoryIcon size={28} /> : <Car size={28} />}
             <strong style={{ fontSize: 13, color: 'var(--text-dim)' }}>
-              {q.trim() ? 'No matching trips' : 'No trips yet'}
+              {q.trim() ? t('history.noMatching') : t('history.noTrips')}
             </strong>
             <span style={{ fontSize: 12 }}>
               {q.trim()
-                ? 'Try a different place name.'
-                : <>Plan a route and press <strong>Start navigation</strong> — each trip is saved here. <Link to="/user/dashboard">Go to the dashboard</Link></>}
+                ? t('history.noMatchingHint')
+                : <>{t('trip.empty')} <Link to="/user/dashboard">{t('history.goToDashboard')}</Link></>}
             </span>
           </div>
         </div>
       ) : (
         <div className="trip-history-list">
-          {shown.map((t, i) => <TripCard key={t.id} trip={t} index={i} />)}
+          {shown.map((row, i) => (
+            <TripCard key={row.id} trip={row} index={i} t={t} language={language} />
+          ))}
         </div>
       )}
     </>

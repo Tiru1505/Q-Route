@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Bike, Bus, Car, CarTaxiFront, Info, Truck } from 'lucide-react'
 import { getVehicles } from '../services/api'
+import { labelFor } from '../i18n/labels'
 import { useApp } from '../store/AppContext'
 
 /**
@@ -57,11 +58,20 @@ function ruleText(v) {
   const parts = []
   if (avoid.length) parts.push(`Avoids ${avoid.join(' and ')}`)
   if (v.maxSpeedKph) parts.push(`top speed ${v.maxSpeedKph} km/h`)
+  // How much of a jam this vehicle actually sits in. A top speed cannot say
+  // this: the difference between a car and a two-wheeler only shows when the
+  // road is full, and that is where it decides the route.
+  if (v.jamShare && v.jamShare !== 1) {
+    const pct = Math.round(Math.abs(1 - v.jamShare) * 100)
+    parts.push(v.jamShare < 1
+      ? `${pct}% less delay than a car in jams`
+      : `${pct}% more delay than a car in jams`)
+  }
   return parts.length ? parts.join(' · ') : 'No restrictions — the road speeds are car speeds'
 }
 
 export default function VehicleSelector() {
-  const { vehicle, setVehicle } = useApp()
+  const { vehicle, setVehicle, t } = useApp()
   const [profiles, setProfiles] = useState(null)
   const [error, setError] = useState(null)
 
@@ -83,7 +93,7 @@ export default function VehicleSelector() {
   if (error) {
     return (
       <div className="field route-field">
-        <label>Your vehicle</label>
+        <label>{t('vehicle.yours')}</label>
         <p className="vehicle-rule">Vehicle profiles are unavailable, so routes are computed for a car.</p>
       </div>
     )
@@ -94,9 +104,9 @@ export default function VehicleSelector() {
 
   return (
     <div className="field route-field">
-      <label>Your vehicle</label>
+      <label>{t('vehicle.yours')}</label>
 
-      <div className="segmented vehicle-grid" role="radiogroup" aria-label="Your vehicle">
+      <div className="segmented vehicle-grid" role="radiogroup" aria-label={t('vehicle.yours')}>
         {list.map((v) => {
           const Icon = ICONS[v.id] || Car
           const on = v.id === vehicle
@@ -112,7 +122,7 @@ export default function VehicleSelector() {
               title={v.basis}
             >
               <Icon size={16} />
-              <span>{v.label}</span>
+              <span>{labelFor(t, 'vehicle', v.id, v.label)}</span>
             </button>
           )
         })}

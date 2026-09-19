@@ -64,7 +64,7 @@ function BrandMark() {
 }
 
 export default function Navbar({ items = NAV_ITEMS, settingsPath = '/admin/settings' }) {
-  const { alerts, dismissAlert, theme, setTheme, segments, user, signOut } = useApp()
+  const { alerts, dismissAlert, theme, setTheme, segments, user, signOut, t } = useApp()
   const [open, setOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -107,7 +107,7 @@ export default function Navbar({ items = NAV_ITEMS, settingsPath = '/admin/setti
           <span>QUANTUM ROUTE OPTIMIZER</span>
         </div>
         <span className="navbar-divider" aria-hidden="true" />
-        <h2 className="navbar-page-title">{current?.label || 'Dashboard'}</h2>
+        <h2 className="navbar-page-title">{t(current?.labelKey || 'nav.dashboard')}</h2>
       </div>
 
       <div className="navbar-right" ref={ref}>
@@ -177,10 +177,10 @@ export default function Navbar({ items = NAV_ITEMS, settingsPath = '/admin/setti
                 className="item"
                 onClick={() => { setMenuOpen(false); navigate(settingsPath) }}
               >
-                <SettingsIcon size={14} /> Settings
+                <SettingsIcon size={14} /> {t('nav.settings')}
               </button>
               <button className="item danger" onClick={() => signOut()}>
-                <LogOut size={14} /> Sign out
+                <LogOut size={14} /> {t('navbar.signOut')}
               </button>
             </motion.div>
           )}
@@ -196,12 +196,12 @@ export default function Navbar({ items = NAV_ITEMS, settingsPath = '/admin/setti
               transition={{ duration: 0.18 }}
             >
               <div className="card-title" style={{ padding: '4px 8px', marginBottom: 4 }}>
-                Notifications ({alerts.length})
+                {t('navbar.notifications')} ({alerts.length})
               </div>
               {alerts.length === 0 ? (
                 <div className="empty" style={{ padding: 24 }}>
                   <Bell size={22} />
-                  <span style={{ fontSize: 12 }}>You're all caught up</span>
+                  <span style={{ fontSize: 12 }}>{t('navbar.caughtUp')}</span>
                 </div>
               ) : (
                 alerts.map((a) => (
