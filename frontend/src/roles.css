@@ -385,8 +385,9 @@
   border-radius: var(--radius);
   overflow: hidden;
   /* Space. On a globe the canvas is transparent outside the planet, so this
-     is what shows around it — without it the sphere sits in a cream void. */
-  background: #05070d;
+     is what shows around it — without it the sphere sits in a cream void.
+     Themed, so it turns white with the rest of the interface. */
+  background: var(--map-space);
 }
 
 /* MapLibre's popup chrome, brought into this theme (it ships white). */

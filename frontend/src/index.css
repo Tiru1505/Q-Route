@@ -10,6 +10,10 @@
      -------------------------------------------------------------------- */
   --bg: #0D0B0A;
   --bg-2: #171311;
+  /* Space around the globe. The canvas is transparent outside the planet, so
+     this is what shows through — and it follows the interface even though the
+     basemap itself stays dark in both themes. */
+  --map-space: #05070d;
   --panel: #171311;
   --panel-solid: #171311;
   --panel-hover: #201A17;
@@ -114,6 +118,7 @@
 :root[data-theme='light'] {
   --bg: #F5F1ED;
   --bg-2: #FFFCF9;
+  --map-space: #FFFFFF;
   --panel: #FFFCF9;
   --panel-solid: #FFFCF9;
   --panel-hover: #F1E9E2;
