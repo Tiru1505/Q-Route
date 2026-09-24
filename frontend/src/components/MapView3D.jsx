@@ -353,14 +353,25 @@ export default function MapView3D({
     if (import.meta.env.DEV) window.__routeMap = map
     map.addControl(new NavigationControl({ visualizePitch: true }), 'top-right')
 
-    let flattened = map.getZoom() < FLATTEN_BELOW_ZOOM
+    // setMaxPitch, not easeTo. An eased pitch is an animation, and a scroll
+    // wheel cancels it with the next notch — which is exactly how someone
+    // zooms out to the globe, so the tilt survived and the planet sat low.
+    // A max pitch clamps immediately and cannot be interrupted.
+    let flattened = null
     const followZoom = () => {
       const far = map.getZoom() < FLATTEN_BELOW_ZOOM
       if (far === flattened) return
       flattened = far
-      map.easeTo({ pitch: far ? 0 : DEFAULT_PITCH, duration: 400 })
+      if (far) {
+        map.setMaxPitch(0)
+      } else {
+        map.setMaxPitch(85)
+        map.easeTo({ pitch: DEFAULT_PITCH, duration: 400 })
+      }
     }
+    followZoom()
     map.on('zoom', followZoom)
+    map.on('zoomend', followZoom)
 
     map.on('load', () => {
       // A globe rather than a flat sheet. At routing zoom the two are
@@ -436,6 +447,7 @@ export default function MapView3D({
 
     return () => {
       map.off('zoom', followZoom)
+      map.off('zoomend', followZoom)
       map.remove()
       mapRef.current = null
       setReady(false)
