@@ -6,6 +6,7 @@ import { Bell, LogOut, Moon, Settings as SettingsIcon, Sun, TriangleAlert } from
 import { useApp } from '../store/AppContext'
 import { NAV_ITEMS } from './Sidebar'
 import { TRAFFIC_COLORS } from '../data/mockData'
+import SosButton from './SosButton'
 
 /** Average congestion across all segments → a single city-wide status word. */
 function cityStatus(segments) {
@@ -63,7 +64,7 @@ function BrandMark() {
   )
 }
 
-export default function Navbar({ items = NAV_ITEMS, settingsPath = '/admin/settings' }) {
+export default function Navbar({ items = NAV_ITEMS, settingsPath = '/admin/settings', variant = 'admin' }) {
   const { alerts, dismissAlert, theme, setTheme, segments, user, signOut, t } = useApp()
   const [open, setOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -111,6 +112,9 @@ export default function Navbar({ items = NAV_ITEMS, settingsPath = '/admin/setti
       </div>
 
       <div className="navbar-right" ref={ref}>
+        {/* Drivers only: the control room is not the one at the roadside. */}
+        {variant === 'user' && <SosButton />}
+
         <div className="live-chip">
           <span className="dot pulse" style={{ background: 'currentColor' }} />
           <span>LIVE</span>

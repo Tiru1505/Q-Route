@@ -41,6 +41,20 @@ import { cumulativeDistances, nearestIndex, orientPath, placeAlong } from '../li
 const STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
 const HYDERABAD = [78.4867, 17.385]
 
+/**
+ * The camera lies down when the city pulls back to a planet.
+ *
+ * A 45° tilt is what stands the buildings up at street level, but the same
+ * tilt on a globe pushes the sphere low and out of frame — it reads as a map
+ * that will not centre itself. Flattening below this zoom puts the planet
+ * back in the middle.
+ *
+ * Only on the crossing, not every frame, so a pitch set by hand within a zoom
+ * band survives rather than being dragged back each time the map moves.
+ */
+const DEFAULT_PITCH = 45
+const FLATTEN_BELOW_ZOOM = 5
+
 const cssVar = (name, fallback) => {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   return v || fallback
@@ -324,7 +338,7 @@ export default function MapView3D({
         style: STYLE,
         center: center ? [center[1], center[0]] : HYDERABAD,
         zoom,
-        pitch: 45,
+        pitch: zoom < FLATTEN_BELOW_ZOOM ? 0 : DEFAULT_PITCH,
         attributionControl: { compact: true },
       })
     } catch (err) {
@@ -338,6 +352,15 @@ export default function MapView3D({
     mapRef.current = map
     if (import.meta.env.DEV) window.__routeMap = map
     map.addControl(new NavigationControl({ visualizePitch: true }), 'top-right')
+
+    let flattened = map.getZoom() < FLATTEN_BELOW_ZOOM
+    const followZoom = () => {
+      const far = map.getZoom() < FLATTEN_BELOW_ZOOM
+      if (far === flattened) return
+      flattened = far
+      map.easeTo({ pitch: far ? 0 : DEFAULT_PITCH, duration: 400 })
+    }
+    map.on('zoom', followZoom)
 
     map.on('load', () => {
       // A globe rather than a flat sheet. At routing zoom the two are
@@ -412,6 +435,7 @@ export default function MapView3D({
     })
 
     return () => {
+      map.off('zoom', followZoom)
       map.remove()
       mapRef.current = null
       setReady(false)

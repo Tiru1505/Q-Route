@@ -89,7 +89,7 @@ export default function SosButton() {
         {open && (
           <motion.div
             ref={panelRef}
-            className="card sos-panel"
+            className="sos-panel"
             role="dialog"
             aria-label={t('sos.title')}
             initial={{ opacity: 0, y: 10, scale: 0.98 }}

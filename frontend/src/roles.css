@@ -259,36 +259,41 @@
    SOS — emergency dialling, driver app only
    ========================================================= */
 .sos-fab {
-  position: fixed;
-  left: 18px;
-  bottom: 18px;
-  z-index: 900;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 10px 15px;
+  gap: 6px;
+  padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--severe) 55%, transparent);
-  background: var(--severe);
-  color: #fff;
-  font-size: 13px;
+  background: color-mix(in srgb, var(--severe) 16%, transparent);
+  color: var(--severe);
+  font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.03em;
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--severe) 38%, transparent);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
-.sos-fab:hover { filter: brightness(1.08); transform: translateY(-1px); }
-.sos-fab:active { transform: translateY(0); }
+.sos-fab:hover { background: var(--severe); color: #fff; }
 
 .sos-panel {
-  position: fixed;
-  left: 18px;
-  bottom: 68px;
+  position: absolute;
+  top: calc(var(--navbar-h) + 6px);
+  right: 24px;
   z-index: 901;
   width: min(300px, calc(100vw - 36px));
   display: grid;
   gap: 10px;
-  border-color: color-mix(in srgb, var(--severe) 40%, var(--border));
+  /* Deliberately NOT .card. That class is swept into the shared liquid-glass
+     rule in components.css, which sets a translucent background with
+     !important — fine for a card floating over a map, unreadable for an
+     emergency number sitting over page text. So this panel carries its own
+     surface rather than fighting an !important it would have to match. */
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--panel-solid);
+  border: 1px solid color-mix(in srgb, var(--severe) 40%, var(--border));
+  box-shadow: var(--shadow-lg);
 }
+
 .sos-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sos-head strong { font-size: 13.5px; color: var(--text); }
 .sos-head button { color: var(--text-faint); display: inline-flex; }
@@ -331,10 +336,6 @@
 }
 .sos-coords button:hover { color: var(--text); border-color: var(--border-strong); }
 
-@media (max-width: 900px) {
-  .sos-fab { bottom: 78px; }
-  .sos-panel { bottom: 128px; }
-}
 /* ---------------------------------------------- room for the assistant
    The robot floats in the bottom-right corner of the viewport, which is
    where the trip card's Pause and End trip buttons were: they sat behind
