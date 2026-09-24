@@ -757,9 +757,12 @@ class QROEngine:
         from benchmarking.benchmark import Budget, run_benchmark
         from optimization.multistop import MultiStopProblem
 
-        keys = ["hitec", "gachibowli", "jubilee", "panjagutta", "ameerpet",
-                "begumpet", "secunderabad", "charminar", "mehdipatnam",
-                "dilsukhnagar", "uppal"]
+        keys = ["hyderabad_hitec_city", "hyderabad_gachibowli",
+                "hyderabad_jubilee_hills", "hyderabad_panjagutta",
+                "hyderabad_ameerpet", "hyderabad_begumpet",
+                "hyderabad_secunderabad", "hyderabad_charminar",
+                "hyderabad_mehdipatnam", "hyderabad_dilsukhnagar",
+                "hyderabad_uppal"]
         rows = []
         for n in sizes:
             ks = keys[: n + 1]
