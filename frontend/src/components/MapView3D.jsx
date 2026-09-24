@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 // MapLibre 6 has no default export; the pieces are named.
 import { Map as MapLibreMap, Marker, NavigationControl, Popup } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { Crosshair } from 'lucide-react'
 import { TRAFFIC_COLORS } from '../data/mockData'
+import { cumulativeDistances, nearestIndex, placeAlong } from '../lib/carPath'
 
 /**
  * The routing map, drawn by MapLibre instead of Leaflet.
@@ -17,9 +19,13 @@ import { TRAFFIC_COLORS } from '../data/mockData'
  *
  * WHAT IS HERE SO FAR
  * -------------------
- * The basemap, the routes, fitting the view to them, and picking one. Markers,
- * incidents, the car and the traffic segments are still MapView's alone —
- * passing them here does nothing yet rather than half-drawing them.
+ * The basemap, the routes, the endpoint and incident pins, the driver's car
+ * and the follow control. Still MapView's alone: the traffic segments and the
+ * decorative cars. Passing those here does nothing rather than half-drawing
+ * them, so what is on screen is always the whole of what this map claims.
+ *
+ * The arithmetic that drives the car lives in lib/carPath.js, shared with
+ * MapView, so the two maps cannot come to disagree about where it is.
  *
  * ONE TRAP, ALREADY PAID FOR
  * --------------------------
@@ -107,6 +113,47 @@ function popupContent(lines) {
   return wrap
 }
 
+/* ----------------------------------------------------------------- car */
+
+// The same markup and classes the Leaflet map uses, so one car is drawn in
+// one place and both maps show the same vehicle.
+const NAV_CAR_HTML =
+  '<div class="nav-car" role="img" aria-label="Your car">' +
+  '<svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">' +
+  '<ellipse cx="16.5" cy="17.5" rx="9.5" ry="13.5" fill="rgba(0,0,0,0.28)"/>' +
+  '<rect x="8" y="3" width="16" height="26" rx="6" fill="#FF6B35" stroke="#ffffff" stroke-width="1.6"/>' +
+  '<rect x="10.4" y="8.2" width="11.2" height="6" rx="2" fill="#dbe9ff"/>' +
+  '<rect x="10.8" y="19.4" width="10.4" height="4.6" rx="1.8" fill="#b9cbe6"/>' +
+  '<rect x="9.6" y="3.6" width="3.2" height="2" rx="1" fill="#fff4b8"/>' +
+  '<rect x="19.2" y="3.6" width="3.2" height="2" rx="1" fill="#fff4b8"/>' +
+  '</svg></div>'
+
+function carElement() {
+  const el = document.createElement('div')
+  el.className = 'nav-car-marker'
+  el.innerHTML = NAV_CAR_HTML   // static markup, no caller data
+  return el
+}
+
+/**
+ * Is `pos` inside the view, shrunk by `inset` of its own size?
+ *
+ * Leaflet spells this `bounds.pad(-0.15).contains(p)`; MapLibre's LngLatBounds
+ * has no pad, so it is done by hand rather than letting the car wander to the
+ * very edge before the map follows it.
+ */
+function withinInset(map, pos, inset) {
+  const b = map.getBounds()
+  const w = b.getWest()
+  const e = b.getEast()
+  const s = b.getSouth()
+  const n = b.getNorth()
+  const dx = (e - w) * inset
+  const dy = (n - s) * inset
+  const [lat, lon] = pos
+  return lon > w + dx && lon < e - dx && lat > s + dy && lat < n - dy
+}
+
 function boundsOf(routes) {
   let w = 180, s = 90, e = -180, n = -90
   let seen = false
@@ -134,10 +181,18 @@ export default function MapView3D({
   incidents = [],
   showIncidents = true,
   highlightCoords = null,
+  navigation = null,
+  recenterLabel = 'Recenter',
+  followingLabel = 'Following',
 }) {
   const holder = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
+  const carMarkerRef = useRef(null)
+  const carPosRef = useRef(null)
+  const lastPosRef = useRef(null)
+  const followRef = useRef(true)
+  const [following, setFollowing] = useState(true)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -213,6 +268,112 @@ export default function MapView3D({
     if (box) map.fitBounds(box, { padding: 64, duration: 900, maxZoom: 15 })
   }, [ready, routes, selectedRouteId])
 
+  /* --------------------------------------------------------------- car */
+  useEffect(() => {
+    const map = mapRef.current
+    const path = navigation?.path
+    if (!map || !ready || !path || path.length < 2) return undefined
+
+    const cum = cumulativeDistances(path)
+    const total = cum[cum.length - 1]
+    if (!total) return undefined
+
+    // A new leg resumes beside the car rather than snapping to the start —
+    // a switched route continues the journey, it does not restart it.
+    const startIndex = nearestIndex(path, lastPosRef.current)
+    let dist = cum[startIndex] || 0
+
+    const element = carElement()
+    const marker = new Marker({ element }).setLngLat([path[0][1], path[0][0]]).addTo(map)
+    carMarkerRef.current = marker
+
+    const draw = () => {
+      const { pos, nodeFraction, bearing } = placeAlong(path, cum, dist)
+      lastPosRef.current = pos
+      carPosRef.current = pos
+      marker.setLngLat([pos[1], pos[0]])
+      if (bearing !== null) {
+        const inner = element.querySelector('.nav-car')
+        if (inner) inner.style.transform = `rotate(${bearing}deg)`
+      }
+      return nodeFraction
+    }
+
+    draw()
+    if (!navigation.running) {
+      return () => { marker.remove(); carMarkerRef.current = null }
+    }
+
+    let frame = 0
+    let last = performance.now()
+    let lastReport = 0
+    let lastPan = 0
+    let done = false
+
+    const step = (now) => {
+      // Capped, so a long stall resumes with a short hop rather than a leap.
+      const dt = Math.min((now - last) / 1000, 2)
+      last = now
+      dist = Math.min(dist + (navigation.speedMps || 0) * dt, total)
+      const nodeFraction = draw()
+
+      if (now - lastReport > 2000) {
+        lastReport = now
+        navigation.onProgress?.(nodeFraction, dist / total)
+      }
+      // Only while following: dragging the map turns following off, and before
+      // that the map hauled itself back and could not be read.
+      if (now - lastPan > 1500 && followRef.current !== false) {
+        lastPan = now
+        if (!withinInset(map, lastPosRef.current, 0.15)) {
+          map.panTo([lastPosRef.current[1], lastPosRef.current[0]])
+        }
+      }
+      if (dist >= total) {
+        done = true
+        navigation.onProgress?.(1, 1)
+        navigation.onArrive?.()
+      }
+    }
+
+    const tick = (now) => {
+      if (done) return
+      step(now)
+      if (!done) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+
+    // Browsers stop sending frames to a background tab, and the two-tab demo
+    // puts the driver's tab there while the admin works. The watchdog keeps
+    // the trip moving at the same speed when frames stop arriving.
+    const watchdog = setInterval(() => {
+      const now = performance.now()
+      if (!done && now - last > 300) step(now)
+    }, 250)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      clearInterval(watchdog)
+      marker.remove()
+      carMarkerRef.current = null
+    }
+    // Keyed on the leg, not the array: the same path handed down again by a
+    // re-render must not restart the car.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, navigation?.legKey, navigation?.running, navigation?.speedMps])
+
+  // Dragging means "I want to look somewhere else" — stop chasing the car.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return undefined
+    const release = () => {
+      followRef.current = false
+      setFollowing(false)
+    }
+    map.on('dragstart', release)
+    return () => { map.off('dragstart', release) }
+  }, [ready])
+
   // Endpoints, incidents and the predicted-spike pin. Torn down and rebuilt
   // together: there are a handful of them, and diffing by id would be more
   // code than it saves.
@@ -260,5 +421,30 @@ export default function MapView3D({
     }
   }, [ready, startPoint, endPoint, incidents, showIncidents, highlightCoords])
 
-  return <div ref={holder} className="map3d-canvas" />
+  const recenter = () => {
+    followRef.current = true
+    setFollowing(true)
+    const pos = carPosRef.current
+    if (pos && mapRef.current) mapRef.current.panTo([pos[1], pos[0]])
+  }
+
+  // The button is a SIBLING of the map container, never a child: MapLibre owns
+  // the DOM inside its container and appends its own layers there.
+  return (
+    <div className="map3d-holder">
+      <div className="map3d-canvas" ref={holder} />
+      {navigation?.path && (
+        <button
+          type="button"
+          className="map-recenter map3d-recenter"
+          data-following={following}
+          onClick={recenter}
+          title={following ? followingLabel : recenterLabel}
+        >
+          <Crosshair size={13} />
+          {following ? followingLabel : recenterLabel}
+        </button>
+      )}
+    </div>
+  )
 }

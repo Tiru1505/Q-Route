@@ -14,6 +14,8 @@ import {
   HYDERABAD_CENTER,
   TRAFFIC_COLORS,
 } from '../data/mockData'
+import { bearingDeg, haversineM } from '../lib/carPath'
+
 // Lazy on purpose: MapLibre is ~1 MB, and a Leaflet user must not pay for a
 // map they are not looking at.
 const MapView3D = lazy(() => import('./MapView3D'))
@@ -545,25 +547,13 @@ function AnimatedCar({
    NAVIGATION CAR — the user's own car, driving their trip
    ============================================================ */
 
-const EARTH_RADIUS_M = 6371008.8
+/* Distance and bearing now live in lib/carPath.js, shared with MapView3D so
+   the two maps cannot disagree about where the car is. */
 
-function haversineM(a, b) {
-  const toRad = Math.PI / 180
-  const dLat = (b[0] - a[0]) * toRad
-  const dLon = (b[1] - a[1]) * toRad
-  const h = Math.sin(dLat / 2) ** 2
-    + Math.cos(a[0] * toRad) * Math.cos(b[0] * toRad) * Math.sin(dLon / 2) ** 2
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h))
-}
+
 
 /** Compass bearing from a to b, degrees clockwise from north — the car icon points north at 0. */
-function bearingDeg(a, b) {
-  const toRad = Math.PI / 180
-  const y = Math.sin((b[1] - a[1]) * toRad) * Math.cos(b[0] * toRad)
-  const x = Math.cos(a[0] * toRad) * Math.sin(b[0] * toRad)
-    - Math.sin(a[0] * toRad) * Math.cos(b[0] * toRad) * Math.cos((b[1] - a[1]) * toRad)
-  return (Math.atan2(y, x) * 180) / Math.PI
-}
+
 
 // A top-down car pointing north, so rotating it by the compass bearing points
 // it along the road. Drawn as SVG: the older car markup above relies on
