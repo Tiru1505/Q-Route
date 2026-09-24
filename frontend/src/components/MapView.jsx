@@ -1504,22 +1504,42 @@ function MapViewLeaflet({
     </MapContainer>
   )
 }
+const MAP_CHOICE_KEY = 'qro.map3d'
+
 /**
- * Which map draws. Leaflet unless the address carries ?map3d=1, which picks
- * the MapLibre one — a port in progress, so it is opt-in rather than default.
+ * Which map draws.
  *
- * The choice lives here so neither dashboard has to know there are two maps,
- * and it is read once: flipping it mid-session would tear down a live map
- * under a moving car.
+ * MAPLIBRE_BY_DEFAULT is the whole switch. It is false because one thing on
+ * the MapLibre map has never been watched working: the driver's car. Its
+ * arithmetic is tested, and the routes, pins, popups and flow have all been
+ * seen on screen — but starting a trip needs an authenticated session, so
+ * nobody has yet observed the car actually move on that map. The car IS the
+ * demo. Drive a real trip on ?map3d=1, watch it go, then set this true.
+ *
+ * The choice is read once per mount: changing it mid-session would tear down
+ * a live map under a moving car.
  */
-export default function MapView(props) {
-  const [use3d] = useState(() => {
-    try {
-      return new URLSearchParams(window.location.search).has('map3d')
-    } catch {
-      return false
+const MAPLIBRE_BY_DEFAULT = false
+
+/** `?map3d=1` turns it on and `?map3d=0` off; either way the answer sticks. */
+function readMapChoice() {
+  try {
+    const param = new URLSearchParams(window.location.search).get('map3d')
+    if (param !== null) {
+      const on = param !== '0' && param !== 'false'
+      localStorage.setItem(MAP_CHOICE_KEY, on ? '1' : '0')
+      return on
     }
-  })
+    const saved = localStorage.getItem(MAP_CHOICE_KEY)
+    if (saved !== null) return saved === '1'
+  } catch {
+    /* blocked storage — fall through to the default */
+  }
+  return MAPLIBRE_BY_DEFAULT
+}
+
+export default function MapView(props) {
+  const [use3d] = useState(readMapChoice)
   if (!use3d) return <MapViewLeaflet {...props} />
   return (
     <Suspense fallback={<div className="map3d-canvas" />}>
