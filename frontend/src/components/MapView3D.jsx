@@ -86,6 +86,44 @@ const FLOW_FRAMES = [
   [0, 2.5, 3, 1.5], [0, 3, 3, 1],
 ]
 
+/**
+ * Make the roads legible.
+ *
+ * dark-matter is built to vanish under data: its background is #0e0e0e, its
+ * brightest road is rgb(83,86,102), and service roads are #0b0b0b — darker
+ * than the ground they sit on. That is right for a heatmap and wrong for a
+ * map you navigate by, where the Leaflet side wins because inverted OSM
+ * tiles give roads real contrast.
+ *
+ * So the road tiers are repainted on a neutral ramp, brightest for the roads
+ * that carry the most traffic. Neutral on purpose: the route is a saturated
+ * orange, and grey roads under it stay readable without competing.
+ */
+const ROAD_TIERS = [
+  [/(_mot|_trunk)/, '#8d96a6'],
+  [/_pri/, '#79818f'],
+  [/_sec/, '#646c79'],
+  [/_minor/, '#525963'],
+  [/(_service|_path)/, '#3f454e'],
+]
+
+function brightenRoads(map) {
+  const layers = map.getStyle()?.layers || []
+  for (const layer of layers) {
+    if (layer.type !== 'line' || !/road|highway/i.test(layer.id)) continue
+    // Casings are the outline under each road; leaving them dark keeps the
+    // roads separated rather than merging into one pale mass.
+    const isCase = /_case/.test(layer.id)
+    const tier = ROAD_TIERS.find(([re]) => re.test(layer.id))
+    if (!tier) continue
+    try {
+      map.setPaintProperty(layer.id, 'line-color', isCase ? '#14171c' : tier[1])
+    } catch {
+      /* a style that renames its layers simply keeps its own colours */
+    }
+  }
+}
+
 /* ------------------------------------------------------------- markers */
 
 // The same two classes the Leaflet map uses, so both maps draw an identical
@@ -234,6 +272,7 @@ export default function MapView3D({
     map.addControl(new NavigationControl({ visualizePitch: true }), 'top-right')
 
     map.on('load', () => {
+      brightenRoads(map)
       map.addSource('routes', { type: 'geojson', data: routesToGeoJSON([], null, null) })
 
       // The wide translucent halo under the chosen route, as Leaflet draws it
