@@ -6,6 +6,7 @@ import Sidebar, { NAV_ITEMS, USER_NAV_ITEMS } from './components/Sidebar'
 import Navbar from './components/Navbar'
 import LoadingScreen from './components/LoadingScreen'
 import AssistantPanel from './components/AssistantPanel'
+import SosButton from './components/SosButton'
 import { useApp } from './store/AppContext'
 import Login from './pages/Login'
 
@@ -113,6 +114,8 @@ function Shell({ items, variant, settingsPath }) {
         {/* Listens rather than asks — the backend pushes when traffic on the
             active route deteriorates, and the robot delivers it. */}
         <AssistantPanel />
+        {/* Drivers only: the control room is not the one at the roadside. */}
+        {variant === 'user' && <SosButton />}
       </div>
     </div>
   )

@@ -13,6 +13,9 @@ import TrafficLegend from '../../components/TrafficLegend'
 import { useApp } from '../../store/AppContext'
 import * as api from '../../services/api'
 import { TRAFFIC_COLORS, TRAFFIC_LABELS } from '../../data/mockData'
+import { translateSegments } from '../../i18n'
+import { SlidingNumber } from '../../components/motion-primitives/SlidingNumber'
+import { BorderTrail } from '../../components/motion-primitives/BorderTrail'
 
 /**
  * The driver's dashboard: plan, drive, and be told when to change road.
@@ -43,6 +46,39 @@ function minutes(t, m) {
   return t('units.hourMin', { h: Math.floor(total / 60), m: String(total % 60).padStart(2, '0') })
 }
 
+/**
+ * A translated unit string with its digits rolling rather than jumping.
+ * The number never leaves the sentence the dictionary wrote: `translateSegments`
+ * hands back the template's own pieces in order, so the unit word stays wherever
+ * that language puts it and only the numeric slots become SlidingNumbers.
+ */
+function AnimatedUnit({ language, tKey, vars, pad = [] }) {
+  return (
+    <>
+      {translateSegments(language, tKey, vars).map((segment, i) => (
+        segment.text != null
+          ? <span key={i} style={{ whiteSpace: 'pre' }}>{segment.text}</span>
+          : <SlidingNumber key={i} value={segment.number} padStart={pad.includes(segment.name)} />
+      ))}
+    </>
+  )
+}
+
+/** `minutes()` rendered, rather than flattened to a string. */
+function Duration({ language, m }) {
+  if (m == null || Number.isNaN(m)) return <>—</>
+  const total = Math.round(m)
+  if (total < 60) return <AnimatedUnit language={language} tKey="units.min" vars={{ n: total }} />
+  return (
+    <AnimatedUnit
+      language={language}
+      tKey="units.hourMin"
+      vars={{ h: Math.floor(total / 60), m: total % 60 }}
+      pad={['m']}
+    />
+  )
+}
+
 function Stat({ icon: Icon, label, value, hint, tone }) {
   return (
     <div className="trip-stat" data-tone={tone || undefined}>
@@ -71,7 +107,7 @@ export default function UserDashboard() {
     latestAlert, switchRoute, keepRoute, rerouting, rerouteResult,
     trip, navRoute, navState, navReading, tripError,
     startNavigation, reportNavProgress, arrive, endTrip,
-    pauseNavigation, resumeNavigation, clearTrip, t,
+    pauseNavigation, resumeNavigation, clearTrip, t, language,
   } = useApp()
 
   // Bound to the chosen language, so every duration on the page reads in it.
@@ -230,8 +266,10 @@ export default function UserDashboard() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
+              style={{ position: 'relative' }}
               role="alert"
             >
+              <BorderTrail size={64} style={{ background: 'var(--severe)' }} />
               <div className="card-title" style={{ color: 'var(--severe)' }}>
                 <TriangleAlert size={13} /> {t('recommend.title')}
               </div>
@@ -239,16 +277,16 @@ export default function UserDashboard() {
               <div className="recommend-compare">
                 <div>
                   <small>{t('recommend.currentRoute')}</small>
-                  <b className="mono">{mins(pendingAlert.currentEta)}</b>
+                  <b className="mono"><Duration language={language} m={pendingAlert.currentEta} /></b>
                 </div>
                 <ArrowRight size={16} />
                 <div>
                   <small>{t('recommend.alternative')}</small>
-                  <b className="mono">{mins(pendingAlert.alternativeEta)}</b>
+                  <b className="mono"><Duration language={language} m={pendingAlert.alternativeEta} /></b>
                 </div>
                 <div className="recommend-saving">
                   <small>{t('recommend.youSave')}</small>
-                  <b className="mono">{mins(pendingAlert.timeSaved)}</b>
+                  <b className="mono"><Duration language={language} m={pendingAlert.timeSaved} /></b>
                 </div>
               </div>
               <div className="recommend-actions">
@@ -291,10 +329,10 @@ export default function UserDashboard() {
 
             <div className="trip-stats">
               <Stat icon={Clock} label={navigating ? t('trip.etaLeft') : t('trip.eta')}
-                    value={mins(navigating ? remainingEta : current.etaMin)}
+                    value={<Duration language={language} m={navigating ? remainingEta : current.etaMin} />}
                     hint={navigating && navReading ? t('trip.measured') : null} />
               <Stat icon={MapPin} label={t('trip.distance')}
-                    value={t('units.km', { n: current.distanceKm })}
+                    value={<AnimatedUnit language={language} tKey="units.km" vars={{ n: current.distanceKm }} />}
                     hint={trip?.rerouted ? t('trip.newRouteFromSwitch') : null} />
               <Stat icon={Gauge} label={t('trip.trafficNow')}
                     value={<TrafficValue congestion={trafficNow} t={t} />}
@@ -311,7 +349,7 @@ export default function UserDashboard() {
                 tone={outlook?.worsening ? 'warn' : undefined}
               />
               <Stat icon={CheckCircle2} label={t('trip.timeSaved')}
-                    value={mins(trip?.timeSavedMin || 0)}
+                    value={<Duration language={language} m={trip?.timeSavedMin || 0} />}
                     hint={trip?.rerouted ? t('trip.vsStaying') : t('trip.noSwitchYet')}
                     tone={trip?.timeSavedMin > 0 ? 'good' : undefined} />
             </div>

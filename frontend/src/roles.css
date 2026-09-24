@@ -254,3 +254,84 @@
   .trip-totals b { font-size: 15px; }
   .recommend-actions { flex-direction: column; }
 }
+
+/* =========================================================
+   SOS — emergency dialling, driver app only
+   ========================================================= */
+.sos-fab {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 15px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--severe) 55%, transparent);
+  background: var(--severe);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--severe) 38%, transparent);
+}
+.sos-fab:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.sos-fab:active { transform: translateY(0); }
+
+.sos-panel {
+  position: fixed;
+  left: 18px;
+  bottom: 68px;
+  z-index: 901;
+  width: min(300px, calc(100vw - 36px));
+  display: grid;
+  gap: 10px;
+  border-color: color-mix(in srgb, var(--severe) 40%, var(--border));
+}
+.sos-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sos-head strong { font-size: 13.5px; color: var(--text); }
+.sos-head button { color: var(--text-faint); display: inline-flex; }
+.sos-head button:hover { color: var(--text); }
+.sos-sub { margin: -4px 0 0; font-size: 11px; line-height: 1.5; color: var(--text-dim); }
+
+.sos-numbers { display: grid; gap: 7px; }
+.sos-dial {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  font-size: 13px;
+  color: var(--text);
+  transition: border-color 160ms var(--ease), background 160ms var(--ease);
+}
+.sos-dial span { flex: 1; min-width: 0; }
+.sos-dial b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.sos-dial[data-tone='brand'] svg { color: var(--brand); }
+.sos-dial[data-tone='blue'] svg { color: var(--cyan); }
+.sos-dial[data-tone='severe'] svg { color: var(--severe); }
+.sos-dial:hover { border-color: var(--border-strong); background: var(--panel-hover); }
+
+.sos-where { display: grid; gap: 5px; }
+.sos-where small { font-size: 10px; color: var(--text-faint); }
+.sos-coords { display: flex; align-items: center; gap: 8px; }
+.sos-coords code { flex: 1; font-size: 12px; color: var(--text); }
+.sos-coords button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 7px;
+}
+.sos-coords button:hover { color: var(--text); border-color: var(--border-strong); }
+
+@media (max-width: 900px) {
+  .sos-fab { bottom: 78px; }
+  .sos-panel { bottom: 128px; }
+}

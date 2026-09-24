@@ -1,5 +1,9 @@
 /* Q Route design system: Obsidian Quantum with a separate light UI theme. */
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   /* --------------------------------------------------------------------
      Surfaces & Canvas

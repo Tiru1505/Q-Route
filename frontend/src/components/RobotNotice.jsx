@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Bot, CheckCircle2, Loader2, Route as RouteIcon } from 'lucide-react'
+import { TextShimmer } from './motion-primitives/TextShimmer'
+import { BorderTrail } from './motion-primitives/BorderTrail'
+import { SlidingNumber } from './motion-primitives/SlidingNumber'
 
 /**
  * A notification, delivered by the robot as one of its own messages.
@@ -63,21 +66,28 @@ export default function RobotNotice({ message, demoMode, connected, onAct }) {
     <div
       className={`assistant-message assistant robot-notice robot-notice-${tone}`}
       role={note.actionable ? 'alert' : 'status'}
+      style={{ position: 'relative' }}
     >
+      {note.actionable && status === 'pending' && (
+        <BorderTrail size={50} style={{ background: tone === 'info' ? 'var(--cyan)' : 'var(--severe)' }} />
+      )}
+
       <div className="robot-notice-head">
         <Icon size={13} aria-hidden="true" />
         <strong>{title}</strong>
         <time>{clock(note.at)}</time>
       </div>
 
-      <p className="robot-notice-text">{note.text}</p>
+      <p className="robot-notice-text">
+        {status === 'working' ? <TextShimmer as="span" duration={1.4}>{note.text}</TextShimmer> : note.text}
+      </p>
 
       {!isCheck && note.timeSaved > 0 && (
         <div className="robot-notice-figures">
-          <span>{round(note.currentEta)} min now</span>
+          <span><SlidingNumber value={round(note.currentEta)} /> min now</span>
           <span aria-hidden="true">→</span>
-          <span>{round(note.alternativeEta)} min</span>
-          <b>saves {round(note.timeSaved)} min</b>
+          <span><SlidingNumber value={round(note.alternativeEta)} /> min</span>
+          <b>saves <SlidingNumber value={round(note.timeSaved)} /> min</b>
         </div>
       )}
 

@@ -52,3 +52,28 @@ export function translate(language, key, vars) {
   }
   return text
 }
+
+/**
+ * Same lookup as `translate`, but stops short of stringifying the numbers:
+ * it splits the raw template on its `{name}` placeholders and returns each
+ * piece as plain text or a number, in the template's own order. Every unit
+ * string in this dictionary puts the number before the word in all three
+ * languages ("{n} min" / "{n} मिनट" / "{n} నిమి"), so this works without
+ * knowing anything language-specific — it just reads the template. Built for
+ * callers that want to animate the digits (e.g. SlidingNumber) while still
+ * showing the translated unit word around them.
+ */
+export function translateSegments(language, key, vars) {
+  const entry = STRINGS[key]
+  const template = (entry && (entry[language] ?? entry[DEFAULT_LANGUAGE])) || key
+  if (!vars) return [{ text: template }]
+  const segments = []
+  let last = 0
+  for (const match of template.matchAll(/\{(\w+)\}/g)) {
+    if (match.index > last) segments.push({ text: template.slice(last, match.index) })
+    segments.push({ name: match[1], number: vars[match[1]] })
+    last = match.index + match[0].length
+  }
+  if (last < template.length) segments.push({ text: template.slice(last) })
+  return segments
+}

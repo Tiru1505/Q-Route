@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { TrendingDown, TrendingUp } from 'lucide-react'
+import { SlidingNumber } from './motion-primitives/SlidingNumber'
 
 const TONES = {
   brand: 'var(--brand)',
@@ -13,36 +13,12 @@ const TONES = {
   quantum: 'var(--pink)',
 }
 
-/** Counts from 0 to `value` once, on mount. Respects reduced-motion. */
-export function useCountUp(value, duration = 900) {
-  const [display, setDisplay] = useState(0)
-  const raf = useRef()
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setDisplay(value)
-      return
-    }
-    const start = performance.now()
-    const tick = (now) => {
-      const t = Math.min((now - start) / duration, 1)
-      // ease-out cubic
-      setDisplay(value * (1 - Math.pow(1 - t, 3)))
-      if (t < 1) raf.current = requestAnimationFrame(tick)
-    }
-    raf.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf.current)
-  }, [value, duration])
-
-  return display
-}
-
 export default function StatCard({
   label, value, suffix = '', trend, tone = 'cyan', icon: Icon, decimals = 0, delay = 0,
 }) {
-  const animated = useCountUp(value)
   const color = TONES[tone] || TONES.cyan
   const up = trend > 0
+  const rounded = Number((value ?? 0).toFixed(decimals))
 
   return (
     <motion.div
@@ -53,10 +29,7 @@ export default function StatCard({
     >
       <div className="stat-label">{label}</div>
       <div className="stat-value" style={{ color: tone === 'red' ? 'var(--severe)' : 'var(--text)' }}>
-        {animated.toLocaleString(undefined, {
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals,
-        })}
+        <SlidingNumber value={rounded} />
         <span style={{ fontSize: 14, color: 'var(--text-dim)', marginLeft: 2 }}>{suffix}</span>
       </div>
 

@@ -1,5 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, Loader2, Navigation, TriangleAlert } from 'lucide-react'
+import { TextShimmer } from './motion-primitives/TextShimmer'
+import { BorderTrail } from './motion-primitives/BorderTrail'
+import { SlidingNumber } from './motion-primitives/SlidingNumber'
 
 /**
  * Three states:
@@ -20,8 +23,9 @@ export default function ReroutingPanel({ state, result, onReroute, onAccept }) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
-          style={{ borderColor: 'var(--border)' }}
+          style={{ borderColor: 'var(--border)', position: 'relative' }}
         >
+          <BorderTrail size={70} style={{ background: 'var(--severe)' }} />
           <div className="alert-head" style={{ marginBottom: 8 }}>
             <motion.span
               style={{
@@ -75,9 +79,9 @@ export default function ReroutingPanel({ state, result, onReroute, onAccept }) {
             >
               <Loader2 size={17} />
             </motion.span>
-            <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 500 }}>
+            <TextShimmer as="span" style={{ fontSize: 13, fontWeight: 500 }} duration={1.4}>
               Recalculating optimal route…
-            </span>
+            </TextShimmer>
           </div>
         </motion.div>
       )}
@@ -100,12 +104,12 @@ export default function ReroutingPanel({ state, result, onReroute, onAccept }) {
           <div className="reroute-compare">
             <div className="reroute-side reroute-old">
               <small>Previous ETA</small>
-              <b className="mono">{result.previousEtaMin}m</b>
+              <b className="mono"><SlidingNumber value={result.previousEtaMin} />m</b>
             </div>
             <ArrowRight size={17} style={{ color: 'var(--text-dim)' }} />
             <div className="reroute-side reroute-new">
               <small>New ETA</small>
-              <b className="mono" style={{ color: 'var(--low)' }}>{result.newEtaMin}m</b>
+              <b className="mono" style={{ color: 'var(--low)' }}><SlidingNumber value={result.newEtaMin} />m</b>
             </div>
           </div>
 
@@ -122,7 +126,7 @@ export default function ReroutingPanel({ state, result, onReroute, onAccept }) {
             <span style={{ fontSize: 12 }}>
               Time saved:{' '}
               <strong style={{ color: 'var(--low)', fontSize: 15 }}>
-                {result.timeSavedMin} min
+                <SlidingNumber value={result.timeSavedMin} /> min
               </strong>
             </span>
           </motion.div>

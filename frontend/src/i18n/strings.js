@@ -282,6 +282,28 @@ export const STRINGS = {
   'traffic.heavy': { en: 'Heavy', hi: 'अधिक', te: 'ఎక్కువ' },
   'traffic.severe': { en: 'Severe', hi: 'गंभीर', te: 'తీవ్రం' },
 
+  /* --------------------------------------------------------------- sos */
+  'sos.open': { en: 'Emergency', hi: 'आपातकाल', te: 'అత్యవసరం' },
+  'sos.title': { en: 'Emergency help', hi: 'आपातकालीन सहायता', te: 'అత్యవసర సహాయం' },
+  'sos.subtitle': {
+    en: 'Tap a number to call. Your phone places the call.',
+    hi: 'कॉल करने के लिए नंबर दबाएँ। कॉल आपका फ़ोन करेगा।',
+    te: 'కాల్ చేయడానికి నంబర్‌ను నొక్కండి. కాల్ మీ ఫోన్ చేస్తుంది.',
+  },
+  'sos.all': { en: 'All emergencies', hi: 'सभी आपात स्थितियाँ', te: 'అన్ని అత్యవసరాలు' },
+  'sos.police': { en: 'Police', hi: 'पुलिस', te: 'పోలీస్' },
+  'sos.ambulance': { en: 'Ambulance', hi: 'एम्बुलेंस', te: 'అంబులెన్స్' },
+  'sos.locating': { en: 'Finding your location…', hi: 'आपका स्थान पता किया जा रहा है…', te: 'మీ స్థానాన్ని కనుగొంటున్నాం…' },
+  'sos.location': { en: 'Read this out to the operator', hi: 'यह ऑपरेटर को बताएँ', te: 'దీన్ని ఆపరేటర్‌కు చెప్పండి' },
+  'sos.locationDenied': {
+    en: 'Location is off, so it cannot be shown here.',
+    hi: 'स्थान बंद है, इसलिए यहाँ नहीं दिखाया जा सकता।',
+    te: 'స్థానం ఆఫ్‌లో ఉంది, కాబట్టి ఇక్కడ చూపలేము.',
+  },
+  'sos.copy': { en: 'Copy', hi: 'कॉपी करें', te: 'కాపీ చేయి' },
+  'sos.copied': { en: 'Copied', hi: 'कॉपी हो गया', te: 'కాపీ అయింది' },
+  'sos.close': { en: 'Close', hi: 'बंद करें', te: 'మూసివేయి' },
+
   /* ------------------------------------------------------------- units */
   'units.min': { en: '{n} min', hi: '{n} मिनट', te: '{n} నిమి' },
   'units.hourMin': { en: '{h} h {m} min', hi: '{h} घं {m} मि', te: '{h} గం {m} నిమి' },

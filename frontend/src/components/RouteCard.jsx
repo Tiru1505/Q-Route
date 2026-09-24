@@ -10,8 +10,9 @@ import {
   ChevronUp,
   Info,
 } from 'lucide-react'
-import { useCountUp } from './StatCard'
 import { TRAFFIC_COLORS } from '../data/mockData'
+import { SlidingNumber } from './motion-primitives/SlidingNumber'
+import { Tilt } from './motion-primitives/Tilt'
 
 function congestionLevel(c) {
   if (c < 0.3) return 'low'
@@ -24,23 +25,22 @@ function congestionLevel(c) {
 const RouteCard = forwardRef(function RouteCard({ route, onCompareAlternatives }, ref) {
   const [detailsOpen, setDetailsOpen] = useState(false)
 
-  const distance = useCountUp(route.distanceKm)
-  const eta = useCountUp(route.etaMin)
-  const cong = useCountUp(route.congestion * 100)
-  const score = useCountUp(route.score)
-
   const level = congestionLevel(route.congestion)
 
   return (
     <motion.div
       ref={ref}
-      className="card"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
         duration: 0.3,
         ease: [0.22, 1, 0.36, 1],
       }}
+    >
+    <Tilt
+      className="card"
+      rotationFactor={6}
+      springOptions={{ stiffness: 300, damping: 30 }}
       style={{
         borderColor: 'var(--border)',
         boxShadow: 'var(--shadow)',
@@ -118,7 +118,7 @@ const RouteCard = forwardRef(function RouteCard({ route, onCompareAlternatives }
               lineHeight: 1.1,
             }}
           >
-            {Math.round(eta)} <span style={{ fontSize: 13, fontWeight: 500 }}>min</span>
+            <SlidingNumber value={Math.round(route.etaMin)} /> <span style={{ fontSize: 13, fontWeight: 500 }}>min</span>
           </div>
           <span style={{ fontSize: 10.5, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Travel Time
@@ -135,7 +135,7 @@ const RouteCard = forwardRef(function RouteCard({ route, onCompareAlternatives }
               lineHeight: 1.1,
             }}
           >
-            {distance.toFixed(1)} <span style={{ fontSize: 13, fontWeight: 500 }}>km</span>
+            <SlidingNumber value={Number(route.distanceKm.toFixed(1))} /> <span style={{ fontSize: 13, fontWeight: 500 }}>km</span>
           </div>
           <span style={{ fontSize: 10.5, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Distance
@@ -152,7 +152,7 @@ const RouteCard = forwardRef(function RouteCard({ route, onCompareAlternatives }
               lineHeight: 1.1,
             }}
           >
-            {Math.round(cong)}%
+            <SlidingNumber value={Math.round(route.congestion * 100)} />%
           </div>
           <span style={{ fontSize: 10.5, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Congestion
@@ -213,7 +213,7 @@ const RouteCard = forwardRef(function RouteCard({ route, onCompareAlternatives }
           </li>
           <li style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
             <span style={{ color: 'var(--low)', marginTop: 1 }}>•</span>
-            <span>Better optimization objective score ({Math.round(score)}/100)</span>
+            <span>Better optimization objective score (<SlidingNumber value={Math.round(route.score)} />/100)</span>
           </li>
         </ul>
       </div>
@@ -288,6 +288,7 @@ const RouteCard = forwardRef(function RouteCard({ route, onCompareAlternatives }
           </motion.div>
         )}
       </AnimatePresence>
+    </Tilt>
     </motion.div>
   )
 })
