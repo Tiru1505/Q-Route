@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { GitBranch, Table, List } from 'lucide-react'
+import { minutesLabel } from '../i18n/format'
+import { useApp } from '../store/AppContext'
 
 export default function AlternativeRoutes({ routes, selectedId, onSelect }) {
+  const { t } = useApp()
   const [viewMode, setViewMode] = useState('list') // 'list' | 'table'
 
   if (!routes.length) return null
@@ -65,7 +68,7 @@ export default function AlternativeRoutes({ routes, selectedId, onSelect }) {
               <span>{r.via}</span>
             </div>
             <div className="alt-nums">
-              <div className="mono" style={{ color: 'var(--text)' }}>{r.etaMin} min</div>
+              <div className="mono" style={{ color: 'var(--text)' }}>{minutesLabel(t, r.etaMin)}</div>
               <div>{r.distanceKm} km · {Math.round(r.congestion * 100)}%</div>
             </div>
           </motion.div>
@@ -98,7 +101,7 @@ export default function AlternativeRoutes({ routes, selectedId, onSelect }) {
                 <td><strong>ETA</strong></td>
                 {routes.map((r) => (
                   <td key={r.id} className="mono" style={{ fontWeight: r.id === selectedId ? 600 : 400 }}>
-                    {r.etaMin} min
+                    {minutesLabel(t, r.etaMin)}
                   </td>
                 ))}
               </tr>

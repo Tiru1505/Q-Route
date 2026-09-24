@@ -270,6 +270,38 @@ export const STRINGS = {
   'vehicle.bicycle': { en: 'Bicycle', hi: 'साइकिल', te: 'సైకిల్' },
   'vehicle.yours': { en: 'Your vehicle', hi: 'आपका वाहन', te: 'మీ వాహనం' },
 
+  /* -------------------------------------------------------------- coverage */
+  'nav.coverage': { en: 'Coverage', hi: 'कवरेज', te: 'కవరేజ్' },
+  'coverage.title': { en: 'Network Coverage', hi: 'नेटवर्क कवरेज', te: 'నెట్‌వర్క్ కవరేజ్' },
+  'coverage.subtitle': {
+    en: 'Every road network this system can route on, drawn where it was built.',
+    hi: 'हर वह सड़क नेटवर्क जिस पर यह सिस्टम मार्ग निकाल सकता है, वहीं दिखाया गया जहाँ वह बनाया गया।',
+    te: 'ఈ వ్యవస్థ మార్గాలు లెక్కించగల ప్రతి రహదారి నెట్‌వర్క్, అది నిర్మించిన చోటే చూపబడింది.',
+  },
+  'coverage.backToGlobe': { en: 'Back to the globe', hi: 'ग्लोब पर वापस', te: 'గ్లోబ్‌కు తిరిగి' },
+  'coverage.loading': { en: 'Loading the globe…', hi: 'ग्लोब लोड हो रहा है…', te: 'గ్లోబ్ లోడ్ అవుతోంది…' },
+  'coverage.built': { en: 'Built', hi: 'बना हुआ', te: 'నిర్మించబడింది' },
+  'coverage.inMemory': { en: 'In memory', hi: 'मेमोरी में', te: 'మెమరీలో' },
+  'coverage.notBuilt': { en: 'Not built', hi: 'नहीं बना', te: 'నిర్మించలేదు' },
+  'coverage.nodes': { en: 'Junctions', hi: 'जंक्शन', te: 'జంక్షన్లు' },
+  'coverage.edges': { en: 'Road links', hi: 'सड़क लिंक', te: 'రహదారి లింకులు' },
+  'coverage.roadLength': { en: 'Road length', hi: 'सड़क लंबाई', te: 'రహదారి పొడవు' },
+  'coverage.directed': { en: 'each way', hi: 'दोनों दिशाएँ', te: 'రెండు దిశలు' },
+  'coverage.directedHint': {
+    en: 'This build counts each direction of a two-way road separately, so it is not comparable with the undirected figures.',
+    hi: 'यह बिल्ड दो-तरफ़ा सड़क की हर दिशा अलग गिनता है, इसलिए यह अन-डायरेक्टेड आँकड़ों से तुलनीय नहीं है।',
+    te: 'ఈ బిల్డ్ రెండు వైపుల రోడ్డు ప్రతి దిశను విడిగా లెక్కిస్తుంది, కాబట్టి దిశలేని అంకెలతో పోల్చలేము.',
+  },
+  'coverage.note': {
+    en: 'Figures are read from each build’s own stats file. A rectangle is the area the builder covered, not a claim about every street inside it.',
+    hi: 'आँकड़े हर बिल्ड की अपनी स्टैट्स फ़ाइल से लिए गए हैं। आयत वह क्षेत्र है जो बिल्डर ने कवर किया, उसके भीतर हर सड़क का दावा नहीं।',
+    te: 'అంకెలు ప్రతి బిల్డ్ స్వంత గణాంక ఫైల్ నుండి తీసుకున్నవి. దీర్ఘచతురస్రం బిల్డర్ కవర్ చేసిన ప్రాంతం, లోపలి ప్రతి వీధి గురించిన వాదన కాదు.',
+  },
+
+  /* ----------------------------------------------------------- map controls */
+  'map.recenter': { en: 'Recenter', hi: 'फिर से केंद्र में', te: 'మళ్లీ మధ్యలోకి' },
+  'map.following': { en: 'Following', hi: 'साथ चल रहा है', te: 'అనుసరిస్తోంది' },
+
   /* ------------------------------------------------------------ map legend */
   'legend.congestion': { en: 'Traffic Congestion', hi: 'ट्रैफ़िक भीड़', te: 'ట్రాఫిక్ రద్దీ' },
   'legend.routePaths': { en: 'Route Paths', hi: 'मार्ग रेखाएँ', te: 'మార్గ రేఖలు' },

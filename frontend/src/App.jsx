@@ -60,6 +60,7 @@ const LiveTraffic = lazy(() => import('./pages/LiveTraffic'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const RoadVision = lazy(() => import('./pages/RoadVision'))
 const Benchmark = lazy(() => import('./pages/Benchmark'))
+const Coverage = lazy(() => import('./pages/Coverage'))
 const Alerts = lazy(() => import('./pages/Alerts'))
 const History = lazy(() => import('./pages/History'))
 const Settings = lazy(() => import('./pages/Settings'))
@@ -139,7 +140,7 @@ function Unauthorized() {
 }
 
 // Paths from before roles existed, so old links and bookmarks still land.
-const LEGACY = ['traffic', 'analytics', 'vision', 'benchmark', 'alerts', 'history', 'settings']
+const LEGACY = ['traffic', 'analytics', 'vision', 'benchmark', 'coverage', 'alerts', 'history', 'settings']
 const USER_LEGACY = { history: '/user/history', settings: '/user/settings' }
 
 export default function App() {
@@ -195,6 +196,7 @@ export default function App() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="vision" element={<RoadVision />} />
           <Route path="benchmark" element={<Benchmark />} />
+          <Route path="coverage" element={<Coverage />} />
           <Route path="alerts" element={<Alerts />} />
           <Route path="history" element={<History />} />
           <Route path="settings" element={<Settings />} />

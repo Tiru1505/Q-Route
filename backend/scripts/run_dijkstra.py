@@ -24,13 +24,16 @@ from routing.route_validator import validate                        # noqa: E402
 
 RESULTS = Path(__file__).resolve().parents[2] / "results" / "routes"
 
+# Short names are fine (graph_loader resolves them), but they must still
+# name a place: "lbnagar" and "airport" stopped existing when places.yaml was
+# rebuilt — the keys are lb_nagar, and the airport area is shamshabad.
 VERIFY_PAIRS = [
     ("hitec", "charminar"),
-    ("miyapur", "lbnagar"),
-    ("secunderabad", "airport"),
+    ("miyapur", "lb_nagar"),
+    ("secunderabad", "shamshabad"),
     ("gachibowli", "uppal"),
     ("kukatpally", "dilsukhnagar"),
-    ("banjara", "airport"),
+    ("banjara", "shamshabad"),
 ]
 
 

@@ -167,13 +167,37 @@ def place_names():
     return {k: v["name"] for k, v in load_places().items()}
 
 
+def _full_key(key, places):
+    """
+    Accept the short name a caller used before places.yaml grew city prefixes.
+
+    When the file was rebuilt for seven cities, "hitec" became
+    "hyderabad_hitec_city" — and every script and the scalability chart began
+    raising KeyError at the first lookup. A short name is matched against the
+    part after the city prefix, and accepted only when exactly one place
+    matches: two candidates is an ambiguity the caller has to settle, not a
+    coin toss between cities.
+    """
+    matches = [
+        full for full in places
+        if (tail := full.split("_", 1)[-1]) == key or tail.startswith(f"{key}_")
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise KeyError(
+            f"Place '{key}' is ambiguous across cities: {', '.join(sorted(matches))}. "
+            "Use the full key.")
+    raise KeyError(f"Unknown place '{key}'. Known: {', '.join(sorted(places))}")
+
+
 def resolve_place(G, key, limit_m=None):
     """Named place -> nearest graph node. Raises if the place is off-graph."""
     import osmnx as ox
 
     places = load_places()
     if key not in places:
-        raise KeyError(f"Unknown place '{key}'. Known: {', '.join(sorted(places))}")
+        key = _full_key(key, places)
 
     p = places[key]
     node = ox.nearest_nodes(G, p["lon"], p["lat"])

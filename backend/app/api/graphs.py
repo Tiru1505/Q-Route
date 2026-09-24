@@ -5,6 +5,45 @@ from fastapi import APIRouter
 router = APIRouter(prefix="/graphs", tags=["graphs"])
 
 
+
+def _stats_for(graph_path) -> dict | None:
+    """
+    What the build actually produced, read from the stats file written beside
+    the graph: nodes, edges and road length. Measured at build time, not
+    estimated here — and absent rather than invented when the file is missing.
+    """
+    import json
+    from pathlib import Path
+
+    if not graph_path:
+        return None
+    built = Path(graph_path)
+    stats_file = built.with_name(f"{built.name.split('_')[0]}_stats.json")
+    if not stats_file.exists():
+        # Some builds name the stats after the folder rather than the pickle.
+        candidates = list(built.parent.glob("*_stats.json"))
+        if not candidates:
+            return None
+        stats_file = candidates[0]
+    try:
+        raw = json.loads(stats_file.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    # The two builders measure length differently and say so rather than
+    # being averaged into one number: the OSMnx city build sums each road
+    # once, the PBF build sums each direction. Comparing them as if they were
+    # the same figure would overstate every city built the second way.
+    return {
+        "nodes": raw.get("nodes"),
+        "edges": raw.get("edges"),
+        "roadKm": raw.get("total_length_km") or raw.get("directed_km"),
+        "roadKmBasis": "undirected" if raw.get("total_length_km") else (
+            "directed" if raw.get("directed_km") else None),
+        "builtUtc": raw.get("built_utc"),
+        "extentKm": raw.get("extent_km"),
+    }
+
+
 @router.get(
     "",
     summary="List the available road networks",
@@ -33,6 +72,11 @@ def list_graphs() -> dict:
         # after something routes on it, because each costs over a gigabyte of
         # memory and loading both speculatively is not free.
         info["loaded"] = name in resident
+        info["stats"] = _stats_for(info.get("path"))
+        # The absolute path of the pickle on the server is of no use to a
+        # caller and names a home directory; whether it exists is the answer
+        # the question was really asking.
+        info.pop("path", None)
 
     return {
         "default": DEFAULT_GRAPH_NAME,

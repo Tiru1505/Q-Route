@@ -8,6 +8,7 @@ import {
   useMap,
 } from 'react-leaflet'
 import L from 'leaflet'
+import { Crosshair } from 'lucide-react'
 
 import {
   HYDERABAD_CENTER,
@@ -602,7 +603,8 @@ const NAV_CAR_ICON = L.divIcon({
  * at the new route's nearest point to the car keeps it where it is instead of
  * jumping back.
  */
-function NavigationCar({ path, legKey, running, speedMps, onProgress, onArrive }) {
+function NavigationCar({ path, legKey, running, speedMps, onProgress, onArrive,
+                         carPosRef, followRef }) {
   const map = useMap()
   const markerRef = useRef(null)
   const distRef = useRef(0)
@@ -647,6 +649,8 @@ function NavigationCar({ path, legKey, running, speedMps, onProgress, onArrive }
     const t = Math.min(Math.max((dist - cum[lo]) / span, 0), 1)
     const pos = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
     lastPosRef.current = pos
+    // Shared with the map, so the recenter button knows where to go.
+    if (carPosRef) carPosRef.current = pos
 
     const marker = markerRef.current
     if (marker) {
@@ -674,7 +678,9 @@ function NavigationCar({ path, legKey, running, speedMps, onProgress, onArrive }
     let lastReport = 0
     let lastPan = 0
     let done = false
-    if (!map.getBounds().contains(pos)) map.panTo(pos, { animate: true })
+    if (followRef?.current !== false && !map.getBounds().contains(pos)) {
+      map.panTo(pos, { animate: true })
+    }
 
     const step = (now) => {
       // Capped, so a long stall resumes with a short hop rather than a leap.
@@ -687,8 +693,10 @@ function NavigationCar({ path, legKey, running, speedMps, onProgress, onArrive }
         lastReport = now
         callbacks.current.onProgress?.(nodeFraction, distRef.current / leg.total)
       }
-      // Keep the car in view, without fighting someone panning the map.
-      if (now - lastPan > 1500) {
+      // Keep the car in view — but only while following. Dragging the map
+      // turns following off (see FollowControl): before this, the map pulled
+      // itself back within a second and a half and the map could not be read.
+      if (now - lastPan > 1500 && followRef?.current !== false) {
         lastPan = now
         if (!map.getBounds().pad(-0.15).contains(here)) map.panTo(here, { animate: true })
       }
@@ -727,6 +735,56 @@ function NavigationCar({ path, legKey, running, speedMps, onProgress, onArrive }
       interactive={false}
       zIndexOffset={1200}
     />
+  )
+}
+
+/**
+ * Follow the car, or let go of it.
+ *
+ * Dragging the map used to be pointless during a trip: the car's own
+ * auto-pan pulled the view back a second later, so you could not look ahead
+ * at the jam you had just been warned about. Now a drag stops following and
+ * this button starts it again — and says which state it is in.
+ */
+function FollowControl({ carPosRef, followRef, label, followingLabel }) {
+  const map = useMap()
+  const [following, setFollowing] = useState(true)
+  const buttonRef = useRef(null)
+
+  useEffect(() => {
+    const el = buttonRef.current
+    if (el) {
+      L.DomEvent.disableClickPropagation(el)
+      L.DomEvent.disableScrollPropagation(el)
+    }
+    const release = () => {
+      if (followRef.current !== false) {
+        followRef.current = false
+        setFollowing(false)
+      }
+    }
+    map.on('dragstart', release)
+    return () => map.off('dragstart', release)
+  }, [map, followRef])
+
+  const recenter = () => {
+    followRef.current = true
+    setFollowing(true)
+    if (carPosRef.current) map.panTo(carPosRef.current, { animate: true })
+  }
+
+  return (
+    <button
+      ref={buttonRef}
+      type="button"
+      className="map-recenter"
+      data-following={following}
+      onClick={recenter}
+      title={following ? followingLabel : label}
+    >
+      <Crosshair size={13} />
+      <span>{following ? followingLabel : label}</span>
+    </button>
   )
 }
 
@@ -953,6 +1011,9 @@ export default function MapView({
    * and keeps its looping car exactly as before.
    */
   navigation = null,
+  // Written by the page, which has the translations.
+  recenterLabel = 'Recenter',
+  followingLabel = 'Following',
   // The small cars that illustrate traffic on the route. The user map turns
   // them off, so the only car on it is theirs.
   decorativeCars = true,
@@ -960,6 +1021,10 @@ export default function MapView({
   /* ==========================================================
      ORDER ROUTES
      ========================================================== */
+
+  // Where the car is, and whether the map is still following it.
+  const carPosRef = useRef(null)
+  const followRef = useRef(true)
 
   const ordered =
     useMemo(() => {
@@ -1148,8 +1213,7 @@ export default function MapView({
 
                 <br />
 
-                {r.distanceKm} km ·{' '}
-                {r.etaMin} min ·{' '}
+                {r.distanceKm} km · {Math.round(r.etaMin)} min ·{' '}
 
                 {Math.round(
                   r.congestion *
@@ -1179,14 +1243,24 @@ export default function MapView({
           ====================================================== */}
 
       {navigation?.path?.length >= 2 && (
-        <NavigationCar
-          path={navigation.path}
-          legKey={navigation.legKey}
-          running={navigation.running}
-          speedMps={navigation.speedMps}
-          onProgress={navigation.onProgress}
-          onArrive={navigation.onArrive}
-        />
+        <>
+          <NavigationCar
+            path={navigation.path}
+            legKey={navigation.legKey}
+            running={navigation.running}
+            speedMps={navigation.speedMps}
+            onProgress={navigation.onProgress}
+            onArrive={navigation.onArrive}
+            carPosRef={carPosRef}
+            followRef={followRef}
+          />
+          <FollowControl
+            carPosRef={carPosRef}
+            followRef={followRef}
+            label={recenterLabel}
+            followingLabel={followingLabel}
+          />
+        </>
       )}
 
       {showTraffic &&
