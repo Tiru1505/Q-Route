@@ -470,3 +470,17 @@
   .coverage-globe { height: 52vh; }
   .coverage-list { max-height: none; overflow: visible; }
 }
+
+/* =========================================================
+   MAP 3D — the MapLibre routing map, opt-in via ?map3d=1
+   ========================================================= */
+.map3d-canvas {
+  /* Explicit, not inset:0. MapLibre stamps .maplibregl-map (position:
+     relative, overflow: hidden) on this div, which would collapse an
+     inset-sized box to zero height and clip the map away in silence. */
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  border-radius: var(--radius);
+  overflow: hidden;
+}

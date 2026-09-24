@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MapContainer,
   Marker,
@@ -14,6 +14,9 @@ import {
   HYDERABAD_CENTER,
   TRAFFIC_COLORS,
 } from '../data/mockData'
+// Lazy on purpose: MapLibre is ~1 MB, and a Leaflet user must not pay for a
+// map they are not looking at.
+const MapView3D = lazy(() => import('./MapView3D'))
 
 /* ============================================================
    BASIC MAP MARKERS
@@ -978,7 +981,7 @@ function TrafficCar({
    MAIN MAP
    ============================================================ */
 
-export default function MapView({
+function MapViewLeaflet({
   routes = [],
   selectedRouteId = null,
 
@@ -1509,5 +1512,28 @@ export default function MapView({
       )}
 
     </MapContainer>
+  )
+}
+/**
+ * Which map draws. Leaflet unless the address carries ?map3d=1, which picks
+ * the MapLibre one — a port in progress, so it is opt-in rather than default.
+ *
+ * The choice lives here so neither dashboard has to know there are two maps,
+ * and it is read once: flipping it mid-session would tear down a live map
+ * under a moving car.
+ */
+export default function MapView(props) {
+  const [use3d] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).has('map3d')
+    } catch {
+      return false
+    }
+  })
+  if (!use3d) return <MapViewLeaflet {...props} />
+  return (
+    <Suspense fallback={<div className="map3d-canvas" />}>
+      <MapView3D {...props} />
+    </Suspense>
   )
 }
