@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  // MapLibre ships its own web worker. Vite's dependency pre-bundling
+  // rewrites the worker's URL and the map then fails to start in dev with
+  // "Worker failed to load" — excluding it leaves the ESM source intact.
+  optimizeDeps: {
+    exclude: ['maplibre-gl'],
+  },
   server: {
     port: 5173,
     // The FastAPI backend will live here later. Until it exists, src/services/api.js

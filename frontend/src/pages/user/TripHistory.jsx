@@ -5,6 +5,7 @@ import { ArrowRight, Car, History as HistoryIcon, Search } from 'lucide-react'
 import { CardSkeleton } from '../../components/LoadingScreen'
 import { getTrips } from '../../services/api'
 import { TRAFFIC_COLORS } from '../../data/mockData'
+import { kmLabel, minutesLabel } from '../../i18n/format'
 import { useApp } from '../../store/AppContext'
 
 /**
@@ -25,12 +26,7 @@ const STATUS = {
   cancelled: { key: 'history.endedEarly', badge: 'badge-grey' },
 }
 
-function minutes(t, m) {
-  if (m == null) return '—'
-  const total = Math.round(m)
-  if (total < 60) return t('units.min', { n: total })
-  return t('units.hourMin', { h: Math.floor(total / 60), m: String(total % 60).padStart(2, '0') })
-}
+
 
 // Dates follow the chosen language: 16 సెప్టెంబర్ 2026 rather than 16 Sep 2026.
 function when(iso, language) {
@@ -44,7 +40,7 @@ function when(iso, language) {
 function TripCard({ trip, index, t, language }) {
   const status = STATUS[trip.status] || STATUS.cancelled
   const optimized = trip.rerouted
-  const mins = (m) => minutes(t, m)
+  const mins = (m) => minutesLabel(t, m)
   return (
     <motion.article
       className="card trip-history-card"
@@ -68,7 +64,7 @@ function TripCard({ trip, index, t, language }) {
         <div><dt>{t('history.date')}</dt><dd>{when(trip.createdAt, language)}</dd></div>
         <div><dt>{t('history.route')}</dt><dd>{trip.route?.label || 'Route'}{trip.route?.via ? ` · ${trip.route.via}` : ''}</dd></div>
         <div><dt>{t('history.plannedEta')}</dt><dd className="mono">{mins(trip.plannedEtaMin)}</dd></div>
-        <div><dt>{t('trip.distance')}</dt><dd className="mono">{t('units.km', { n: trip.distanceKm })}</dd></div>
+        <div><dt>{t('trip.distance')}</dt><dd className="mono">{kmLabel(t, trip.distanceKm)}</dd></div>
         <div>
           <dt>{t('history.trafficAtStart')}</dt>
           <dd className="trip-traffic">
@@ -149,7 +145,7 @@ export default function TripHistory() {
         <div className="trip-totals">
           <div><small>{t('history.trips')}</small><b className="mono">{totals.trips}</b></div>
           <div><small>{t('history.reroutedCount')}</small><b className="mono">{totals.rerouted}</b></div>
-          <div><small>{t('trip.timeSaved')}</small><b className="mono">{minutes(t, totals.saved)}</b></div>
+          <div><small>{t('trip.timeSaved')}</small><b className="mono">{minutesLabel(t, totals.saved)}</b></div>
         </div>
       )}
 

@@ -280,10 +280,6 @@ const RouteCard = forwardRef(function RouteCard({ route, onCompareAlternatives }
                   {route.etaMin > 0 ? (route.distanceKm / (route.etaMin / 60)).toFixed(0) : '—'} km/h
                 </strong>
               </div>
-              <div className="row-between">
-                <span>Toll Charges:</span>
-                <strong style={{ color: 'var(--low)' }}>₹0 (No tolls)</strong>
-              </div>
             </div>
           </motion.div>
         )}

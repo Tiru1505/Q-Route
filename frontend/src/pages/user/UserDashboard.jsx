@@ -12,7 +12,8 @@ import ReroutingPanel from '../../components/ReroutingPanel'
 import TrafficLegend from '../../components/TrafficLegend'
 import { useApp } from '../../store/AppContext'
 import * as api from '../../services/api'
-import { TRAFFIC_COLORS, TRAFFIC_LABELS } from '../../data/mockData'
+import { TRAFFIC_COLORS } from '../../data/mockData'
+import { kmLabel, minutesLabel } from '../../i18n/format'
 
 /**
  * The driver's dashboard: plan, drive, and be told when to change road.
@@ -36,12 +37,7 @@ const OUTLOOK_EVERY_MS = 20_000
 const levelOf = (c) => (c == null ? null : c < 0.3 ? 'low' : c < 0.5 ? 'moderate' : c < 0.7 ? 'heavy' : 'severe')
 const pct = (c) => (c == null ? '—' : `${Math.round(c * 100)}%`)
 
-function minutes(t, m) {
-  if (m == null || Number.isNaN(m)) return '—'
-  const total = Math.round(m)
-  if (total < 60) return t('units.min', { n: total })
-  return t('units.hourMin', { h: Math.floor(total / 60), m: String(total % 60).padStart(2, '0') })
-}
+
 
 function Stat({ icon: Icon, label, value, hint, tone }) {
   return (
@@ -75,7 +71,7 @@ export default function UserDashboard() {
   } = useApp()
 
   // Bound to the chosen language, so every duration on the page reads in it.
-  const mins = (m) => minutes(t, m)
+  const mins = (m) => minutesLabel(t, m)
 
   const [legFraction, setLegFraction] = useState(0)
   const [outlook, setOutlook] = useState(null)
@@ -174,6 +170,8 @@ export default function UserDashboard() {
             mapStyle={settings.mapStyle}
             navigation={navigation}
             decorativeCars={false}
+            recenterLabel={t('map.recenter')}
+            followingLabel={t('map.following')}
           />
           <div className="map-overlay map-legend"><TrafficLegend /></div>
 
@@ -294,7 +292,7 @@ export default function UserDashboard() {
                     value={mins(navigating ? remainingEta : current.etaMin)}
                     hint={navigating && navReading ? t('trip.measured') : null} />
               <Stat icon={MapPin} label={t('trip.distance')}
-                    value={t('units.km', { n: current.distanceKm })}
+                    value={kmLabel(t, current.distanceKm)}
                     hint={trip?.rerouted ? t('trip.newRouteFromSwitch') : null} />
               <Stat icon={Gauge} label={t('trip.trafficNow')}
                     value={<TrafficValue congestion={trafficNow} t={t} />}

@@ -10,6 +10,7 @@ import QPSOVisualization from '../components/QPSOVisualization'
 import TrafficAlert from '../components/TrafficAlert'
 import ReroutingPanel from '../components/ReroutingPanel'
 import TrafficLegend from '../components/TrafficLegend'
+import { kmLabel, minutesLabel } from '../i18n/format'
 import { useApp } from '../store/AppContext'
 import { ALGORITHMS } from '../data/mockData'
 
@@ -30,7 +31,7 @@ export default function Dashboard() {
     segments, incidents, start, end, algorithm,
     spikeAt, spiking, latestAlert, triggerSpike,
     rerouting, rerouteResult,
-    demoMode, demoStep, settings, lastRun,
+    demoMode, demoStep, settings, lastRun, t,
   } = useApp()
 
   // Gate the reveal on the staged animation, not on the request finishing.
@@ -176,11 +177,11 @@ export default function Dashboard() {
                   <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <MapPin size={11} style={{ color: 'var(--route-blue)' }} />
-                      {selectedRoute.distanceKm} km
+                      {kmLabel(t, selectedRoute.distanceKm)}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Clock size={11} style={{ color: 'var(--route-blue)' }} />
-                      {selectedRoute.etaMin} min
+                      {minutesLabel(t, selectedRoute.etaMin)}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Gauge size={11} style={{ color: 'var(--moderate)' }} />

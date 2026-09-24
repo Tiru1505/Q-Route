@@ -5,6 +5,7 @@ import { ArrowRight, History as HistoryIcon, Search } from 'lucide-react'
 import { CardSkeleton } from '../components/LoadingScreen'
 import { getRouteHistory } from '../services/api'
 import { TRAFFIC_COLORS, TRAFFIC_LABELS } from '../data/mockData'
+import { kmLabel, minutesLabel } from '../i18n/format'
 import { useApp } from '../store/AppContext'
 
 const STATUS_BADGE = {
@@ -14,7 +15,7 @@ const STATUS_BADGE = {
 }
 
 export default function History() {
-  const { user } = useApp()
+  const { user, t } = useApp()
   const [rows, setRows] = useState(null)
   const [q, setQ] = useState('')
   const navigate = useNavigate()
@@ -122,8 +123,8 @@ export default function History() {
                         {r.algorithm}
                       </span>
                     </td>
-                    <td className="mono">{r.distanceKm} km</td>
-                    <td className="mono">{r.etaMin} min</td>
+                    <td className="mono">{kmLabel(t, r.distanceKm)}</td>
+                    <td className="mono">{minutesLabel(t, r.etaMin)}</td>
                     <td>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                         <span className="dot" style={{ background: TRAFFIC_COLORS[r.traffic] }} />
