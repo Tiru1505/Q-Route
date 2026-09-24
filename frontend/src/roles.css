@@ -389,7 +389,12 @@
   overflow: hidden;
   background: #05070d;
 }
-.coverage-canvas { position: absolute; inset: 0; }
+/* Two classes deliberately. MapLibre adds .maplibregl-map (position: relative,
+   overflow: hidden) to this same div, and its stylesheet loads after this one
+   because Coverage is lazy-loaded, so at equal specificity it wins on source
+   order: the div collapses to zero height and the globe is clipped away with
+   no error anywhere. Do not simplify this back to a single class. */
+.coverage-globe .coverage-canvas { position: absolute; inset: 0; }
 .coverage-loading {
   position: absolute;
   inset: 0;
