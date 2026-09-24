@@ -1519,7 +1519,25 @@ const MAP_CHOICE_KEY = 'qro.map3d'
  * The choice is read once per mount: changing it mid-session would tear down
  * a live map under a moving car.
  */
-const MAPLIBRE_BY_DEFAULT = false
+const MAPLIBRE_BY_DEFAULT = true
+
+/**
+ * Can this browser run a WebGL map at all?
+ *
+ * Checked before the choice is made, so a machine with no GPU acceleration
+ * gets Leaflet and never downloads MapLibre's megabyte to find out. Not a
+ * timeout on the map's load event: a dashboard opened in a background tab may
+ * legitimately be slow to render, and falling back on that would swap the map
+ * out from under people whose map was fine.
+ */
+function webglAvailable() {
+  try {
+    const canvas = document.createElement('canvas')
+    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'))
+  } catch {
+    return false
+  }
+}
 
 /** `?map3d=1` turns it on and `?map3d=0` off; either way the answer sticks. */
 function readMapChoice() {
@@ -1539,11 +1557,15 @@ function readMapChoice() {
 }
 
 export default function MapView(props) {
-  const [use3d] = useState(readMapChoice)
-  if (!use3d) return <MapViewLeaflet {...props} />
+  const [use3d] = useState(() => readMapChoice() && webglAvailable())
+  // Set if MapLibre starts and then cannot run. One way only: having fallen
+  // back to a working map, nothing should bounce the user between the two.
+  const [failed, setFailed] = useState(false)
+
+  if (!use3d || failed) return <MapViewLeaflet {...props} />
   return (
     <Suspense fallback={<div className="map3d-canvas" />}>
-      <MapView3D {...props} />
+      <MapView3D {...props} onUnavailable={() => setFailed(true)} />
     </Suspense>
   )
 }

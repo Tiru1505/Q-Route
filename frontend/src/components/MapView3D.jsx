@@ -245,6 +245,9 @@ export default function MapView3D({
   navigation = null,
   recenterLabel = 'Recenter',
   followingLabel = 'Following',
+  // Called if this map cannot run here, so the caller can show the Leaflet one
+  // instead of a black rectangle.
+  onUnavailable,
 }) {
   const holder = useRef(null)
   const mapRef = useRef(null)
@@ -259,14 +262,24 @@ export default function MapView3D({
   useEffect(() => {
     if (!holder.current || mapRef.current) return undefined
 
-    const map = new MapLibreMap({
-      container: holder.current,
-      style: STYLE,
-      center: center ? [center[1], center[0]] : HYDERABAD,
-      zoom,
-      pitch: 45,
-      attributionControl: { compact: true },
-    })
+    let map
+    try {
+      map = new MapLibreMap({
+        container: holder.current,
+        style: STYLE,
+        center: center ? [center[1], center[0]] : HYDERABAD,
+        zoom,
+        pitch: 45,
+        attributionControl: { compact: true },
+      })
+    } catch (err) {
+      // No WebGL, a blocked GPU, a refused style. Whatever the reason, a map
+      // that cannot start should hand over rather than leave a black hole
+      // where the route belongs.
+      if (import.meta.env.DEV) console.warn('[map3d] falling back to Leaflet:', err)
+      onUnavailable?.()
+      return undefined
+    }
     mapRef.current = map
     if (import.meta.env.DEV) window.__routeMap = map
     map.addControl(new NavigationControl({ visualizePitch: true }), 'top-right')
