@@ -107,6 +107,61 @@ const ROAD_TIERS = [
   [/(_service|_path)/, '#3f454e'],
 ]
 
+/**
+ * Labels, lifted off the background.
+ *
+ * Same complaint as the roads: place names sit at #3c3c3c and #444 on near
+ * black. Rather than restate 27 layers' colours, each one is nudged up to a
+ * readable grey and given a dark halo so it stays legible over a road.
+ */
+function brightenLabels(map) {
+  for (const layer of map.getStyle()?.layers || []) {
+    if (layer.type !== 'symbol' || !layer.paint) continue
+    try {
+      map.setPaintProperty(layer.id, 'text-color', '#b9c0cb')
+      map.setPaintProperty(layer.id, 'text-halo-color', '#0b0d11')
+      map.setPaintProperty(layer.id, 'text-halo-width', 1.2)
+    } catch {
+      /* a layer without text simply keeps what it had */
+    }
+  }
+}
+
+/**
+ * Buildings, standing up.
+ *
+ * The style ships two flat `building` fills and no extrusion, but the source
+ * layer is there, so the shapes only need a height. Tiles vary in what they
+ * carry, hence the coalesce: a real height if the tile has one, otherwise a
+ * modest constant — better an honest low skyline than buildings that vanish
+ * because one property was missing.
+ */
+function addBuildings(map) {
+  if (map.getLayer('buildings-3d')) return
+  try {
+    map.addLayer({
+      id: 'buildings-3d',
+      type: 'fill-extrusion',
+      source: 'carto',
+      'source-layer': 'building',
+      minzoom: 14,
+      paint: {
+        'fill-extrusion-color': '#2a2f38',
+        'fill-extrusion-height': [
+          'coalesce', ['get', 'render_height'], ['get', 'height'], 10,
+        ],
+        'fill-extrusion-base': [
+          'coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0,
+        ],
+        // Faded in, so they arrive as you zoom rather than snapping into being.
+        'fill-extrusion-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0, 15.5, 0.85],
+      },
+    })
+  } catch (err) {
+    if (import.meta.env.DEV) console.warn('[map3d] no building layer in this style:', err)
+  }
+}
+
 function brightenRoads(map) {
   const layers = map.getStyle()?.layers || []
   for (const layer of layers) {
@@ -285,7 +340,18 @@ export default function MapView3D({
     map.addControl(new NavigationControl({ visualizePitch: true }), 'top-right')
 
     map.on('load', () => {
+      // A globe rather than a flat sheet. At routing zoom the two are
+      // indistinguishable — the curvature is what you get on the way out, when
+      // the city pulls back to a planet. Guarded: a MapLibre that drops this
+      // should leave a working flat map, not a blank one.
+      try { map.setProjection({ type: 'globe' }) } catch { /* flat is fine */ }
+      // The planet's own base, under land and water. The space AROUND the
+      // globe is the container showing through a transparent canvas, so that
+      // is handled in CSS (.map3d-canvas) rather than here.
+      try { map.setPaintProperty('background', 'background-color', '#05070d') } catch { /* no background layer */ }
       brightenRoads(map)
+      brightenLabels(map)
+      addBuildings(map)
       map.addSource('routes', { type: 'geojson', data: routesToGeoJSON([], null, null) })
 
       // The wide translucent halo under the chosen route, as Leaflet draws it
