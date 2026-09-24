@@ -427,3 +427,31 @@
   bottom: 10px;
   z-index: 2;
 }
+
+/* Map / Satellite switch, floating over the map like the recenter button. */
+.map3d-basemap {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 2;
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-solid) 88%, transparent);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow);
+}
+.map3d-basemap button {
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.map3d-basemap button:hover { color: var(--text); }
+.map3d-basemap button[data-on='true'] {
+  background: var(--brand);
+  color: #fff;
+}

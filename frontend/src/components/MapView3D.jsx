@@ -5,6 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { Crosshair } from 'lucide-react'
 import { TRAFFIC_COLORS } from '../data/mockData'
 import { cumulativeDistances, nearestIndex, orientPath, placeAlong } from '../lib/carPath'
+import { useApp } from '../store/AppContext'
 
 /**
  * The routing map, drawn by MapLibre instead of Leaflet.
@@ -176,6 +177,44 @@ function addBuildings(map) {
   }
 }
 
+/**
+ * Real imagery, laid over the vector base rather than replacing the style.
+ *
+ * setStyle would tear down everything added after load — routes, pins, the
+ * car — and need it all rebuilt on every toggle. A raster layer slipped in
+ * BELOW the first label layer covers the vector ground while leaving the
+ * place names on top, which is what makes it read as hybrid rather than a
+ * bare photograph, and leaves every other layer untouched.
+ *
+ * Esri's imagery is keyless but not unattributed: the credit is carried on
+ * the source, so it appears in the corner like CARTO's does.
+ */
+const SATELLITE_TILES =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+
+function addSatellite(map) {
+  if (map.getLayer('satellite')) return
+  map.addSource('satellite', {
+    type: 'raster',
+    tiles: [SATELLITE_TILES],
+    tileSize: 256,
+    maxzoom: 19,
+    attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
+  })
+  // Under the labels: the first symbol layer in the style marks that boundary.
+  const firstLabel = (map.getStyle()?.layers || []).find((l) => l.type === 'symbol')
+  map.addLayer(
+    {
+      id: 'satellite',
+      type: 'raster',
+      source: 'satellite',
+      layout: { visibility: 'none' },
+      paint: { 'raster-opacity': 1 },
+    },
+    firstLabel?.id,
+  )
+}
+
 function brightenRoads(map) {
   const layers = map.getStyle()?.layers || []
   for (const layer of layers) {
@@ -318,6 +357,7 @@ export default function MapView3D({
   // instead of a black rectangle.
   onUnavailable,
 }) {
+  const { t } = useApp()
   const holder = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
@@ -326,6 +366,7 @@ export default function MapView3D({
   const lastPosRef = useRef(null)
   const followRef = useRef(true)
   const [following, setFollowing] = useState(true)
+  const [satellite, setSatellite] = useState(false)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -386,6 +427,7 @@ export default function MapView3D({
       brightenRoads(map)
       brightenLabels(map)
       addBuildings(map)
+      addSatellite(map)
       map.addSource('routes', { type: 'geojson', data: routesToGeoJSON([], null, null) })
 
       // The wide translucent halo under the chosen route, as Leaflet draws it
@@ -574,6 +616,19 @@ export default function MapView3D({
     return () => clearInterval(id)
   }, [ready, selectedRouteId])
 
+  // Imagery on or off. The extruded buildings come off with it: the photograph
+  // already contains the buildings, and drawing boxes on top of them gives
+  // every roof a second, taller ghost.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    const show = (id, on) => {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
+    }
+    show('satellite', satellite)
+    show('buildings-3d', !satellite)
+  }, [ready, satellite])
+
   // Dragging means "I want to look somewhere else" — stop chasing the car.
   useEffect(() => {
     const map = mapRef.current
@@ -645,6 +700,16 @@ export default function MapView3D({
   return (
     <div className="map3d-holder">
       <div className="map3d-canvas" ref={holder} />
+
+      <div className="map3d-basemap" role="group" aria-label={t('map.vector')}>
+        <button type="button" data-on={!satellite} onClick={() => setSatellite(false)}>
+          {t('map.vector')}
+        </button>
+        <button type="button" data-on={satellite} onClick={() => setSatellite(true)}>
+          {t('map.satellite')}
+        </button>
+      </div>
+
       {navigation?.path && (
         <button
           type="button"

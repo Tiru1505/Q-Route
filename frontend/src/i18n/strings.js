@@ -287,6 +287,10 @@ export const STRINGS = {
   'traffic.heavy': { en: 'Heavy', hi: 'अधिक', te: 'ఎక్కువ' },
   'traffic.severe': { en: 'Severe', hi: 'गंभीर', te: 'తీవ్రం' },
 
+  /* ------------------------------------------------------------ basemap */
+  'map.vector': { en: 'Map', hi: 'मानचित्र', te: 'మ్యాప్' },
+  'map.satellite': { en: 'Satellite', hi: 'सैटेलाइट', te: 'ఉపగ్రహం' },
+
   /* --------------------------------------------------------------- sos */
   'sos.open': { en: 'Emergency', hi: 'आपातकाल', te: 'అత్యవసరం' },
   'sos.title': { en: 'Emergency help', hi: 'आपातकालीन सहायता', te: 'అత్యవసర సహాయం' },
