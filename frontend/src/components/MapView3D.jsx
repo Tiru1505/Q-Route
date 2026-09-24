@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 // MapLibre 6 has no default export; the pieces are named.
-import { Map as MapLibreMap, NavigationControl } from 'maplibre-gl'
+import { Map as MapLibreMap, Marker, NavigationControl, Popup } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { TRAFFIC_COLORS } from '../data/mockData'
 
 /**
  * The routing map, drawn by MapLibre instead of Leaflet.
@@ -56,6 +57,56 @@ function routesToGeoJSON(routes, selectedId) {
   }
 }
 
+/* ------------------------------------------------------------- markers */
+
+// The same two classes the Leaflet map uses, so both maps draw an identical
+// pin and there is only one place to restyle it.
+function pinElement(label, color) {
+  const el = document.createElement('div')
+  el.className = 'marker-pin'
+  el.style.background = color
+  el.style.boxShadow = `0 0 14px ${color}`
+  el.textContent = label
+  return el
+}
+
+const WARNING_SVG =
+  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+  'stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>' +
+  '<path d="M12 9v4"/><path d="M12 17h.01"/></svg>'
+
+function incidentElement(color) {
+  const el = document.createElement('div')
+  el.className = 'incident-pin'
+  el.style.background = `${color}22`
+  el.style.border = `2px solid ${color}`
+  el.style.color = color
+  // Static markup, no caller data — the popup below is where text goes.
+  el.innerHTML = WARNING_SVG
+  return el
+}
+
+/**
+ * Popup content as DOM, never as an HTML string.
+ *
+ * react-leaflet escaped these for free by taking them as children. MapLibre's
+ * setHTML does not, and an incident's name and description come from the
+ * backend, so building nodes and assigning textContent keeps a crafted
+ * incident from becoming script on the page.
+ */
+function popupContent(lines) {
+  const wrap = document.createElement('div')
+  wrap.className = 'map3d-popup'
+  for (const line of lines) {
+    if (!line?.text) continue
+    const row = document.createElement(line.strong ? 'strong' : 'div')
+    row.textContent = line.text
+    wrap.appendChild(row)
+  }
+  return wrap
+}
+
 function boundsOf(routes) {
   let w = 180, s = 90, e = -180, n = -90
   let seen = false
@@ -78,9 +129,15 @@ export default function MapView3D({
   onSelectRoute,
   center,
   zoom = 11,
+  startPoint = null,
+  endPoint = null,
+  incidents = [],
+  showIncidents = true,
+  highlightCoords = null,
 }) {
   const holder = useRef(null)
   const mapRef = useRef(null)
+  const markersRef = useRef([])
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -155,6 +212,53 @@ export default function MapView3D({
     const box = boundsOf(routes)
     if (box) map.fitBounds(box, { padding: 64, duration: 900, maxZoom: 15 })
   }, [ready, routes, selectedRouteId])
+
+  // Endpoints, incidents and the predicted-spike pin. Torn down and rebuilt
+  // together: there are a handful of them, and diffing by id would be more
+  // code than it saves.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return undefined
+
+    const add = (coords, element, lines) => {
+      if (!coords || !Number.isFinite(coords[0]) || !Number.isFinite(coords[1])) return
+      const marker = new Marker({ element })
+        .setLngLat([coords[1], coords[0]])
+        .setPopup(new Popup({ offset: 18, closeButton: false }).setDOMContent(popupContent(lines)))
+        .addTo(map)
+      markersRef.current.push(marker)
+    }
+
+    if (startPoint?.coords) {
+      add(startPoint.coords, pinElement('A', '#2F6FED'), [
+        { text: `Start · ${startPoint.name ?? ''}`.trim() },
+      ])
+    }
+    if (endPoint?.coords) {
+      add(endPoint.coords, pinElement('B', '#1F4D3A'), [
+        { text: `Destination · ${endPoint.name ?? ''}`.trim() },
+      ])
+    }
+    if (showIncidents) {
+      for (const i of incidents || []) {
+        add(i.coords, incidentElement(TRAFFIC_COLORS[i.severity] || '#D64545'), [
+          { text: i.name, strong: true },
+          { text: [i.location, i.reportedAt].filter(Boolean).join(' · ') },
+          { text: i.description },
+        ])
+      }
+    }
+    if (highlightCoords) {
+      add(highlightCoords, incidentElement('#D64545'), [
+        { text: 'Predicted congestion spike' },
+      ])
+    }
+
+    return () => {
+      for (const m of markersRef.current) m.remove()
+      markersRef.current = []
+    }
+  }, [ready, startPoint, endPoint, incidents, showIncidents, highlightCoords])
 
   return <div ref={holder} className="map3d-canvas" />
 }
