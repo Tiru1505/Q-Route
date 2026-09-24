@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Activity, BarChart3, Bell, ChevronLeft, ChevronRight, FlaskConical, Globe2,
-  History as HistoryIcon, LayoutDashboard, LogOut, Menu, Pin, ScanEye,
+  Activity, BarChart3, Bell, ChevronLeft, ChevronRight, FlaskConical, History as HistoryIcon, LayoutDashboard, LogOut, Menu, Pin, ScanEye,
   Settings as SettingsIcon, X,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
@@ -17,7 +16,6 @@ export const NAV_ITEMS = [
   { to: '/admin/analytics', labelKey: 'nav.analytics', icon: BarChart3 },
   { to: '/admin/vision', labelKey: 'nav.lab', icon: ScanEye },
   { to: '/admin/benchmark', labelKey: 'nav.benchmark', icon: FlaskConical },
-  { to: '/admin/coverage', labelKey: 'nav.coverage', icon: Globe2 },
   { to: '/admin/alerts', labelKey: 'nav.alerts', icon: Bell, showCount: true },
   { to: '/admin/history', labelKey: 'nav.history', icon: HistoryIcon },
   { to: '/admin/settings', labelKey: 'nav.settings', icon: SettingsIcon },
