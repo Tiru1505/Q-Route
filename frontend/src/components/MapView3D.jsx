@@ -4,7 +4,7 @@ import { Map as MapLibreMap, Marker, NavigationControl, Popup } from 'maplibre-g
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { Crosshair } from 'lucide-react'
 import { TRAFFIC_COLORS } from '../data/mockData'
-import { cumulativeDistances, nearestIndex, placeAlong } from '../lib/carPath'
+import { cumulativeDistances, nearestIndex, orientPath, placeAlong } from '../lib/carPath'
 
 /**
  * The routing map, drawn by MapLibre instead of Leaflet.
@@ -49,7 +49,7 @@ const cssVar = (name, fallback) => {
 /** Leaflet hands out [lat, lon]; GeoJSON wants [lon, lat]. */
 const toLngLat = (path) => (path || []).map(([lat, lon]) => [lon, lat])
 
-function routesToGeoJSON(routes, selectedId) {
+function routesToGeoJSON(routes, selectedId, startPoint) {
   return {
     type: 'FeatureCollection',
     features: (routes || [])
@@ -57,11 +57,34 @@ function routesToGeoJSON(routes, selectedId) {
       .map((r) => ({
         type: 'Feature',
         id: r.id,
-        properties: { id: r.id, selected: r.id === selectedId ? 1 : 0 },
-        geometry: { type: 'LineString', coordinates: toLngLat(r.path) },
+        properties: {
+          id: r.id,
+          selected: r.id === selectedId ? 1 : 0,
+          // Each route carries its own colour from the adapter; the map paints
+          // what it is given rather than deciding.
+          color: r.color || '#FF6B35',
+        },
+        geometry: {
+          type: 'LineString',
+          coordinates: toLngLat(orientPath(r.path, startPoint?.coords)),
+        },
       })),
   }
 }
+
+/**
+ * One cycle of a travelling dash.
+ *
+ * Every frame sums to the same pattern length, so the dashes appear to slide
+ * along rather than stretch. Stepped on a timer rather than an animation
+ * frame: it is one paint property per tick, and it should keep moving when
+ * the tab is in the background, like the car does.
+ */
+const FLOW_FRAMES = [
+  [0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5],
+  [3, 4, 0], [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2],
+  [0, 2.5, 3, 1.5], [0, 3, 3, 1],
+]
 
 /* ------------------------------------------------------------- markers */
 
@@ -211,9 +234,24 @@ export default function MapView3D({
     map.addControl(new NavigationControl({ visualizePitch: true }), 'top-right')
 
     map.on('load', () => {
-      map.addSource('routes', { type: 'geojson', data: routesToGeoJSON([], null) })
+      map.addSource('routes', { type: 'geojson', data: routesToGeoJSON([], null, null) })
 
-      // Alternatives first, so the chosen route draws over them.
+      // The wide translucent halo under the chosen route, as Leaflet draws it
+      // (weight 15, opacity 0.18).
+      map.addLayer({
+        id: 'routes-halo',
+        type: 'line',
+        source: 'routes',
+        filter: ['==', ['get', 'selected'], 1],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 9, 14, 15],
+          'line-opacity': 0.18,
+        },
+      })
+      // Alternatives next, so the chosen route draws over them. Dashed and
+      // half-opaque, matching the Leaflet dashArray '9 9'.
       map.addLayer({
         id: 'routes-alt',
         type: 'line',
@@ -221,20 +259,25 @@ export default function MapView3D({
         filter: ['==', ['get', 'selected'], 0],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': cssVar('--text-faint', '#9F9189'),
-          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 2, 14, 4],
-          'line-opacity': 0.55,
+          'line-color': ['get', 'color'],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 2, 14, 3.5],
+          'line-opacity': 0.5,
+          'line-dasharray': [3, 3],
         },
       })
+      // The chosen route flows. In Leaflet that is .route-flow animating an SVG
+      // stroke-dashoffset; MapLibre draws to WebGL where no CSS reaches it, so
+      // the dash pattern is stepped in JS below instead.
       map.addLayer({
         id: 'routes-main',
         type: 'line',
         source: 'routes',
         filter: ['==', ['get', 'selected'], 1],
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        layout: { 'line-cap': 'butt', 'line-join': 'round' },
         paint: {
-          'line-color': cssVar('--brand', '#FF6B35'),
-          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 4, 14, 7],
+          'line-color': ['get', 'color'],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 4, 14, 5.5],
+          'line-dasharray': FLOW_FRAMES[0],
         },
       })
 
@@ -263,10 +306,10 @@ export default function MapView3D({
   useEffect(() => {
     const map = mapRef.current
     if (!map || !ready) return
-    map.getSource('routes')?.setData(routesToGeoJSON(routes, selectedRouteId))
+    map.getSource('routes')?.setData(routesToGeoJSON(routes, selectedRouteId, startPoint))
     const box = boundsOf(routes)
     if (box) map.fitBounds(box, { padding: 64, duration: 900, maxZoom: 15 })
-  }, [ready, routes, selectedRouteId])
+  }, [ready, routes, selectedRouteId, startPoint])
 
   /* --------------------------------------------------------------- car */
   useEffect(() => {
@@ -361,6 +404,21 @@ export default function MapView3D({
     // re-render must not restart the car.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, navigation?.legKey, navigation?.running, navigation?.speedMps])
+
+  // The chosen route's dashes travel along it. Only while a route is selected,
+  // so nothing ticks on an empty map.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready || !selectedRouteId) return undefined
+    let i = 0
+    const id = setInterval(() => {
+      i = (i + 1) % FLOW_FRAMES.length
+      if (map.getLayer('routes-main')) {
+        map.setPaintProperty('routes-main', 'line-dasharray', FLOW_FRAMES[i])
+      }
+    }, 90)
+    return () => clearInterval(id)
+  }, [ready, selectedRouteId])
 
   // Dragging means "I want to look somewhere else" — stop chasing the car.
   useEffect(() => {

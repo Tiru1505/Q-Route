@@ -1,11 +1,11 @@
 /**
- * Driving a point along a route, in one place.
+ * Route geometry: which way a route runs, and where along it the car is.
  *
  * All of this is arithmetic on [lat, lon] pairs — no map library appears in
- * this file. Both maps drive their car with it: MapView's Leaflet marker and
- * MapView3D's MapLibre one. Kept shared on purpose, because a second copy of
- * "how far along is the car" is exactly the kind of thing that drifts and
- * then disagrees with itself in a demo.
+ * this file. Both maps use it: MapView's Leaflet markers and polylines, and
+ * MapView3D's MapLibre ones. Kept shared on purpose, because a second copy of
+ * "how far along is the car" or "which end is the start" is exactly the kind
+ * of thing that drifts and then disagrees with itself in a demo.
  */
 
 const EARTH_RADIUS_M = 6371008.8
@@ -26,6 +26,24 @@ export function bearingDeg(a, b) {
   const x = Math.cos(a[0] * TO_RAD) * Math.sin(b[0] * TO_RAD)
     - Math.sin(a[0] * TO_RAD) * Math.cos(b[0] * TO_RAD) * Math.cos((b[1] - a[1]) * TO_RAD)
   return (Math.atan2(y, x) * 180) / Math.PI
+}
+
+/**
+ * The route, running from A to B.
+ *
+ * A path can come back from the engine drawn either way round. Handed to the
+ * map as-is, a reversed one animates its flow backwards and starts the car at
+ * the destination. Compared in plain degrees rather than metres: this only has
+ * to decide which of two ends is nearer, and haversine would cost more for the
+ * same answer.
+ */
+export function orientPath(path, startCoords) {
+  if (!path || path.length < 2) return []
+  if (!startCoords) return path
+  const sq = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
+  const forward = sq(path[0], startCoords)
+  const reversed = sq(path[path.length - 1], startCoords)
+  return reversed < forward ? [...path].reverse() : path
 }
 
 /** Running distance to each point of the path; index 0 is 0. */
