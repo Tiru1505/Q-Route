@@ -97,6 +97,11 @@ Start in mock mode. Flip both variables once the API is up, and redeploy —
 Vite bakes env vars in at build time, so a redeploy is required for a change to
 take effect.
 
+**Mock mode is currently forced from the repo.** Both `vercel.json` files run
+`VITE_USE_MOCK=true npm … run build`, which overrides whatever the dashboard
+says. To go live, delete `VITE_USE_MOCK=true` from both build commands, set
+`VITE_API_BASE`, and push. Local `npm run dev` is unaffected either way.
+
 ---
 
 ## 2. Backend on Railway (recommended)
