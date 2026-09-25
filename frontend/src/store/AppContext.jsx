@@ -6,7 +6,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { initialLanguage, isLanguage, translate } from '../i18n'
+import { initialLanguage, isLanguage, loadLanguage, translate } from '../i18n'
 import {
   DEFAULT_END, DEFAULT_START, REROUTED_ROUTE, ROUTES, TRAFFIC_SEGMENTS,
 } from '../data/mockData'
@@ -227,7 +227,24 @@ export function AppProvider({ children }) {
     document.documentElement.lang = language
   }, [language])
 
-  const t = useCallback((key, vars) => translate(language, key, vars), [language])
+  // A machine-translated language arrives as its own file. Until it does, `t`
+  // reads English; bumping this when it lands re-renders every translated
+  // string at once rather than leaving the page half in each language.
+  const [dictionaryReady, setDictionaryReady] = useState(0)
+  useEffect(() => {
+    let current = true
+    loadLanguage(language)
+      .then(() => { if (current) setDictionaryReady((n) => n + 1) })
+      .catch(() => { /* stays on English — readable, and not worth an error */ })
+    return () => { current = false }
+  }, [language])
+
+  const t = useCallback(
+    (key, vars) => translate(language, key, vars),
+    // dictionaryReady is read only to invalidate: the lookup itself is in i18n.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [language, dictionaryReady],
+  )
 
   const setLanguage = useCallback(async (code) => {
     if (!isLanguage(code)) return

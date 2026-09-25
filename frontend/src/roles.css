@@ -456,3 +456,18 @@
   background: var(--brand);
   color: #fff;
 }
+
+/* Said before anything else under the language picker, in the warning tone,
+   whenever the chosen language was translated by machine. */
+.language-machine-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: color-mix(in srgb, var(--moderate) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--moderate) 40%, var(--border));
+}
+.language-machine-note svg { flex: none; margin-top: 2px; color: var(--moderate); }

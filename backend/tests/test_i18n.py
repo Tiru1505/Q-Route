@@ -70,3 +70,52 @@ def test_the_server_and_the_browser_offer_the_same_languages():
     assert in_browser == set(LANGUAGES), (
         "the language picker offers what the server would refuse to save: "
         f"browser={sorted(in_browser)} server={sorted(LANGUAGES)}")
+
+
+# ------------------------------------------------ machine-translated languages
+#
+# The other twenty scheduled languages live one file per language in
+# frontend/src/i18n/machine and are fetched only when chosen. They are machine
+# translations and the picker says so — but they are held to the same rules
+# as the three written for the app, because a missing phrase or a dropped
+# {n} breaks a page just as badly whoever did the translating.
+
+MACHINE_DIR = ROOT / "frontend" / "src" / "i18n" / "machine"
+
+
+def machine_codes() -> list[str]:
+    text = INDEX.read_text(encoding="utf-8")
+    return re.findall(r"code: '(\w+)'[^}]*machine: true", text)
+
+
+MACHINE = machine_codes()
+
+
+def test_the_machine_languages_were_actually_found():
+    """Twenty expected; a broken pattern would make the checks below vacuous."""
+    assert len(MACHINE) == 20, f"found {len(MACHINE)} machine languages: {MACHINE}"
+
+
+@pytest.mark.parametrize("language", MACHINE)
+def test_each_machine_language_has_a_file(language):
+    assert (MACHINE_DIR / f"{language}.json").is_file(), f"no machine/{language}.json"
+
+
+@pytest.mark.parametrize("language", MACHINE)
+def test_each_machine_language_is_complete(language):
+    import json
+    words = json.loads((MACHINE_DIR / f"{language}.json").read_text(encoding="utf-8"))
+    missing = sorted(key for key in ALL if not str(words.get(key, "")).strip())
+    stale = sorted(key for key in words if key not in ALL)
+    assert not missing, f"{language}: {len(missing)} phrases missing, e.g. {missing[:5]}"
+    assert not stale, f"{language}: phrases for keys that no longer exist: {stale[:5]}"
+
+
+@pytest.mark.parametrize("language", MACHINE)
+def test_each_machine_language_keeps_its_placeholders(language):
+    import json
+    words = json.loads((MACHINE_DIR / f"{language}.json").read_text(encoding="utf-8"))
+    for key, english in ((k, v["en"]) for k, v in ALL.items()):
+        expected = set(PLACEHOLDER.findall(english))
+        got = set(PLACEHOLDER.findall(words.get(key, "")))
+        assert got == expected, f"{key} ({language}) has {got}, English has {expected}"

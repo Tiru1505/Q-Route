@@ -58,7 +58,17 @@ MIN_PASSWORD = 8
 # The interface languages the app ships translations for. English is the
 # fallback: a string with no translation yet is shown in English rather
 # than left blank.
-LANGUAGES = ("en", "hi", "te")
+#
+# English, Hindi and Telugu were written for the app; the other twenty —
+# the rest of India's scheduled languages — are machine translations the
+# picker labels as such. Must match `code:` in frontend/src/i18n/index.js,
+# or the server refuses a preference the browser just offered (and
+# tests/test_i18n.py fails, which is how that is caught).
+LANGUAGES = (
+    "en", "hi", "te",
+    "as", "bn", "brx", "doi", "gu", "kn", "ks", "kok", "mai", "ml",
+    "mni", "mr", "ne", "or", "pa", "sa", "sat", "sd", "ta", "ur",
+)
 
 DEFAULT_PREFERENCES = {"vehicle": "car", "mode": "balanced",
                        "autoOpenAlerts": True, "language": "en"}

@@ -90,6 +90,13 @@ export const STRINGS = {
     hi: 'मेन्यू, बटन और आपके पृष्ठ। ट्रैफ़िक अलर्ट और सहायक अभी भी अंग्रेज़ी में उत्तर देते हैं — वे वाक्य सर्वर मापे गए आँकड़ों से बनाता है।',
     te: 'మెనూలు, బటన్లు, మీ పేజీలు. ట్రాఫిక్ హెచ్చరికలు, సహాయకుడు ఇంకా ఇంగ్లిష్‌లోనే సమాధానమిస్తాయి — ఆ వాక్యాలను సర్వర్ కొలిచిన అంకెల నుండి రాస్తుంది.',
   },
+  'settings.langReviewed': { en: 'Reviewed', hi: 'जाँचा हुआ', te: 'సమీక్షించినవి' },
+  'settings.langMachine': { en: 'Machine-translated', hi: 'मशीन से अनूदित', te: 'యంత్ర అనువాదం' },
+  'settings.machineNote': {
+    en: 'This language was translated by machine and has not been checked by a native speaker. Some wording may be wrong.',
+    hi: 'यह भाषा मशीन से अनूदित है और किसी मूल वक्ता ने इसकी जाँच नहीं की है। कुछ शब्द गलत हो सकते हैं।',
+    te: 'ఈ భాష యంత్రం ద్వారా అనువదించబడింది, స్థానిక భాషా వ్యక్తి దీన్ని పరిశీలించలేదు. కొన్ని పదాలు తప్పుగా ఉండవచ్చు.',
+  },
   'settings.appearance': { en: 'Appearance', hi: 'रूप-रंग', te: 'రూపం' },
   'settings.darkMode': { en: 'Dark mode', hi: 'डार्क मोड', te: 'డార్క్ మోడ్' },
   'settings.darkHint': { en: 'Stored in this browser.', hi: 'इसी ब्राउज़र में सहेजा जाता है।', te: 'ఈ బ్రౌజర్‌లోనే భద్రపరచబడుతుంది.' },
