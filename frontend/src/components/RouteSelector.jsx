@@ -13,7 +13,7 @@ import PlaceInput from './PlaceInput'
 import VehicleSelector from './VehicleSelector'
 import { ALGORITHMS, OPTIMIZATION_MODES } from '../data/mockData'
 import { labelFor } from '../i18n/labels'
-import { getGraphs } from '../services/api'
+import { getGraphs, isMockMode } from '../services/api'
 import { useApp } from '../store/AppContext'
 
 /** Two places are the same trip endpoint if they land on the same spot. */
@@ -61,11 +61,15 @@ export default function RouteSelector({ onOptimize, busy, variant = 'admin', loc
    * street graphs as they are built, and a list typed into JSX would keep
    * offering two options while the API knew about seven. */
   const [networks, setNetworks] = useState(null)
+  // getGraphs has no mock fallback on purpose, so in demo mode there is no
+  // list to wait for. Say so instead of "Loading…" that never finishes.
+  const demo = isMockMode()
   useEffect(() => {
+    if (demo) return
     getGraphs()
       .then((d) => setNetworks(d.graphs || null))
       .catch(() => setNetworks(null))
-  }, [])
+  }, [demo])
 
   const active = networks?.[graph]
   const national = graph === 'india'
@@ -92,6 +96,7 @@ export default function RouteSelector({ onOptimize, busy, variant = 'admin', loc
           className="select route-select"
           value={graph}
           onChange={(e) => setGraph(e.target.value)}
+          disabled={demo}
         >
           {networks
             ? Object.entries(networks).map(([id, info]) => (
@@ -99,13 +104,15 @@ export default function RouteSelector({ onOptimize, busy, variant = 'admin', loc
                   {info.label}{info.available ? '' : ' — not built'}
                 </option>
               ))
-            : <option value={graph}>Loading networks…</option>}
+            : <option value={graph}>{demo ? t('planner.demoNetwork') : 'Loading networks…'}</option>}
         </select>
-        <p className="route-hint">
-          {active?.scope
-            ? `${active.scope}.${national ? ' Routes between cities; cannot reach a residential address.' : ''}`
-            : 'Checking which networks are available…'}
-        </p>
+        {!demo && (
+          <p className="route-hint">
+            {active?.scope
+              ? `${active.scope}.${national ? ' Routes between cities; cannot reach a residential address.' : ''}`
+              : 'Checking which networks are available…'}
+          </p>
+        )}
       </div>
 
       {/* START LOCATION */}

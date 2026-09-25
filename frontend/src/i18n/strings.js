@@ -171,6 +171,7 @@ export const STRINGS = {
   'planner.chooseBoth': { en: 'Choose a start and a destination.', hi: 'प्रारंभ स्थान और गंतव्य चुनें।', te: 'ప్రారంభ స్థలం, గమ్యం ఎంచుకోండి.' },
   'planner.mustDiffer': { en: 'Start and destination must differ.', hi: 'प्रारंभ और गंतव्य अलग होने चाहिए।', te: 'ప్రారంభం, గమ్యం వేర్వేరుగా ఉండాలి.' },
   'planner.endTripFirst': { en: 'End the current trip to plan a new one.', hi: 'नई योजना के लिए पहले मौजूदा यात्रा समाप्त करें।', te: 'కొత్తది ప్లాన్ చేయడానికి ప్రస్తుత ప్రయాణాన్ని ముగించండి.' },
+  'planner.demoNetwork': { en: 'Not available in demo mode', hi: 'डेमो मोड में उपलब्ध नहीं', te: 'డెమో మోడ్\u200cలో అందుబాటులో లేదు' },
 
   /* ------------------------------------------------------------- the trip */
   'trip.yourTrip': { en: 'Your trip', hi: 'आपकी यात्रा', te: 'మీ ప్రయాణం' },
@@ -217,6 +218,7 @@ export const STRINGS = {
   'trip.speed': { en: '{n}× speed', hi: '{n}× गति', te: '{n}× వేగం' },
   'trip.whereTo': { en: 'Where to?', hi: 'कहाँ जाना है?', te: 'ఎక్కడికి?' },
   'trip.whereToHint': { en: 'Choose a start and a destination, then find the best route.', hi: 'प्रारंभ स्थान और गंतव्य चुनें, फिर सर्वोत्तम मार्ग खोजें।', te: 'ప్రారంభ స్థలం, గమ్యం ఎంచుకుని ఉత్తమ మార్గం కనుగొనండి.' },
+  'trip.demoData': { en: 'Demo data — these routes and times are built-in examples, not computed from the road network.', hi: 'डेमो डेटा — ये मार्ग और समय पहले से बने उदाहरण हैं, सड़क नेटवर्क से गणना किए गए नहीं।', te: 'డెమో డేటా — ఈ మార్గాలు, సమయాలు ముందే ఉన్న ఉదాహరణలు, రోడ్ నెట్\u200cవర్క్ నుండి లెక్కించినవి కావు.' },
 
   /* ------------------------------------------------------- recommendation */
   'recommend.title': { en: 'Faster route available', hi: 'तेज़ मार्ग उपलब्ध है', te: 'వేగవంతమైన మార్గం అందుబాటులో ఉంది' },

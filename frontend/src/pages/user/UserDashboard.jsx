@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
-  ArrowRight, CheckCircle2, Clock, Flag, Gauge, Loader2, MapPin, Navigation2,
+  ArrowRight, CheckCircle2, Clock, Flag, FlaskConical, Gauge, Loader2, MapPin, Navigation2,
   Pause, Play, Route as RouteIcon, Square, TrendingDown, TrendingUp, TriangleAlert,
 } from 'lucide-react'
 import MapView from '../../components/MapView'
@@ -246,6 +246,15 @@ export default function UserDashboard() {
 
       {/* ------------------------------------------------------- the trip */}
       <div className="dash-col dash-col-right">
+        {/* In demo mode every route and time on this page is built-in, and the
+            page must say so rather than let them pass for computed ones. */}
+        {api.isMockMode() && (
+          <div className="demo-notice" role="note">
+            <FlaskConical size={13} style={{ flexShrink: 0 }} />
+            {t('trip.demoData')}
+          </div>
+        )}
+
         {(error || tripError) && (
           <div className="card" style={{ borderColor: 'rgba(239,68,68,.3)' }} role="alert">
             <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
